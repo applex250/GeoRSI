@@ -1,0 +1,530 @@
+/**
+ * Inner loop: one research episode on one problem.
+ *
+ * The agent works in a scratch workspace with file tools + run_python +
+ * submit. `submit` runs the PUBLIC eval and returns the score, so the agent
+ * iterates against visible feedback. The PRIVATE eval runs exactly once, at
+ * episode end, on the best public submission — that number is the fitness
+ * the outer loop selects on, and the agent never sees it.
+ *
+ * Stop discipline: submission budget cap (eval_cap) + patience (N submits
+ * without public improvement) + per-prompt watchdogs; a wall-clock episode
+ * cap is enforced by the caller refusing to issue further prompts.
+ */
+import { spawn } from "node:child_process";
+import { copyFileSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { Type } from "typebox";
+import { defineTool } from "@earendil-works/pi-coding-agent";
+import type { Model } from "@earendil-works/pi-ai";
+import type { Config } from "../config.js";
+import type { EvalContext, EvalResult, Problem } from "../bench/eval.js";
+import { runEval } from "../bench/eval.js";
+import { composeSystemPrompt, type Scaffold } from "../scaffold.js";
+import { PiHarness, toolOutput } from "../piharness.js";
+import { recall, renderMemory, type MemoryStore } from "../memory.js";
+
+export interface EpisodeResult {
+	problemId: string;
+	fitness: number | null;
+	bestPublic: number | null;
+	submits: number;
+	turns: number;
+	tokens: number;
+	secs: number;
+	error: string | null;
+	workspace: string;
+}
+
+interface SubmitState {
+	answer: Record<string, unknown> | null;
+	publicHistory: { score: number | null; note: string }[];
+	bestPublic: number | null;
+	bestAnswer: Record<string, unknown> | null;
+	submits: number;
+	staleSubmits: number;
+	finished: boolean;
+	lastFeedback: string;
+}
+
+function runPython(cwd: string, pythonCmd: string, file: string, timeoutMs: number): Promise<string> {
+	return new Promise((resolve) => {
+		const child = spawn(pythonCmd, [file], { cwd, windowsHide: true, env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
+		let out = "";
+		let err = "";
+		let timedOut = false;
+		const timer = setTimeout(() => {
+			timedOut = true;
+			child.kill();
+		}, timeoutMs);
+		child.stdout.on("data", (d: Buffer) => (out += d.toString("utf8")));
+		child.stderr.on("data", (d: Buffer) => (err += d.toString("utf8")));
+		child.on("error", (e) => {
+			clearTimeout(timer);
+			resolve(`failed to start python: ${e.message}`);
+		});
+		child.on("close", (code) => {
+			clearTimeout(timer);
+			const head = timedOut ? "[execution timed out]\n" : "";
+			let msg = `${head}exit=${code}\nstdout (tail):\n${out.slice(-3000)}`;
+			if (err) msg += `\nstderr (tail):\n${err.slice(-1500)}`;
+			resolve(msg);
+		});
+	});
+}
+
+export interface SolveOpts {
+	cfg: Config;
+	problem: Problem;
+	evalCtx: EvalContext;
+	scaffold: Scaffold;
+	model: Model<any>;
+	workspace: string;
+	memory: MemoryStore;
+	log?: (m: string) => void;
+	/** optional structured event sink (TUI); absent in headless runs */
+	emit?: (ev: import("../tui/events.js").RsiEvent) => void;
+	/** live model reasoning/narration stream (research chat display) */
+	onAgentDelta?: (kind: "thinking" | "text", delta: string) => void;
+	/** tool call lifecycle for live display */
+	onToolEvent?: (ev: { phase: "start" | "end"; tool: string; detail: string; isError?: boolean }) => void;
+	/** cooperative pause/stop gate (checked between turns) */
+	controller?: import("../loopctl.js").RunController;
+	tag: string;
+}
+
+export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
+	const { cfg, problem, evalCtx, scaffold, model, workspace } = opts;
+	const log = opts.log ?? (() => {});
+	const emit = opts.emit ?? (() => {});
+	const t0 = Date.now();
+	// fresh scratch every episode: leftovers from a previous episode in the same
+	// role dir would contaminate the agent's context
+	rmSync(workspace, { recursive: true, force: true });
+	mkdirSync(workspace, { recursive: true });
+	emit({ type: "episode_start", tag: opts.tag, problem: problem.id, role: opts.tag.split("-")[0], generation: scaffold.generation });
+
+	// Copy the problem's data dir into the workspace: the agent gets the data
+	// it may read, but not the eval script or anything outside data/.
+	const srcData = join(problem.dir, "data");
+	const dstData = join(workspace, "data");
+	if (existsSync(srcData)) {
+		cpSync(srcData, dstData, { recursive: true });
+	}
+	mkdirSync(join(workspace, "solutions"), { recursive: true });
+
+	const st: SubmitState = {
+		answer: null,
+		publicHistory: [],
+		bestPublic: null,
+		bestAnswer: null,
+		submits: 0,
+		staleSubmits: 0,
+		finished: false,
+		lastFeedback: "",
+	};
+
+	const runPy = defineTool({
+		name: "run_python",
+		label: "Run python",
+		description:
+			"Execute a python script file in the current workspace (foreground). Write the script first with the write tool. Returns exit code plus stdout/stderr tails. For anything longer than a couple of minutes use start_job instead.",
+		parameters: Type.Object({
+			file: Type.String({ description: "script filename relative to the workspace, e.g. analyze.py" }),
+		}),
+		execute: async (_id, params) => {
+			const file = params.file.replace(/[\\/][.\\/]+/g, ""); // no traversal
+			if (!existsSync(join(workspace, file))) {
+				return toolOutput(`error: file not found: ${file} (create it with the write tool first)`);
+			}
+			const out = await runPython(workspace, cfg.python_cmd, file, (cfg.script_timeout_s ?? 120) * 1000);
+			if (out.includes("[execution timed out]")) {
+				return toolOutput(
+					out +
+						`\n\nForeground scripts are capped at ${cfg.script_timeout_s ?? 120}s. ` +
+						`For long computations call start_job with this file — it runs in the background and the system wakes you when it finishes.`,
+				);
+			}
+			return toolOutput(out);
+		},
+	});
+
+	// ---- background jobs: long computations (hours) without blocking turns ----
+	interface Job {
+		name: string;
+		file: string;
+		pid: number | undefined;
+		startedAt: number;
+		state: "running" | "done" | "failed" | "timeout" | "killed";
+		exitCode: number | null;
+	}
+	const jobs = new Map<string, Job>();
+	const jobsDir = join(workspace, "jobs");
+	mkdirSync(jobsDir, { recursive: true });
+
+	const refreshJob = (j: Job): Job => {
+		if (j.state !== "running") return j;
+		// a job is finished when its status file says so OR the pid is gone
+		const statusPath = join(jobsDir, `${j.name}.status.json`);
+		try {
+			const s = JSON.parse(readFileSync(statusPath, "utf8")) as { state?: string; exitCode?: number | null };
+			if (s.state && s.state !== "running") {
+				j.state = s.state as Job["state"];
+				j.exitCode = s.exitCode ?? null;
+				return j;
+			}
+		} catch {
+			/* no status file yet */
+		}
+		if (j.pid != null) {
+			try {
+				process.kill(j.pid, 0); // liveness probe
+			} catch {
+				// process gone: give it a moment to have written status; treat as done
+				j.state = "done";
+				j.exitCode = null;
+				return j;
+			}
+		}
+		if (Date.now() - j.startedAt > (cfg.job_timeout_s ?? 14_400) * 1000) {
+			killJob(j);
+			j.state = "timeout";
+		}
+		return j;
+	};
+
+	const killJob = (j: Job): void => {
+		if (j.pid != null) {
+			try {
+				process.kill(j.pid);
+			} catch {
+				/* already gone */
+			}
+		}
+		writeJobStatus(j);
+	};
+
+	const writeJobStatus = (j: Job): void => {
+		try {
+			writeFileSync(
+				join(jobsDir, `${j.name}.status.json`),
+				JSON.stringify({ name: j.name, file: j.file, state: j.state, exitCode: j.exitCode, startedAt: j.startedAt, pid: j.pid }, null, 2),
+			);
+		} catch {
+			/* best effort */
+		}
+	};
+
+	const jobStatusText = (): string => {
+		const list = [...jobs.values()].map(refreshJob);
+		if (list.length === 0) return "no jobs started";
+		return list
+			.map((j) => {
+				const mins = Math.round((Date.now() - j.startedAt) / 60000);
+				const logPath = join("jobs", `${j.name}.log`);
+				let tail = "";
+				try {
+					const log = readFileSync(join(jobsDir, `${j.name}.log`), "utf8");
+					const lines = log.split(/\r?\n/).filter(Boolean);
+					tail = lines.slice(-5).join(" | ").slice(-400);
+				} catch {
+					/* no log yet */
+				}
+				return `[${j.name}] ${j.state}${j.exitCode != null ? ` (exit ${j.exitCode})` : ""} — ${mins}m — ${j.file}\n  log: ${logPath}\n  tail: ${tail || "(empty)"}`;
+			})
+			.join("\n");
+	};
+
+	const startJob = defineTool({
+		name: "start_job",
+		label: "Start background job",
+		description:
+			"Start a LONG-RUNNING python script as a detached background job (simulations, heavy fits, hours are fine). Output goes to jobs/<name>.log. The system automatically waits and wakes you when all jobs finish — you may also call job_status anytime. Use run_python for quick scripts.",
+		parameters: Type.Object({
+			file: Type.String({ description: "script filename relative to the workspace" }),
+			name: Type.Optional(Type.String({ description: "short job name (default: script name)" })),
+		}),
+		execute: async (_id, params) => {
+			const file = params.file.replace(/[\\/][.\\/]+/g, "");
+			if (!existsSync(join(workspace, file))) {
+				return toolOutput(`error: file not found: ${file}`);
+			}
+			const name = (params.name ?? file.replace(/\.py$/, "")).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40) || "job";
+			if (jobs.has(name)) return toolOutput(`error: job "${name}" already exists — pick another name`);
+			const logFd = openSync(join(jobsDir, `${name}.log`), "w");
+			const child = spawn(cfg.python_cmd, ["-u", file], {
+				cwd: workspace,
+				detached: true,
+				stdio: ["ignore", logFd, logFd],
+				windowsHide: true,
+				env: { ...process.env, PYTHONUNBUFFERED: "1", PYTHONIOENCODING: "utf-8" },
+			});
+			child.unref();
+			const j: Job = { name, file, pid: child.pid, startedAt: Date.now(), state: "running", exitCode: null };
+			jobs.set(name, j);
+			writeJobStatus(j);
+			child.on("exit", (code) => {
+				j.exitCode = code;
+				j.state = code === 0 ? "done" : "failed";
+				writeJobStatus(j);
+			});
+			log(`  [${opts.tag}] job started: ${name} (${file}, pid ${child.pid})`);
+			return toolOutput(
+				`job "${name}" started (pid ${child.pid}). Log: jobs/${name}.log. ` +
+					`The system waits for it automatically and wakes you when it finishes — continue with other work or just wait.`,
+			);
+		},
+	});
+
+	const jobStatus = defineTool({
+		name: "job_status",
+		label: "Job status",
+		description: "Check background jobs: state, elapsed, exit code, log tail.",
+		parameters: Type.Object({}),
+		execute: async () => toolOutput(jobStatusText()),
+	});
+
+	const killJobTool = defineTool({
+		name: "kill_job",
+		label: "Kill job",
+		description: "Kill a running background job by name.",
+		parameters: Type.Object({ name: Type.String() }),
+		execute: async (_id, params) => {
+			const j = jobs.get(params.name);
+			if (!j) return toolOutput(`error: no job named "${params.name}"`);
+			killJob(j);
+			j.state = "killed";
+			writeJobStatus(j);
+			return toolOutput(`job "${params.name}" killed`);
+		},
+	});
+
+	/** Driver-side wait: poll running jobs until all finish, or stop/deadline hits. */
+	const waitForJobs = async (): Promise<string[]> => {
+		const finished: string[] = [];
+		for (;;) {
+			const running = [...jobs.values()].filter((j) => refreshJob(j).state === "running");
+			if (running.length === 0) return finished;
+			if (opts.controller?.stopRequested) {
+				for (const j of running) killJob(j);
+				finished.push(`${running.map((j) => j.name).join(",")} killed (stop requested)`);
+				return finished;
+			}
+			if (Date.now() > t0 + cfg.episode_timeout_s * 1000) {
+				for (const j of running) killJob(j);
+				finished.push(`${running.map((j) => j.name).join(",")} killed (episode wall clock)`);
+				return finished;
+			}
+			const mins = Math.round((Date.now() - running[0]!.startedAt) / 60000);
+			log(`  [${opts.tag}] waiting for ${running.length} job(s): ${running.map((j) => j.name).join(", ")} (${mins}m elapsed)`);
+			await opts.controller?.waitIfPaused();
+			await new Promise((r) => setTimeout(r, (cfg.job_poll_s ?? 30) * 1000));
+			for (const j of [...jobs.values()]) {
+				if (j.state === "running") {
+					refreshJob(j);
+					if (j.state !== "running") finished.push(`${j.name} ${j.state}${j.exitCode != null ? ` exit=${j.exitCode}` : ""}`);
+				}
+			}
+		}
+	};
+
+
+	const submit = defineTool({
+		name: "submit",
+		label: "Submit answer",
+		description:
+			"Submit your final answer for grading. Returns the PUBLIC score (computed against the reference dataset truth). Call again to improve; the last/best submission counts.",
+		parameters: Type.Object({
+			answer: Type.Record(Type.String(), Type.Unknown(), {
+				description: "the answer object exactly as the task statement specifies",
+			}),
+			note: Type.Optional(Type.String({ description: "one-line justification of the method used" })),
+			final: Type.Optional(Type.Boolean({ description: "true when you are done improving" })),
+		}),
+		execute: async (_id, params) => {
+			st.submits += 1;
+			const subPath = join(workspace, "solutions", `${problem.id}.json`);
+			writeFileSync(subPath, JSON.stringify(params.answer, null, 2));
+			const res: EvalResult = await runEval(problem, evalCtx, subPath, "public");
+			st.publicHistory.push({ score: res.score, note: params.note ?? "" });
+			const improved = res.score != null && (st.bestPublic == null || res.score > st.bestPublic);
+			if (improved) {
+				st.bestPublic = res.score;
+				st.bestAnswer = params.answer;
+				st.staleSubmits = 0;
+			} else {
+				st.staleSubmits += 1;
+			}
+			st.answer = params.answer;
+			const budget = cfg.eval_cap - st.submits;
+			let fb: string;
+			if (res.score == null) {
+				fb = `INVALID submission (${res.detail}). Fix the format/method and submit again.`;
+			} else if (params.final) {
+				st.finished = true;
+				fb = `public score ${res.score.toFixed(4)} recorded. Episode complete.`;
+			} else {
+				fb = `public score ${res.score.toFixed(4)}${improved ? " (new best)" : ""}. ${budget} submission(s) left.`;
+			}
+			st.lastFeedback = fb;
+			emit({
+				type: "episode_submitted",
+				tag: opts.tag,
+				publicScore: res.score,
+				best: st.bestPublic,
+				submits: st.submits,
+				cap: cfg.eval_cap,
+			});
+			return toolOutput(fb);
+		},
+	});
+
+	// memory recall (deterministic, no LLM)
+	const memItems = recall(opts.memory, problem.id, problem.genre, 4);
+	const memBlock = renderMemory(memItems);
+
+	const harness = new PiHarness({
+		model,
+		thinkingLevel: "low",
+		cwd: workspace,
+		systemPrompt: composeSystemPrompt(scaffold, problem.genre),
+		customTools: [runPy, submit, startJob, jobStatus, killJobTool],
+		onAgentDelta: opts.onAgentDelta,
+		onToolEvent: opts.onToolEvent,
+		// a full agent turn = many internal LLM round-trips (one per tool call);
+		// reasoning models on a slow gateway can legitimately take minutes per turn
+		promptTimeoutMs: Math.min(cfg.episode_timeout_s, 600) * 1000,
+		stallMs: cfg.stall_s * 1000,
+	});
+
+	let turns = 0;
+	let tokens = 0;
+	let lastError: string | null = null;
+
+	try {
+		await harness.init();
+		const initial =
+			`${problem.statement}\n\n` +
+			`Environment: you are in a scratch workspace; the dataset is in data/. ` +
+			`There is NO shell — write scripts to files (write tool) and execute them with the ` +
+			`run_python tool (quick scripts) — for computations longer than a couple of minutes ` +
+			`use start_job instead: it runs detached in the background and the system wakes you ` +
+			`when it finishes (hours are fine). Budget your time: a complete analysis in 2-4 scripts is ideal. ` +
+			`You may submit up to ${cfg.eval_cap} times; public scores guide your iteration. ` +
+			`Finish by calling submit with final=true.\n` +
+			(memBlock ? `\n${memBlock}\n` : "");
+		log(`  [${opts.tag}] turn 1`);
+		emit({ type: "episode_turn", tag: opts.tag, turn: 1, maxTurns: cfg.max_turns, note: problem.id });
+		let out = await harness.prompt(initial);
+		tokens += out.tokens;
+		turns += 1;
+		if (out.error) lastError = out.error;
+
+		const deadline = t0 + cfg.episode_timeout_s * 1000;
+		for (let turn = 2; turn <= cfg.max_turns && !st.finished; turn++) {
+			await opts.controller?.waitIfPaused();
+			if (opts.controller?.stopRequested) {
+				log(`  [${opts.tag}] stop requested; finalizing current episode`);
+				break;
+			}
+			if (Date.now() > deadline) {
+				log(`  [${opts.tag}] episode wall-clock cap reached`);
+				break;
+			}
+			if (TOKENS_BUDGET_EXHAUSTED) break;
+			// long computations: if the agent started background jobs, the DRIVER
+			// waits (no turns burned, no watchdog risk) and wakes the agent with
+			// the finished-job summary
+			let jobWake = "";
+			const runningJobs = [...jobs.values()].filter((j) => refreshJob(j).state === "running");
+			if (runningJobs.length > 0) {
+				log(`  [${opts.tag}] ${runningJobs.length} background job(s) running — driver waiting`);
+				const finished = await waitForJobs();
+				jobWake =
+					`BACKGROUND JOBS FINISHED: ${finished.join("; ") || "(all done)"}.\n` +
+					`Inspect their logs (jobs/*.log via job_status or read), then continue.\n`;
+			}
+			let nudge: string;
+			const budgetLeft = cfg.eval_cap - st.submits;
+			if (st.submits === 0) {
+				nudge =
+					jobWake +
+					"You have not submitted yet. Run your analysis, then call the submit tool with your answer. A valid early submission beats an unsubmitted perfect plan.";
+			} else if (budgetLeft <= 0 || st.staleSubmits >= cfg.patience || out.aborted) {
+				nudge =
+					jobWake +
+					(budgetLeft <= 0
+						? "SUBMISSION BUDGET EXHAUSTED. "
+						: st.staleSubmits >= cfg.patience
+							? "No improvement in recent submissions. "
+							: "") +
+					"Finalize now: call submit with final=true using your best answer. Do not start new analysis.";
+			} else {
+				nudge =
+					`${jobWake}${st.lastFeedback}\n` +
+					`Public best: ${st.bestPublic?.toFixed(4) ?? "none"}. ` +
+					`You have ${budgetLeft} submission(s) left — refine the method (or confirm current best with final=true).`;
+			}
+			log(`  [${opts.tag}] turn ${turn}: ${nudge.slice(0, 60)}...`);
+			emit({ type: "episode_turn", tag: opts.tag, turn, maxTurns: cfg.max_turns, note: nudge.slice(0, 80) });
+			out = await harness.prompt(nudge);
+			tokens += out.tokens;
+			turns += 1;
+			if (out.error) lastError = out.error;
+		}
+	} finally {
+		harness.dispose();
+		// never leak detached compute processes past the episode
+		for (const j of jobs.values()) {
+			if (refreshJob(j).state === "running") {
+				killJob(j);
+				j.state = "killed";
+				writeJobStatus(j);
+				log(`  [${opts.tag}] job ${j.name} killed at episode end`);
+			}
+		}
+	}
+
+	// fitness: one private eval on the best public submission
+	let fitness: number | null = null;
+	let error = lastError;
+	if (st.bestAnswer != null || st.answer != null) {
+		const answer = st.bestAnswer ?? st.answer!;
+		const subPath = join(workspace, "solutions", `${problem.id}.json`);
+		writeFileSync(subPath, JSON.stringify(answer, null, 2));
+		const priv = await runEval(problem, evalCtx, subPath, "private");
+		fitness = priv.score;
+		if (priv.score == null) error = priv.detail;
+	} else {
+		error = error ?? "no submission produced";
+	}
+
+	const result: EpisodeResult = {
+		problemId: problem.id,
+		fitness,
+		bestPublic: st.bestPublic,
+		submits: st.submits,
+		turns,
+		tokens,
+		secs: (Date.now() - t0) / 1000,
+		error,
+		workspace,
+	};
+	writeFileSync(join(workspace, "episode.json"), JSON.stringify(result, null, 2));
+	emit({
+		type: "episode_end",
+		tag: opts.tag,
+		problem: problem.id,
+		fitness: result.fitness,
+		publicScore: result.bestPublic,
+		secs: Math.round(result.secs),
+		error: result.error,
+	});
+	return result;
+}
+
+/** Global kill-switch set by the outer loop when the token budget is gone. */
+export let TOKENS_BUDGET_EXHAUSTED = false;
+export function setBudgetExhausted(v: boolean): void {
+	TOKENS_BUDGET_EXHAUSTED = v;
+}

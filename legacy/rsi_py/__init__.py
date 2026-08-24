@@ -1,0 +1,1 @@
+"""RSI lab: a recursive self-improvement loop for scientific research agents."""

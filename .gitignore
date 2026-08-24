@@ -1,0 +1,13 @@
+node_modules/
+config/pi-models.json
+api_key.txt
+runs/
+__pycache__/
+*.pyc
+.pi-agent/
+output/
+workspace/
+pi-repo/
+api_key_local.txt
+.zcode/
+benchmarks/
