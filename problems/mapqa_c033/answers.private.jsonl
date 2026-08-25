@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_nearest_amenity_216", "answer": "The Kitchen Station", "dev": true}
+{"qid": "mq_california_full_amenities_around_52", "answer": "cafe; dentist; fast_food; post_box; prep_school; restaurant", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_4494", "answer": "Union Bank", "dev": true}
+{"qid": "mq_california_full_intersection_154", "answer": "Slo City Midwives", "dev": true}
+{"qid": "mq_california_full_amenities_around_84", "answer": "community_centre", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_285", "answer": "HearUSA", "dev": true}
+{"qid": "mq_california_full_compare-closer_53", "answer": "Rite Aid", "dev": true}
+{"qid": "mq_illinois_test_intersection_328", "answer": "Sherman Public Library", "dev": true}
+{"qid": "mq_california_full_amenities_25", "answer": "cafe", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_328", "answer": "MONTCLAIR", "dev": true}
+{"qid": "mq_california_full_direction_nearest_59", "answer": "Nubia Cafe", "dev": true}
+{"qid": "mq_california_full_intersection_64", "answer": "PayDay Advance", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_1360", "answer": "Chase", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_186", "answer": "Compass Recovery", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6039", "answer": "Union Bank", "dev": true}
+{"qid": "mq_california_full_amenities_126", "answer": "pharmacy", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120th & Compton from 12?", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_70", "answer": "Blue Jay Services Inc.", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_74", "answer": "Slab City Internet Café", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_363", "answer": "California Institution for Men", "dev": true}
+{"qid": "mq_california_full_adjacent_185", "answer": "Descanso Post Office", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1292", "answer": "Stage 21", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120th & Wadsworth from 19th-Newport?", "dev": false}
+{"qid": "mq_california_full_amenities_23", "answer": "theatre", "dev": false}
+{"qid": "mq_california_full_direction_nearest_141", "answer": "Psychic & Astrology", "dev": false}
+{"qid": "mq_california_full_adjacent_69", "answer": "Boa Steakhouse", "dev": false}
+{"qid": "mq_illinois_test_intersection_211", "answer": "Champlain Ave & 131st St", "dev": false}
+{"qid": "mq_california_full_intersection_69", "answer": "Huntington Beach Masonic Center", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 100th Street & Luella from 106?", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_9", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-Shannon from 17th-Concord?", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_23", "answer": "Church of the Comforter", "dev": false}
+{"qid": "mq_california_full_intersection_304", "answer": "Jollibee", "dev": false}
+{"qid": "mq_california_full_adjacent_199", "answer": "La Llorna Birria & Marisco; Veggos", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_56", "answer": "Brussels Grade School", "dev": false}
+{"qid": "mq_illinois_test_intersection_94", "answer": "Rotary Sundial", "dev": false}
+{"qid": "mq_illinois_test_intersection_39", "answer": "Sangamon County Circuit Clerk", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1115", "answer": "Shay Chicago; Electric Hotel", "dev": false}
+{"qid": "mq_illinois_test_intersection_319", "answer": "OH-ICEE", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_32", "answer": "Marquette Heights Municipal Building", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 101 & Western from 13 post agave?", "dev": false}
+{"qid": "mq_california_full_intersection_1", "answer": "Babi's Beer Emporium", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-Bristol from 17th-Freeman?", "dev": false}
+{"qid": "mq_california_full_amenities_around_39", "answer": "bar; cafe; fast_food; restaurant", "dev": false}
+{"qid": "mq_illinois_test_amenities_39", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7576", "answer": "Simplicity Bank", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_242", "answer": "7-Eleven", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11098", "answer": "Pacific Western Bank", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1483", "answer": "Green's Tap", "dev": false}
+{"qid": "mq_illinois_test_intersection_143", "answer": "Ignite Gaming", "dev": false}
+{"qid": "mq_california_full_direction_nearest_198", "answer": "Calipatria City Hall", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_12237", "answer": "Machete Beer House", "dev": false}
+{"qid": "mq_illinois_test_amenities_23", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_42", "answer": "The Anteatery", "dev": false}
+{"qid": "mq_california_full_amenities_around_112", "answer": "bar; cafe; fast_food", "dev": false}
+{"qid": "mq_illinois_test_intersection_222", "answer": "Ignite Gaming", "dev": false}
+{"qid": "mq_california_full_intersection_305", "answer": "Cinemark", "dev": false}
+{"qid": "mq_california_full_intersection_159", "answer": "Road One Towing", "dev": false}
+{"qid": "mq_california_full_compare-closer_43", "answer": "Starbucks", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15th St W & Ave J-8 from 17th-Main?", "dev": false}

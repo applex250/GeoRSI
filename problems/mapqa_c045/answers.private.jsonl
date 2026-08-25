@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_intersection_166", "answer": "Love Fridge at Augustana Lutheran Church", "dev": true}
+{"qid": "mq_california_full_intersection_91", "answer": "San Pedro County Courts Building", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_212", "answer": "Los Angeles County Coroner", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_44", "answer": "Walgreens", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 101 & Alvarado from 17th-Pecan?", "dev": true}
+{"qid": "mq_california_full_direction_nearest_98", "answer": "Super Seafood Market", "dev": true}
+{"qid": "mq_illinois_test_intersection_382", "answer": "Tesla Supercharger", "dev": true}
+{"qid": "mq_california_full_direction_nearest_96", "answer": "Alhambra Trial Court", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14c from 17th-Howland?", "dev": true}
+{"qid": "mq_california_full_intersection_86", "answer": "The Villa", "dev": true}
+{"qid": "mq_california_full_amenities_67", "answer": "fuel", "dev": true}
+{"qid": "mq_california_full_adjacent_97", "answer": "Bella's", "dev": true}
+{"qid": "mq_california_full_amenities_189", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_amenities_208", "answer": "school", "dev": true}
+{"qid": "mq_california_full_direction_nearest_205", "answer": "Adelanto Correctional Facility", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1St Street Bar from 15?", "dev": true}
+{"qid": "mq_california_full_intersection_339", "answer": "Catalina Express Long Beach Downtown Landing", "dev": true}
+{"qid": "mq_california_full_amenities_93", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_amenities_187", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_intersection_381", "answer": "West Coast Surrogacy", "dev": true}
+{"qid": "mq_california_full_adjacent_159", "answer": "Chase", "dev": false}
+{"qid": "mq_california_full_intersection_20", "answer": "Gould Mesa Trail Camp", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_10817", "answer": "Bar Ama", "dev": false}
+{"qid": "mq_california_full_amenities_around_178", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_intersection_287", "answer": "Tail Command", "dev": false}
+{"qid": "mq_california_full_compare-closer_42", "answer": "76", "dev": false}
+{"qid": "mq_california_full_intersection_140", "answer": "Bay Chiropractic", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 173 from 12?", "dev": false}
+{"qid": "mq_california_full_amenities_10", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_102", "answer": "Taco Village", "dev": false}
+{"qid": "mq_california_full_intersection_142", "answer": "HearUSA", "dev": false}
+{"qid": "mq_california_full_amenities_1", "answer": "studio", "dev": false}
+{"qid": "mq_california_full_amenities_around_191", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities_245", "answer": "school", "dev": false}
+{"qid": "mq_california_full_amenities_around_159", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_amenities_16", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_intersection_147", "answer": "Mitsuwa Food Court", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_506", "answer": "Reggies Music Joint", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 from 1?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9447", "answer": "Chase", "dev": false}
+{"qid": "mq_california_full_compare-closer_48", "answer": "Jersey Mike's Subs", "dev": false}
+{"qid": "mq_california_full_amenities_136", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Concord from 17th-Enderle Center?", "dev": false}
+{"qid": "mq_california_full_adjacent_164", "answer": "Subway; China Express; Domino's", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Rose from 15th St W & Ave K?", "dev": false}
+{"qid": "mq_california_full_direction_nearest_217", "answer": "Romero Bench Hitching Post", "dev": false}
+{"qid": "mq_california_full_adjacent_172", "answer": "Brewberry Cafe", "dev": false}
+{"qid": "mq_california_full_amenities_around_48", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_214", "answer": "Cinemark", "dev": false}
+{"qid": "mq_california_full_amenities_around_132", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_186", "answer": "Inside Out Art Studio", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1519", "answer": "Columbus Tap", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Superior from 200?", "dev": false}
+{"qid": "mq_california_full_adjacent_148", "answer": "Fellow", "dev": false}
+{"qid": "mq_illinois_test_adjacent_39", "answer": "Ashland Ave & Blackhawk St", "dev": false}
+{"qid": "mq_california_full_amenities_around_136", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_intersection_158", "answer": "Stone City Softball", "dev": false}
+{"qid": "mq_illinois_test_intersection_255", "answer": "Harper College", "dev": false}
+{"qid": "mq_california_full_adjacent_40", "answer": "Yamato; Philly's Best; Pieology Pizzeria", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_570", "answer": "Jumpin Joe's", "dev": false}

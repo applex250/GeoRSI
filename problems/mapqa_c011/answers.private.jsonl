@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_amenities_around_21", "answer": "place_of_worship", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_26", "answer": "Brussels Grade School", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_126", "answer": "Tesla Supercharger", "dev": true}
+{"qid": "mq_california_full_direction_nearest_207", "answer": "Social Hookah Lounge", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1930's Colorado River Work Boat from 13th Tee?", "dev": true}
+{"qid": "mq_illinois_test_intersection_396", "answer": "AMC Showplace 8", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_1835", "answer": "Double Black Lounge Bar & Kitchen", "dev": true}
+{"qid": "mq_illinois_test_intersection_78", "answer": "FAA", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_29", "answer": "Shiloh VA Clinic", "dev": true}
+{"qid": "mq_california_full_intersection_131", "answer": "Disneyland Resort Casting Center", "dev": true}
+{"qid": "mq_california_full_amenities_around_31", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_268", "answer": "West Valley Occupational Center", "dev": true}
+{"qid": "mq_california_full_intersection_246", "answer": "ACE Dental", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_12001", "answer": "Petes Place", "dev": true}
+{"qid": "mq_illinois_test_intersection_10", "answer": "Stone City Softball", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2241", "answer": "The Closet", "dev": true}
+{"qid": "mq_illinois_test_compare-closer_15", "answer": "Starbucks", "dev": true}
+{"qid": "mq_california_full_intersection_36", "answer": "GoBuild", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Mason from 106th Street & Avenue F?", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 10?", "dev": true}
+{"qid": "mq_california_full_adjacent_10", "answer": "Snooty Fox; Baja Fish Tacos", "dev": false}
+{"qid": "mq_california_full_intersection_315", "answer": "Figueroa Mountain Brewing Company", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_407", "answer": "Brewhaus", "dev": false}
+{"qid": "mq_california_full_intersection_112", "answer": "Canyon View Ranch", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 103rd Street/Watts Towers from 21 Flavors?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_795", "answer": "Wolcott Tap", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 - SW cor GL6 S2 T12N R1E SBM from 1st-Cooper?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1271", "answer": "Theory; Jojo's Milk Bar; The Rec Room", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9691", "answer": "The Ould Sod", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1139", "answer": "Vines on Clark", "dev": false}
+{"qid": "mq_california_full_direction_nearest_186", "answer": "Somis Post Office", "dev": false}
+{"qid": "mq_california_full_intersection_57", "answer": "iRepair", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_292", "answer": "Palm Terrace Care Center", "dev": false}
+{"qid": "mq_california_full_amenities_around_210", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_adjacent_92", "answer": "Rooster and the Pig", "dev": false}
+{"qid": "mq_illinois_test_intersection_151", "answer": "Enterprise", "dev": false}
+{"qid": "mq_california_full_amenities_128", "answer": "fuel", "dev": false}
+{"qid": "mq_illinois_test_intersection_371", "answer": "Champlain Ave & 131st St", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2394", "answer": "Madison Tavern; Rail Club", "dev": false}
+{"qid": "mq_california_full_adjacent_205", "answer": "Kitchen Of Korea; BJ's", "dev": false}
+{"qid": "mq_california_full_intersection_44", "answer": "Huntington Beach Masonic Center", "dev": false}
+{"qid": "mq_illinois_test_intersection_259", "answer": "charging_station", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9168", "answer": "Beach Ball", "dev": false}
+{"qid": "mq_california_full_intersection_329", "answer": "Cinemark", "dev": false}
+{"qid": "mq_california_full_intersection_256", "answer": "Distance Education Center", "dev": false}
+{"qid": "mq_california_full_intersection_226", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_california_full_intersection_207", "answer": "Hibachi Barbecue", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_46", "answer": "bench; fast_food; fountain; parking_entrance; post_office", "dev": false}
+{"qid": "mq_california_full_direction_nearest_50", "answer": "Lincoln School", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4509", "answer": "broken shaker", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9510", "answer": "Cherrobomb", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_72", "answer": "Agora Spa", "dev": false}
+{"qid": "mq_california_full_compare-closer_68", "answer": "Alverno Heights Academy", "dev": false}
+{"qid": "mq_illinois_test_intersection_372", "answer": "Eye Level Learning Center of Rockford", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_22", "answer": "Walker’s Bluff Casino Resort", "dev": false}
+{"qid": "mq_california_full_adjacent_232", "answer": "FLO", "dev": false}
+{"qid": "mq_california_full_intersection_204", "answer": "Mustang Daily", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_97", "answer": "Lucky's Sandwich Co", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_388", "answer": "Berlitz Language Services", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14 Tee from 2?", "dev": false}

@@ -1,0 +1,100 @@
+{"qid": "es_mul_417", "answer": "B", "dev": true}
+{"qid": "es_mul_630", "answer": "B", "dev": true}
+{"qid": "es_tru_183", "answer": "True", "dev": true}
+{"qid": "es_mul_101", "answer": "C", "dev": true}
+{"qid": "es_fil_430", "answer": "18%, 2%", "dev": true}
+{"qid": "es_tru_198", "answer": "True", "dev": true}
+{"qid": "es_tru_468", "answer": "False", "dev": true}
+{"qid": "es_fil_554", "answer": "t106", "dev": true}
+{"qid": "es_mul_429", "answer": "B", "dev": true}
+{"qid": "es_tru_463", "answer": "True", "dev": true}
+{"qid": "es_fil_555", "answer": "150", "dev": true}
+{"qid": "es_tru_392", "answer": "True", "dev": true}
+{"qid": "es_mul_464", "answer": "B", "dev": true}
+{"qid": "es_tru_384", "answer": "True", "dev": true}
+{"qid": "es_fil_600", "answer": "3.14 era-40", "dev": true}
+{"qid": "es_mul_550", "answer": "B", "dev": true}
+{"qid": "es_tru_94", "answer": "True", "dev": true}
+{"qid": "es_fil_30", "answer": "30", "dev": true}
+{"qid": "es_fil_584", "answer": "transfer standard", "dev": true}
+{"qid": "es_fil_393", "answer": "glims", "dev": true}
+{"qid": "es_mul_311", "answer": "B", "dev": false}
+{"qid": "es_mul_38", "answer": "C", "dev": false}
+{"qid": "es_mul_46", "answer": "C", "dev": false}
+{"qid": "es_fil_184", "answer": "4110000000000.0", "dev": false}
+{"qid": "es_fil_421", "answer": "flat", "dev": false}
+{"qid": "es_fil_380", "answer": "minutes", "dev": false}
+{"qid": "es_mul_664", "answer": "B", "dev": false}
+{"qid": "es_tru_24", "answer": "True", "dev": false}
+{"qid": "es_mul_717", "answer": "C", "dev": false}
+{"qid": "es_mul_475", "answer": "B", "dev": false}
+{"qid": "es_mul_650", "answer": "D", "dev": false}
+{"qid": "es_fil_523", "answer": "2.5", "dev": false}
+{"qid": "es_fil_595", "answer": "0.064", "dev": false}
+{"qid": "es_mul_226", "answer": "B", "dev": false}
+{"qid": "es_tru_199", "answer": "True", "dev": false}
+{"qid": "es_tru_501", "answer": "True", "dev": false}
+{"qid": "es_mul_574", "answer": "C", "dev": false}
+{"qid": "es_tru_110", "answer": "True", "dev": false}
+{"qid": "es_fil_2", "answer": "f^-2, f^-1", "dev": false}
+{"qid": "es_mul_482", "answer": "B", "dev": false}
+{"qid": "es_tru_363", "answer": "True", "dev": false}
+{"qid": "es_tru_536", "answer": "True", "dev": false}
+{"qid": "es_fil_524", "answer": "3.74", "dev": false}
+{"qid": "es_fil_402", "answer": "90%", "dev": false}
+{"qid": "es_fil_472", "answer": "25", "dev": false}
+{"qid": "es_tru_263", "answer": "True", "dev": false}
+{"qid": "es_fil_304", "answer": "732,000", "dev": false}
+{"qid": "es_tru_233", "answer": "False", "dev": false}
+{"qid": "es_mul_789", "answer": "A", "dev": false}
+{"qid": "es_tru_445", "answer": "True", "dev": false}
+{"qid": "es_fil_113", "answer": "igy observational dataset", "dev": false}
+{"qid": "es_fil_727", "answer": "large peaks, prompt", "dev": false}
+{"qid": "es_mul_126", "answer": "A", "dev": false}
+{"qid": "es_fil_372", "answer": "200-350 kcal/mh, 60-75 kcal/mh", "dev": false}
+{"qid": "es_fil_512", "answer": "anticyclonic, cyclonic", "dev": false}
+{"qid": "es_fil_531", "answer": "sediment accumulation", "dev": false}
+{"qid": "es_mul_404", "answer": "B", "dev": false}
+{"qid": "es_fil_725", "answer": "3", "dev": false}
+{"qid": "es_tru_85", "answer": "False", "dev": false}
+{"qid": "es_fil_601", "answer": "emissions", "dev": false}
+{"qid": "es_tru_492", "answer": "True", "dev": false}
+{"qid": "es_tru_109", "answer": "True", "dev": false}
+{"qid": "es_tru_469", "answer": "True", "dev": false}
+{"qid": "es_fil_558", "answer": "thermoflex", "dev": false}
+{"qid": "es_mul_231", "answer": "B", "dev": false}
+{"qid": "es_mul_144", "answer": "B", "dev": false}
+{"qid": "es_mul_77", "answer": "B", "dev": false}
+{"qid": "es_mul_479", "answer": "C", "dev": false}
+{"qid": "es_fil_414", "answer": "1.826e-8", "dev": false}
+{"qid": "es_fil_369", "answer": "era-interim", "dev": false}
+{"qid": "es_fil_465", "answer": "cfad", "dev": false}
+{"qid": "es_fil_191", "answer": "0.000016", "dev": false}
+{"qid": "es_fil_583", "answer": "0", "dev": false}
+{"qid": "es_mul_263", "answer": "B", "dev": false}
+{"qid": "es_mul_168", "answer": "C", "dev": false}
+{"qid": "es_tru_205", "answer": "True", "dev": false}
+{"qid": "es_mul_513", "answer": "B", "dev": false}
+{"qid": "es_fil_185", "answer": "30", "dev": false}
+{"qid": "es_mul_374", "answer": "B", "dev": false}
+{"qid": "es_mul_552", "answer": "B", "dev": false}
+{"qid": "es_mul_135", "answer": "C", "dev": false}
+{"qid": "es_tru_385", "answer": "False", "dev": false}
+{"qid": "es_tru_161", "answer": "True", "dev": false}
+{"qid": "es_fil_681", "answer": "non-conservative", "dev": false}
+{"qid": "es_fil_606", "answer": "aeronet", "dev": false}
+{"qid": "es_mul_334", "answer": "C", "dev": false}
+{"qid": "es_tru_152", "answer": "True", "dev": false}
+{"qid": "es_fil_700", "answer": "2", "dev": false}
+{"qid": "es_mul_134", "answer": "B", "dev": false}
+{"qid": "es_mul_749", "answer": "C", "dev": false}
+{"qid": "es_mul_373", "answer": "B", "dev": false}
+{"qid": "es_tru_472", "answer": "True", "dev": false}
+{"qid": "es_mul_34", "answer": "B", "dev": false}
+{"qid": "es_fil_25", "answer": "6200 m", "dev": false}
+{"qid": "es_fil_263", "answer": "170", "dev": false}
+{"qid": "es_fil_37", "answer": "82500", "dev": false}
+{"qid": "es_mul_661", "answer": "C", "dev": false}
+{"qid": "es_fil_180", "answer": "number of stems, number of species, number of stems of the most abundant species", "dev": false}
+{"qid": "es_mul_99", "answer": "D", "dev": false}
+{"qid": "es_fil_377", "answer": "pseudomatrix, diagenetic kaolinite", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_intersection_142", "answer": "Currency Exchange", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_412", "answer": "The Hangge-Uppe", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_121", "answer": "Manhattan Actor Studio", "dev": true}
+{"qid": "mq_california_full_amenities_around_121", "answer": "restaurant; telephone", "dev": true}
+{"qid": "mq_illinois_test_intersection_244", "answer": "Hookas", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 103rd Street/Watts Towers from 1st Street & Hill Street?", "dev": true}
+{"qid": "mq_california_full_amenities_182", "answer": "fire_station", "dev": true}
+{"qid": "mq_california_full_intersection_321", "answer": "Imperial County Courthouse;Imperial County Law Library", "dev": true}
+{"qid": "mq_california_full_adjacent_184", "answer": "Dr. Smile", "dev": true}
+{"qid": "mq_illinois_test_intersection_303", "answer": "Progressive Kenpo Karate", "dev": true}
+{"qid": "mq_california_full_amenities_219", "answer": "school", "dev": true}
+{"qid": "mq_california_full_amenities_12", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Evergreen from 2?", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_8248", "answer": "The Red Piano", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1582", "answer": "Corkscrew Pointe; Old Bridge Tavern", "dev": true}
+{"qid": "mq_california_full_intersection_104", "answer": "Daryl D. Smith Clock Tower", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Superior from 1?", "dev": true}
+{"qid": "mq_california_full_amenities_193", "answer": "restaurant", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_392", "answer": "Cheesie's Pub & Grub", "dev": true}
+{"qid": "mq_california_full_amenities_around_236", "answer": "bicycle_parking; cafe; clinic; fast_food; parking_entrance; restaurant; watering_place", "dev": true}
+{"qid": "mq_illinois_test_intersection_165", "answer": "Stone City Softball", "dev": false}
+{"qid": "mq_illinois_test_compare-closer_17", "answer": "Jimmy John's", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4785", "answer": "Cherrobomb", "dev": false}
+{"qid": "mq_california_full_amenities_177", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_8", "answer": "Pizza Pizza", "dev": false}
+{"qid": "mq_california_full_intersection_224", "answer": "West Coast Surrogacy", "dev": false}
+{"qid": "mq_california_full_adjacent_171", "answer": "Wingstop", "dev": false}
+{"qid": "mq_california_full_direction_nearest_230", "answer": "Flying Flags RV Resort", "dev": false}
+{"qid": "mq_california_full_intersection_164", "answer": "Caique Jiu Jitsu", "dev": false}
+{"qid": "mq_illinois_test_intersection_117", "answer": "Western Union", "dev": false}
+{"qid": "mq_california_full_amenities_101", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_intersection_71", "answer": "Eye Level Learning Center of Rockford", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1981", "answer": "Roscoe's Tavern & Cafe; Progress Bar Chicago", "dev": false}
+{"qid": "mq_california_full_amenities_3", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_adjacent_21", "answer": "Redbox; California Lottery", "dev": false}
+{"qid": "mq_illinois_test_intersection_285", "answer": "Tail Command", "dev": false}
+{"qid": "mq_california_full_amenities_130", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_235", "answer": "Mustang Daily", "dev": false}
+{"qid": "mq_california_full_amenities_around_135", "answer": "clinic; dojo; fast_food; parking_entrance; prep_school; restaurant", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_23", "answer": "Cedar Ridge Health and Rehabilitation Center", "dev": false}
+{"qid": "mq_california_full_direction_nearest_249", "answer": "Joslyn Senior Center", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1691", "answer": "Coin-Op Game Room", "dev": false}
+{"qid": "mq_illinois_test_intersection_293", "answer": "Starbucks", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_196", "answer": "Long Beach Civic Center", "dev": false}
+{"qid": "mq_illinois_test_intersection_230", "answer": "free ompressed air for bikes", "dev": false}
+{"qid": "mq_california_full_adjacent_41", "answer": "Pilgrim Lutheran School; Christian Academy of Chula Vista", "dev": false}
+{"qid": "mq_illinois_test_intersection_58", "answer": "Illinois Conference Center", "dev": false}
+{"qid": "mq_california_full_direction_nearest_85", "answer": "7-Eleven", "dev": false}
+{"qid": "mq_california_full_adjacent_105", "answer": "Found Oyster", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_798", "answer": "Jelleybean Bar & Gaming", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1700", "answer": "First Financial Credit Union", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_6", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_358", "answer": "California Lutheran University", "dev": false}
+{"qid": "mq_california_full_intersection_66", "answer": "Mustang Daily", "dev": false}
+{"qid": "mq_california_full_intersection_11", "answer": "The Commerce Casino", "dev": false}
+{"qid": "mq_illinois_test_intersection_282", "answer": "Rotary Sundial", "dev": false}
+{"qid": "mq_california_full_intersection_253", "answer": "Regelin Hall", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2124", "answer": "analog bar", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_245", "answer": "Riverside University Health System - Arlington Mental Health Facility", "dev": false}
+{"qid": "mq_california_full_amenities_around_29", "answer": "No amenities found", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_nearest_amenity_78", "answer": "YMCA Child Care", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Cook from 11th Street at Baugh?", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_35", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_48", "answer": "The Sheared Sheep", "dev": true}
+{"qid": "mq_california_full_intersection_70", "answer": "Feet For Life", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_7757", "answer": "The Olde Carriage Tavern", "dev": true}
+{"qid": "mq_illinois_test_intersection_363", "answer": "AMC Showplace 8", "dev": true}
+{"qid": "mq_california_full_amenities_around_225", "answer": "cafe; restaurant", "dev": true}
+{"qid": "mq_illinois_test_intersection_44", "answer": "India Association of Greater Springfield (IAGS)", "dev": true}
+{"qid": "mq_california_full_intersection_55", "answer": "eVgo", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_2", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_intersection_270", "answer": "Mustang Daily", "dev": true}
+{"qid": "mq_california_full_adjacent_38", "answer": "Wingstop", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 13 Tee?", "dev": true}
+{"qid": "mq_california_full_compare-closer_67", "answer": "Alta Loma Elementary School", "dev": true}
+{"qid": "mq_illinois_test_intersection_233", "answer": "Vigo", "dev": true}
+{"qid": "mq_illinois_test_intersection_113", "answer": "St. Benedict's Abbey", "dev": true}
+{"qid": "mq_california_full_adjacent_192", "answer": "Snowy Village Dessert Cafe; Ding Tea", "dev": true}
+{"qid": "mq_illinois_test_intersection_276", "answer": "Southern Illinois University HR Department", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_977", "answer": "Recognize Cocktails", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_50", "answer": "clinic", "dev": false}
+{"qid": "mq_california_full_intersection_177", "answer": "Willow St & Mateo St", "dev": false}
+{"qid": "mq_california_full_amenities_47", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_817", "answer": "LH Rooftop", "dev": false}
+{"qid": "mq_illinois_test_intersection_130", "answer": "Sangamon County Circuit Clerk", "dev": false}
+{"qid": "mq_illinois_test_intersection_383", "answer": "Ignite Gaming", "dev": false}
+{"qid": "mq_california_full_direction_nearest_173", "answer": "Lengthwise Brewing Company", "dev": false}
+{"qid": "mq_california_full_intersection_40", "answer": "West Coast Surrogacy", "dev": false}
+{"qid": "mq_california_full_amenities_78", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 117 from 1?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 210-094 from 19?", "dev": false}
+{"qid": "mq_california_full_amenities_around_242", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2208", "answer": "Spring St Bar", "dev": false}
+{"qid": "mq_california_full_direction_nearest_148", "answer": "Road One Towing", "dev": false}
+{"qid": "mq_california_full_adjacent_167", "answer": "Bronzed Aussie; Pizza Hut", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_2", "answer": "Ignite Gaming", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_10", "answer": "Circuit", "dev": false}
+{"qid": "mq_california_full_direction_nearest_189", "answer": "North County Transporation Center", "dev": false}
+{"qid": "mq_california_full_intersection_81", "answer": "West LA Dogs", "dev": false}
+{"qid": "mq_california_full_amenities_around_42", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities_around_107", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 103rd Street & Wentworth EB from 111th Street & Aberdeen WB?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1307", "answer": "Bank of America", "dev": false}
+{"qid": "mq_california_full_adjacent_194", "answer": "Sombrero Mexican Food; Subway", "dev": false}
+{"qid": "mq_california_full_intersection_100", "answer": "Freeway Easy Traffic and Driving School", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_260", "answer": "West LA Academy of Dance", "dev": false}
+{"qid": "mq_california_full_amenities_around_211", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14th hole from 12?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_707", "answer": "Replay", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1380", "answer": "Strewn", "dev": false}
+{"qid": "mq_california_full_direction_nearest_179", "answer": "Regelin Hall", "dev": false}
+{"qid": "mq_california_full_amenities_around_218", "answer": "car_wash; restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_113", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_amenities_69", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_105", "answer": "fuel", "dev": false}
+{"qid": "mq_illinois_test_intersection_105", "answer": "Blue Jay Services Inc.", "dev": false}
+{"qid": "mq_california_full_amenities_21", "answer": "parking", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4088", "answer": "Western Union", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_154", "answer": "Ciara Dance Studio", "dev": false}
+{"qid": "mq_california_full_direction_nearest_21", "answer": "Soups and Such Caf́é", "dev": false}

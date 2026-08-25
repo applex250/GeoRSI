@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_229", "answer": "school", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_4115", "answer": "Meleose Rooftop", "dev": true}
+{"qid": "mq_california_full_direction_nearest_140", "answer": "Providence Mount Rubidoux", "dev": true}
+{"qid": "mq_california_full_amenities_209", "answer": "school", "dev": true}
+{"qid": "mq_illinois_test_intersection_24", "answer": "Envision Dance", "dev": true}
+{"qid": "mq_california_full_adjacent_188", "answer": "Starbucks; Vanitea", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_1946", "answer": "Wells Fargo; Chase", "dev": true}
+{"qid": "mq_illinois_test_intersection_201", "answer": "Boat Drinks", "dev": true}
+{"qid": "mq_california_full_amenities_63", "answer": "fuel", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1262", "answer": "West Central Illinois Arts Center", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 from 14th St & F St?", "dev": true}
+{"qid": "mq_illinois_test_amenities_7", "answer": "fuel", "dev": true}
+{"qid": "mq_illinois_test_amenities_48", "answer": "cinema", "dev": true}
+{"qid": "mq_california_full_direction_nearest_155", "answer": "La Mesa Medical Group", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_133", "answer": "The Berkshire Room; Broken Shaker Chicago", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_3917", "answer": "Diablo Pase Wines", "dev": true}
+{"qid": "mq_california_full_intersection_4", "answer": "Bluewater Sailing", "dev": true}
+{"qid": "mq_california_full_amenities_around_37", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_adjacent_1", "answer": "Ausrine Schneider, DDS", "dev": true}
+{"qid": "mq_california_full_intersection_335", "answer": "Anaheim Cultural Arts Center", "dev": true}
+{"qid": "mq_illinois_test_intersection_304", "answer": "Blue Jay Services Inc.", "dev": false}
+{"qid": "mq_california_full_adjacent_178", "answer": "Lutheran School", "dev": false}
+{"qid": "mq_california_full_direction_nearest_38", "answer": "The Sheared Sheep", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2441", "answer": "The Ginger Man Tavern", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 101 Noodle Express 魯味居 from 1st & Hope?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 Speed Coffee from 1?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8091", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_california_full_intersection_10", "answer": "Bikes and Brew", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6977", "answer": "Tom Tom Bar", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9349", "answer": "Wells Fargo External ATM", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17 from 19 Sports Bar & Grill?", "dev": false}
+{"qid": "mq_california_full_amenities_157", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_162", "answer": "cafe; restaurant", "dev": false}
+{"qid": "mq_california_full_direction_nearest_93", "answer": "Campbell-Chilwell-Mount Laguna Cemetery", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14 from 1st-Standard?", "dev": false}
+{"qid": "mq_california_full_intersection_185", "answer": "Bikes and Brew", "dev": false}
+{"qid": "mq_illinois_test_intersection_175", "answer": "Bike Repair Station", "dev": false}
+{"qid": "mq_california_full_amenities_around_179", "answer": "dentist; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_27", "answer": "Auto wash", "dev": false}
+{"qid": "mq_california_full_direction_nearest_94", "answer": "Family Recovery Center", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1796", "answer": "Rhythm Room of Hawg Dogs", "dev": false}
+{"qid": "mq_california_full_intersection_293", "answer": "Imperial County Courthouse;Imperial County Law Library", "dev": false}
+{"qid": "mq_california_full_amenities_178", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_172", "answer": "Long Beach Civic Center", "dev": false}
+{"qid": "mq_illinois_test_adjacent_37", "answer": "Pret A Manger; Auntie Anne's; Robinson's; Jersey Mike's Subs", "dev": false}
+{"qid": "mq_illinois_test_intersection_188", "answer": "Ignite Gaming", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Kansas from 103rd Street & Kedzie WB?", "dev": false}
+{"qid": "mq_illinois_test_intersection_248", "answer": "Preferred Imaging Centers", "dev": false}
+{"qid": "mq_california_full_amenities_90", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_571", "answer": "The Beetle Bar and Grill", "dev": false}
+{"qid": "mq_california_full_adjacent_109", "answer": "JJ Chinese Express", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2401", "answer": "The Graystone Tavern", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_193", "answer": "Sister Servants of Mary", "dev": false}
+{"qid": "mq_california_full_amenities_228", "answer": "school", "dev": false}
+{"qid": "mq_california_full_amenities_171", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7237", "answer": "Silver Sands", "dev": false}
+{"qid": "mq_california_full_adjacent_123", "answer": "Bistro Miyoda & Sushi Ichiriki", "dev": false}
+{"qid": "mq_california_full_adjacent_131", "answer": "Fortune Cookie Express", "dev": false}
+{"qid": "mq_california_full_intersection_182", "answer": "Depth Perceptions", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1832", "answer": "North Community Bank", "dev": false}

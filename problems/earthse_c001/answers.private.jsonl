@@ -1,0 +1,100 @@
+{"qid": "es_mul_729", "answer": "D", "dev": true}
+{"qid": "es_mul_685", "answer": "B", "dev": true}
+{"qid": "es_fil_550", "answer": "24", "dev": true}
+{"qid": "es_fil_360", "answer": "white, black", "dev": true}
+{"qid": "es_mul_400", "answer": "B", "dev": true}
+{"qid": "es_mul_689", "answer": "C", "dev": true}
+{"qid": "es_fil_718", "answer": "precipitation", "dev": true}
+{"qid": "es_fil_269", "answer": "10", "dev": true}
+{"qid": "es_tru_204", "answer": "False", "dev": true}
+{"qid": "es_mul_264", "answer": "A", "dev": true}
+{"qid": "es_fil_610", "answer": "ensemble-mean, deviations from the ensemble-mean", "dev": true}
+{"qid": "es_mul_351", "answer": "B", "dev": true}
+{"qid": "es_mul_276", "answer": "B", "dev": true}
+{"qid": "es_mul_705", "answer": "C", "dev": true}
+{"qid": "es_mul_369", "answer": "B", "dev": true}
+{"qid": "es_tru_166", "answer": "True", "dev": true}
+{"qid": "es_tru_239", "answer": "True", "dev": true}
+{"qid": "es_tru_459", "answer": "True", "dev": true}
+{"qid": "es_fil_719", "answer": "method 3", "dev": true}
+{"qid": "es_fil_24", "answer": "40", "dev": true}
+{"qid": "es_fil_496", "answer": "57", "dev": false}
+{"qid": "es_tru_325", "answer": "True", "dev": false}
+{"qid": "es_mul_734", "answer": "A", "dev": false}
+{"qid": "es_mul_518", "answer": "B", "dev": false}
+{"qid": "es_fil_340", "answer": "576", "dev": false}
+{"qid": "es_fil_101", "answer": "backscatter, coherence", "dev": false}
+{"qid": "es_fil_488", "answer": "0.019696", "dev": false}
+{"qid": "es_mul_345", "answer": "B", "dev": false}
+{"qid": "es_mul_427", "answer": "C", "dev": false}
+{"qid": "es_mul_477", "answer": "B", "dev": false}
+{"qid": "es_tru_485", "answer": "True", "dev": false}
+{"qid": "es_fil_111", "answer": "difficulties", "dev": false}
+{"qid": "es_tru_4", "answer": "True", "dev": false}
+{"qid": "es_fil_50", "answer": "visibility", "dev": false}
+{"qid": "es_fil_342", "answer": "daily discharge and suspended sediment concentration values", "dev": false}
+{"qid": "es_tru_219", "answer": "False", "dev": false}
+{"qid": "es_mul_266", "answer": "A", "dev": false}
+{"qid": "es_tru_389", "answer": "False", "dev": false}
+{"qid": "es_tru_175", "answer": "False", "dev": false}
+{"qid": "es_tru_509", "answer": "True", "dev": false}
+{"qid": "es_fil_694", "answer": "era5", "dev": false}
+{"qid": "es_fil_286", "answer": "1.6", "dev": false}
+{"qid": "es_mul_18", "answer": "B", "dev": false}
+{"qid": "es_fil_324", "answer": "trade-offs", "dev": false}
+{"qid": "es_fil_248", "answer": "table 4", "dev": false}
+{"qid": "es_mul_162", "answer": "C", "dev": false}
+{"qid": "es_tru_83", "answer": "True", "dev": false}
+{"qid": "es_fil_226", "answer": "unique", "dev": false}
+{"qid": "es_mul_27", "answer": "A", "dev": false}
+{"qid": "es_mul_350", "answer": "D", "dev": false}
+{"qid": "es_tru_405", "answer": "True", "dev": false}
+{"qid": "es_mul_496", "answer": "B", "dev": false}
+{"qid": "es_tru_147", "answer": "True", "dev": false}
+{"qid": "es_mul_215", "answer": "B", "dev": false}
+{"qid": "es_mul_91", "answer": "D", "dev": false}
+{"qid": "es_tru_1", "answer": "True", "dev": false}
+{"qid": "es_mul_169", "answer": "B", "dev": false}
+{"qid": "es_fil_93", "answer": "sage, glc2000", "dev": false}
+{"qid": "es_fil_378", "answer": "self-referential", "dev": false}
+{"qid": "es_mul_759", "answer": "C", "dev": false}
+{"qid": "es_fil_467", "answer": "26.7", "dev": false}
+{"qid": "es_tru_464", "answer": "True", "dev": false}
+{"qid": "es_fil_71", "answer": "1.0", "dev": false}
+{"qid": "es_mul_458", "answer": "B", "dev": false}
+{"qid": "es_mul_447", "answer": "C", "dev": false}
+{"qid": "es_mul_163", "answer": "C", "dev": false}
+{"qid": "es_mul_121", "answer": "C", "dev": false}
+{"qid": "es_fil_201", "answer": "25", "dev": false}
+{"qid": "es_fil_764", "answer": "3", "dev": false}
+{"qid": "es_fil_428", "answer": "0.57, 0.62", "dev": false}
+{"qid": "es_tru_397", "answer": "True", "dev": false}
+{"qid": "es_fil_311", "answer": "50 km, 1 day", "dev": false}
+{"qid": "es_mul_803", "answer": "B", "dev": false}
+{"qid": "es_mul_24", "answer": "A", "dev": false}
+{"qid": "es_tru_236", "answer": "True", "dev": false}
+{"qid": "es_fil_635", "answer": "density inversions", "dev": false}
+{"qid": "es_tru_388", "answer": "True", "dev": false}
+{"qid": "es_fil_224", "answer": "worldclim or chelsa", "dev": false}
+{"qid": "es_fil_69", "answer": "biewende, 90", "dev": false}
+{"qid": "es_mul_563", "answer": "B", "dev": false}
+{"qid": "es_mul_754", "answer": "A", "dev": false}
+{"qid": "es_fil_497", "answer": "1.75", "dev": false}
+{"qid": "es_mul_435", "answer": "A", "dev": false}
+{"qid": "es_fil_265", "answer": "st. mary redcliff", "dev": false}
+{"qid": "es_tru_295", "answer": "True", "dev": false}
+{"qid": "es_fil_53", "answer": "1,000, 1%", "dev": false}
+{"qid": "es_fil_176", "answer": "1.02", "dev": false}
+{"qid": "es_fil_315", "answer": "mean, standard deviation, lag-1 autocorrelation coefficient", "dev": false}
+{"qid": "es_mul_409", "answer": "C", "dev": false}
+{"qid": "es_fil_615", "answer": "data covariances", "dev": false}
+{"qid": "es_fil_459", "answer": "1", "dev": false}
+{"qid": "es_fil_632", "answer": "100 meters", "dev": false}
+{"qid": "es_tru_519", "answer": "True", "dev": false}
+{"qid": "es_tru_19", "answer": "True", "dev": false}
+{"qid": "es_fil_447", "answer": "unity", "dev": false}
+{"qid": "es_tru_121", "answer": "False", "dev": false}
+{"qid": "es_fil_302", "answer": "egm96 gravity potential", "dev": false}
+{"qid": "es_fil_570", "answer": "electromagnetic induction", "dev": false}
+{"qid": "es_mul_612", "answer": "B", "dev": false}
+{"qid": "es_fil_20", "answer": "analyses, gcms, streamflow", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_adjacent_28", "answer": "Coffee Shoppe", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_177", "answer": "Zoom Room", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 21 Oceanfront from 13th hole?", "dev": true}
+{"qid": "mq_illinois_test_intersection_399", "answer": "Sangamon County Circuit Clerk", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6302", "answer": "Mason Memorial Bench; Sikand Memorial Bench; Chien Memorial Bench", "dev": true}
+{"qid": "mq_illinois_test_intersection_73", "answer": "Argosy Casino Alton", "dev": true}
+{"qid": "mq_california_full_amenities_76", "answer": "fire_station", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 post barrel cactus from 2020 replica LOUIS VUITTON HandBags Reviews?", "dev": true}
+{"qid": "mq_illinois_test_intersection_29", "answer": "Harper College", "dev": true}
+{"qid": "mq_california_full_direction_nearest_236", "answer": "Chevron", "dev": true}
+{"qid": "mq_california_full_direction_nearest_71", "answer": "City of Los Angeles", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Santa Ana from 15?", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 11 from 108 Motel?", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_96", "answer": "Three Sixty Dentistry: Brian Edwards DDS, Amanda Jenney DDS & Stephanie Colletta DDS", "dev": true}
+{"qid": "mq_illinois_test_intersection_124", "answer": "Kampsville Ferry", "dev": true}
+{"qid": "mq_california_full_adjacent_19", "answer": "Meze Greek Fusion; The Broken Yolk Cafe; Lucky's Lunch Counter", "dev": true}
+{"qid": "mq_california_full_direction_nearest_167", "answer": "Riverside Medical Center (Urgent)", "dev": true}
+{"qid": "mq_california_full_amenities_around_171", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_57", "answer": "Golden Eagle Ferry (North Dock)", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_4953", "answer": "8", "dev": true}
+{"qid": "mq_california_full_intersection_364", "answer": "Collab&Play", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Tustin from 14th & Pico?", "dev": false}
+{"qid": "mq_california_full_adjacent_73", "answer": "The Tasting Kitchen; Piccolo", "dev": false}
+{"qid": "mq_california_full_intersection_116", "answer": "Southern Lites Collective", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9771", "answer": "Rocco's Tavern", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Cornell from 127th Street & Pulaski EB?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1777", "answer": "No Bones Beach Club", "dev": false}
+{"qid": "mq_illinois_test_intersection_131", "answer": "Envision Dance", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_20", "answer": "Rosati's", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_66", "answer": "Doc's Bar", "dev": false}
+{"qid": "mq_california_full_direction_nearest_212", "answer": "Mission Career College", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_30", "answer": "VFW Post", "dev": false}
+{"qid": "mq_california_full_amenities_around_65", "answer": "fountain; parking_entrance", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11020", "answer": "Spurline", "dev": false}
+{"qid": "mq_california_full_direction_nearest_131", "answer": "American Martial Arts Academy", "dev": false}
+{"qid": "mq_california_full_amenities_around_125", "answer": "cafe; post_office", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Penn from 100??", "dev": false}
+{"qid": "mq_california_full_amenities_around_148", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 187 / Pasadena from 16th @ Medical Center Westbound?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1 from 1st-Ross?", "dev": false}
+{"qid": "mq_california_full_amenities_around_34", "answer": "fast_food; restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_48", "answer": "Hibachi Barbecue", "dev": false}
+{"qid": "mq_california_full_amenities_around_86", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_amenities_139", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_240", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1626", "answer": "The Burlington", "dev": false}
+{"qid": "mq_california_full_amenities_137", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7136", "answer": "HSBC (Global)", "dev": false}
+{"qid": "mq_california_full_amenities_around_54", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_intersection_340", "answer": "Nature’s Juice", "dev": false}
+{"qid": "mq_illinois_test_intersection_167", "answer": "Sherman Fire Protection District", "dev": false}
+{"qid": "mq_illinois_test_intersection_1", "answer": "Sherman Car Wash", "dev": false}
+{"qid": "mq_illinois_test_intersection_300", "answer": "FAA", "dev": false}
+{"qid": "mq_california_full_direction_nearest_192", "answer": "AMC Otay Ranch 12", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_352", "answer": "iRepair", "dev": false}
+{"qid": "mq_illinois_test_intersection_13", "answer": "Rotary Sundial", "dev": false}
+{"qid": "mq_california_full_amenities_4", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_compare-closer_14", "answer": "Buffalo Restaurant & Ice Cream Parlor", "dev": false}
+{"qid": "mq_illinois_test_intersection_34", "answer": "Zipcar", "dev": false}
+{"qid": "mq_illinois_test_intersection_261", "answer": "Springfield Clinic at the Villas", "dev": false}

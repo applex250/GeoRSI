@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_intersection_205", "answer": "The Anteatery", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_98", "answer": "Marty’s Martini Bar", "dev": true}
+{"qid": "mq_california_full_intersection_263", "answer": "Long Beach Civic Center", "dev": true}
+{"qid": "mq_illinois_test_intersection_277", "answer": "Rogers Park Free Store", "dev": true}
+{"qid": "mq_california_full_direction_nearest_24", "answer": "Social Hookah Lounge", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_26", "answer": "White Sea Hookah Lounge", "dev": true}
+{"qid": "mq_california_full_amenities_around_61", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 170th St. E. & Ave. K-8 from 17th-Newport?", "dev": true}
+{"qid": "mq_california_full_adjacent_15", "answer": "Avis", "dev": true}
+{"qid": "mq_california_full_adjacent_181", "answer": "El Burro Taco Shop", "dev": true}
+{"qid": "mq_california_full_direction_nearest_88", "answer": "Pretzels Boardwalk", "dev": true}
+{"qid": "mq_illinois_test_intersection_181", "answer": "Alleycat Comics", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_6", "answer": "Huntington Bank", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6932", "answer": "City National Bank", "dev": true}
+{"qid": "mq_california_full_adjacent_209", "answer": "McFadden Public Market", "dev": true}
+{"qid": "mq_california_full_compare-closer_54", "answer": "Fire Department", "dev": true}
+{"qid": "mq_illinois_test_intersection_257", "answer": "Sangamon County Circuit Clerk", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_195", "answer": "Academy of Motion Picture Arts and Sciences Film Archive", "dev": true}
+{"qid": "mq_california_full_direction_nearest_34", "answer": "Jurupa Cultural Center", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_5", "answer": "Riverbend Commons Ferry Terminal", "dev": true}
+{"qid": "mq_california_full_amenities_109", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 172 from 1, 4?", "dev": false}
+{"qid": "mq_california_full_amenities_138", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_1", "answer": "atm; cafe; fast_food; nightclub; post_box; restaurant", "dev": false}
+{"qid": "mq_california_full_direction_nearest_109", "answer": "Xai Verandah Lounge and hookah", "dev": false}
+{"qid": "mq_california_full_direction_nearest_70", "answer": "Industrial Fabrications", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_14", "answer": "Greyhound Bus Station", "dev": false}
+{"qid": "mq_illinois_test_intersection_294", "answer": "Rotary Sundial", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_10483", "answer": "Chase; Wells Fargo", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_12244", "answer": "W at Worthington's; Raincross Pub", "dev": false}
+{"qid": "mq_illinois_test_intersection_398", "answer": "Harper College", "dev": false}
+{"qid": "mq_california_full_amenities_around_76", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9582", "answer": "Western Union", "dev": false}
+{"qid": "mq_illinois_test_intersection_33", "answer": "Lincoln Elementary School", "dev": false}
+{"qid": "mq_california_full_direction_nearest_181", "answer": "Big Bear Superior Court", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_263", "answer": "Theory", "dev": false}
+{"qid": "mq_illinois_test_intersection_51", "answer": "German International School Chicago", "dev": false}
+{"qid": "mq_california_full_adjacent_33", "answer": "626 Night Market Mini", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_348", "answer": "Riverside Fire Department Station #7", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 112th Street & Avenue M from 103rd Street & Calumet?", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_29", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_direction_nearest_194", "answer": "Social Hookah Lounge", "dev": false}
+{"qid": "mq_illinois_test_adjacent_30", "answer": "Creekside Tap", "dev": false}
+{"qid": "mq_illinois_test_intersection_224", "answer": "Skill Aviation", "dev": false}
+{"qid": "mq_california_full_amenities_around_172", "answer": "place_of_worship; telephone", "dev": false}
+{"qid": "mq_california_full_direction_nearest_122", "answer": "Figueroa Mountain Brewing Company", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 Desert Fir from 17th-Enderle Center?", "dev": false}
+{"qid": "mq_california_full_compare-closer_26", "answer": "Long Beach Fire Station #15", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1892", "answer": "Gaslamp Tavern", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Evergreen from 14th & California?", "dev": false}
+{"qid": "mq_california_full_amenities_around_68", "answer": "public_transport_tickets; telephone; vending_machine", "dev": false}
+{"qid": "mq_illinois_test_intersection_137", "answer": "Harper College", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_197", "answer": "Disneyland Resort Casting Center", "dev": false}
+{"qid": "mq_california_full_amenities_149", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_adjacent_7", "answer": "Art of Imagination; Strewn", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2592", "answer": "Romano's", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8776", "answer": "Recognize Cocktails", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_648", "answer": "Elixir Lounge", "dev": false}
+{"qid": "mq_illinois_test_amenities_18", "answer": "bank", "dev": false}
+{"qid": "mq_california_full_intersection_331", "answer": "Calvary Chapel Children's Church", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_74", "answer": "fire_station", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1261", "answer": "Allpoint", "dev": true}
+{"qid": "mq_illinois_test_amenities_14", "answer": "restaurant", "dev": true}
+{"qid": "mq_illinois_test_intersection_218", "answer": "First Aid Station", "dev": true}
+{"qid": "mq_california_full_amenities_around_231", "answer": "fuel", "dev": true}
+{"qid": "mq_california_full_amenities_230", "answer": "school", "dev": true}
+{"qid": "mq_california_full_direction_nearest_44", "answer": "Paddles and Pedals", "dev": true}
+{"qid": "mq_california_full_compare-closer_56", "answer": "Baja Fresh", "dev": true}
+{"qid": "mq_california_full_amenities_around_175", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_713", "answer": "Pacific Western Bank", "dev": true}
+{"qid": "mq_california_full_direction_nearest_11", "answer": "Pet Pharmacy", "dev": true}
+{"qid": "mq_california_full_amenities_114", "answer": "cafe", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 167 Cafe from 15?", "dev": true}
+{"qid": "mq_illinois_test_intersection_172", "answer": "Sherman Fire Protection District", "dev": true}
+{"qid": "mq_california_full_direction_nearest_36", "answer": "Ticketing | Check In", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1822", "answer": "Reggies Music Joint", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_133", "answer": "San Pedro County Courts Building", "dev": true}
+{"qid": "mq_california_full_adjacent_177", "answer": "El Burrito Panzon", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_1075", "answer": "Chatterbox", "dev": true}
+{"qid": "mq_california_full_amenities_233", "answer": "school", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 20th St E & Ave J from 17th-Bristol Market Place?", "dev": false}
+{"qid": "mq_california_full_amenities_15", "answer": "fuel", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_141", "answer": "Savers Donation Area", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1930's Colorado River Work Boat from 15 Tee?", "dev": false}
+{"qid": "mq_california_full_amenities_around_10", "answer": "place_of_worship; school", "dev": false}
+{"qid": "mq_california_full_direction_nearest_191", "answer": "South Esplanade Lockers", "dev": false}
+{"qid": "mq_california_full_intersection_387", "answer": "medical offices", "dev": false}
+{"qid": "mq_illinois_test_intersection_173", "answer": "Blue Jay Services Inc.", "dev": false}
+{"qid": "mq_california_full_direction_nearest_201", "answer": "Semper Solaris", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_148", "answer": "Prometric Testing Center", "dev": false}
+{"qid": "mq_california_full_amenities_16", "answer": "pub", "dev": false}
+{"qid": "mq_california_full_intersection_302", "answer": "Willow St & Mateo St", "dev": false}
+{"qid": "mq_california_full_intersection_19", "answer": "Regelin Hall", "dev": false}
+{"qid": "mq_california_full_amenities_around_140", "answer": "bench", "dev": false}
+{"qid": "mq_california_full_amenities_around_120", "answer": "atm; bank; cafe; clinic; dentist; doctors; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_133", "answer": "Angel's Smog Master", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_29", "answer": "BMO", "dev": false}
+{"qid": "mq_california_full_amenities_around_180", "answer": "fast_food; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_180", "answer": "Chicken Dijon; The Standing Room; Phở & Poké", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 111th Street (Morgan Park) from 11919 S Avenue O?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1385", "answer": "North End; Bobby Love's", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1112 W Garvey Ave, Monterey Park, CA 91754 from 1308 Waterloo Street?", "dev": false}
+{"qid": "mq_illinois_test_intersection_163", "answer": "Springfield Clinic Wabash", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1298", "answer": "Tinker to Evers, Wrigleyville; Nola pub", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_76", "answer": "Chase", "dev": false}
+{"qid": "mq_illinois_test_intersection_72", "answer": "SigRho", "dev": false}
+{"qid": "mq_illinois_test_intersection_215", "answer": "Progressive Kenpo Karate", "dev": false}
+{"qid": "mq_california_full_amenities_around_110", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_10531", "answer": "Wells Fargo; Chase", "dev": false}
+{"qid": "mq_california_full_direction_nearest_80", "answer": "Coast Community College District Office", "dev": false}
+{"qid": "mq_california_full_amenities_around_59", "answer": "fuel; place_of_worship", "dev": false}
+{"qid": "mq_california_full_intersection_338", "answer": "CSL Rm 333 Auditorium", "dev": false}
+{"qid": "mq_illinois_test_intersection_207", "answer": "African Wonderland Imports", "dev": false}
+{"qid": "mq_illinois_test_intersection_378", "answer": "Champlain Ave & 131st St", "dev": false}
+{"qid": "mq_california_full_direction_nearest_8", "answer": "Gujarati Indian Christian Church", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 10th Street at Converse from 11th & Enterprise?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_315", "answer": "Newbury Park Bike Shop", "dev": false}
+{"qid": "mq_california_full_intersection_61", "answer": "blueLA", "dev": false}
+{"qid": "mq_california_full_intersection_198", "answer": "Freeway Easy Traffic and Driving School", "dev": false}
+{"qid": "mq_illinois_test_intersection_393", "answer": "Learning Nook", "dev": false}

@@ -18,6 +18,23 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Config, ProblemSpec } from "../config.js";
 
+export interface ProblemOverride {
+	type?: "standard" | "quiz";
+	genre?: string;
+	/** eval needs the LLM judge on private split (credentials injected) */
+	judge?: boolean;
+	/** isolated python env for this problem (e.g. the GIS venv) */
+	python_cmd?: string;
+	/** per-eval timeout seconds (oracle references may run minutes) */
+	eval_timeout_s?: number;
+	max_turns?: number;
+	eval_cap?: number;
+	episode_timeout_s?: number;
+	patience?: number;
+	script_timeout_s?: number;
+	job_timeout_s?: number;
+}
+
 export interface Problem {
 	id: string;
 	dir: string;
@@ -25,12 +42,25 @@ export interface Problem {
 	weight: number;
 	heldout: boolean;
 	genre: string;
+	/** per-problem config overrides from problem.json (quiz batches, long jobs) */
+	overrides: ProblemOverride;
 }
 
 export interface EvalResult {
 	score: number | null;
 	detail: string;
 	secs: number;
+}
+
+/** Read problems/<id>/problem.json overrides if present. */
+function loadOverrides(dir: string): ProblemOverride {
+	const p = join(dir, "problem.json");
+	if (!existsSync(p)) return {};
+	try {
+		return JSON.parse(readFileSync(p, "utf8")) as ProblemOverride;
+	} catch {
+		return {};
+	}
 }
 
 export function loadProblems(cfg: Config, root: string, includeHeldout = false): Problem[] {
@@ -42,13 +72,15 @@ export function loadProblems(cfg: Config, root: string, includeHeldout = false):
 		if (!existsSync(statementPath)) {
 			throw new Error(`problem "${spec.id}": missing ${statementPath}`);
 		}
+		const overrides = loadOverrides(dir);
 		out.push({
 			id: spec.id,
 			dir,
 			statement: readFileSync(statementPath, "utf8"),
 			weight: spec.weight ?? 1,
 			heldout: spec.heldout ?? false,
-			genre: (spec as { genre?: string }).genre ?? guessGenre(spec.id),
+			genre: (spec as { genre?: string }).genre ?? overrides.genre ?? guessGenre(spec.id),
+			overrides,
 		});
 	}
 	return out;
@@ -95,6 +127,7 @@ export function loadAdHocProblem(dir: string): AdHocProblem {
 			weight: 1,
 			heldout: false,
 			genre: guessGenre(id),
+			overrides: loadOverrides(dir),
 		},
 		truthPath: effectiveTruth,
 		warnings,
@@ -106,13 +139,27 @@ export interface EvalContext {
 	privateTruthDir: string;
 	/** per-problem truth filename inside privateTruthDir */
 	truthFile: (problemId: string) => string;
+	/** gateway credentials for LLM-judge evals (private splits only) */
+	judgeEnv?: Record<string, string>;
 }
 
 export function makeEvalContext(cfg: Config, root: string): EvalContext {
+	// judge credentials for problems whose eval needs LLM grading (private split
+	// only; never present in the agent's own python subprocesses)
+	let judgeEnv: Record<string, string> | undefined;
+	const p = join(root, "api_key.txt");
+	if (existsSync(p)) {
+		judgeEnv = {
+			RSILAB_JUDGE_BASE: cfg.base_url,
+			RSILAB_JUDGE_KEY: readFileSync(p, "utf8").trim(),
+			RSILAB_JUDGE_MODEL: (cfg as { judge?: { model?: string } }).judge?.model ?? "hy3",
+		};
+	}
 	return {
 		pythonCmd: cfg.python_cmd,
 		privateTruthDir: join(root, cfg.private_truth_dir),
 		truthFile: (id) => join(root, cfg.private_truth_dir, `${id}.txt`),
+		judgeEnv,
 	};
 }
 
@@ -137,7 +184,13 @@ export function runEval(
 			split,
 		];
 		const env = { ...process.env, PYTHONIOENCODING: "utf-8" } as NodeJS.ProcessEnv;
-		if (split === "private") {
+		if (split === "private" && ctx.judgeEnv && problem.overrides.judge) {
+			Object.assign(env, ctx.judgeEnv);
+		}
+		if (split === "private" && problem.overrides?.type !== "quiz" && !problem.overrides?.judge) {
+			// quiz batches carry gold in answers.private.jsonl; judge/oracle
+			// problems grade internally against a hidden reference — neither
+			// needs the outside-tree truth file; standard problems do
 			const truth = ctx.truthFile(problem.id);
 			if (!existsSync(truth)) {
 				resolve({ score: null, detail: `private truth missing: ${truth}`, secs: 0 });
@@ -145,7 +198,7 @@ export function runEval(
 			}
 			env.RSILAB_PRIVATE_TRUTH = truth;
 		}
-		const child = spawn(ctx.pythonCmd, args, { env, windowsHide: true });
+		const child = spawn(problem.overrides.python_cmd ?? ctx.pythonCmd, args, { env, windowsHide: true });
 		let out = "";
 		let err = "";
 		const timer = setTimeout(() => {

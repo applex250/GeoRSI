@@ -1,0 +1,100 @@
+{"qid": "es_fil_335", "answer": "garnet, spinel", "dev": true}
+{"qid": "es_fil_300", "answer": "inverse modeling", "dev": true}
+{"qid": "es_tru_441", "answer": "False", "dev": true}
+{"qid": "es_mul_782", "answer": "D", "dev": true}
+{"qid": "es_fil_39", "answer": "0.0125", "dev": true}
+{"qid": "es_mul_713", "answer": "B", "dev": true}
+{"qid": "es_mul_728", "answer": "B", "dev": true}
+{"qid": "es_mul_618", "answer": "A", "dev": true}
+{"qid": "es_fil_148", "answer": "28000", "dev": true}
+{"qid": "es_tru_201", "answer": "True", "dev": true}
+{"qid": "es_tru_451", "answer": "False", "dev": true}
+{"qid": "es_fil_135", "answer": "", "dev": true}
+{"qid": "es_mul_793", "answer": "C", "dev": true}
+{"qid": "es_mul_520", "answer": "C", "dev": true}
+{"qid": "es_fil_642", "answer": "observed precipitation, observed runoff", "dev": true}
+{"qid": "es_tru_231", "answer": "True", "dev": true}
+{"qid": "es_mul_113", "answer": "C", "dev": true}
+{"qid": "es_fil_136", "answer": "equations", "dev": true}
+{"qid": "es_tru_452", "answer": "True", "dev": true}
+{"qid": "es_mul_555", "answer": "C", "dev": true}
+{"qid": "es_fil_66", "answer": "wet-bulb temperature", "dev": false}
+{"qid": "es_mul_795", "answer": "D", "dev": false}
+{"qid": "es_mul_747", "answer": "B", "dev": false}
+{"qid": "es_tru_230", "answer": "True", "dev": false}
+{"qid": "es_fil_209", "answer": "thermal gradient", "dev": false}
+{"qid": "es_mul_428", "answer": "C", "dev": false}
+{"qid": "es_fil_417", "answer": "43.27", "dev": false}
+{"qid": "es_mul_54", "answer": "B", "dev": false}
+{"qid": "es_fil_370", "answer": "0.042", "dev": false}
+{"qid": "es_mul_45", "answer": "B", "dev": false}
+{"qid": "es_fil_301", "answer": "74.5", "dev": false}
+{"qid": "es_tru_213", "answer": "True", "dev": false}
+{"qid": "es_mul_586", "answer": "B", "dev": false}
+{"qid": "es_fil_318", "answer": "transient storage of water in a groundwater unit", "dev": false}
+{"qid": "es_fil_316", "answer": "enthalpy wheel, cooling coil, liquid desiccant", "dev": false}
+{"qid": "es_fil_217", "answer": "osmotic, tissue turgor", "dev": false}
+{"qid": "es_mul_575", "answer": "B", "dev": false}
+{"qid": "es_fil_267", "answer": "cordaitean trees", "dev": false}
+{"qid": "es_mul_10", "answer": "B", "dev": false}
+{"qid": "es_fil_562", "answer": "280", "dev": false}
+{"qid": "es_mul_503", "answer": "C", "dev": false}
+{"qid": "es_tru_310", "answer": "True", "dev": false}
+{"qid": "es_mul_213", "answer": "B", "dev": false}
+{"qid": "es_fil_660", "answer": "50–70%", "dev": false}
+{"qid": "es_mul_363", "answer": "B", "dev": false}
+{"qid": "es_mul_207", "answer": "B", "dev": false}
+{"qid": "es_fil_232", "answer": "mitgcm", "dev": false}
+{"qid": "es_fil_329", "answer": "32, 13, 19", "dev": false}
+{"qid": "es_fil_168", "answer": "70", "dev": false}
+{"qid": "es_mul_160", "answer": "C", "dev": false}
+{"qid": "es_tru_440", "answer": "True", "dev": false}
+{"qid": "es_tru_529", "answer": "True", "dev": false}
+{"qid": "es_fil_752", "answer": "weighting of alternatives", "dev": false}
+{"qid": "es_tru_41", "answer": "True", "dev": false}
+{"qid": "es_fil_479", "answer": "critical layer, reflection and absorption", "dev": false}
+{"qid": "es_tru_415", "answer": "True", "dev": false}
+{"qid": "es_mul_801", "answer": "B", "dev": false}
+{"qid": "es_fil_371", "answer": "47.18, 31.57", "dev": false}
+{"qid": "es_fil_494", "answer": "2593", "dev": false}
+{"qid": "es_tru_97", "answer": "True", "dev": false}
+{"qid": "es_mul_181", "answer": "C", "dev": false}
+{"qid": "es_mul_412", "answer": "B", "dev": false}
+{"qid": "es_mul_342", "answer": "B", "dev": false}
+{"qid": "es_mul_426", "answer": "A", "dev": false}
+{"qid": "es_tru_406", "answer": "True", "dev": false}
+{"qid": "es_mul_744", "answer": "B", "dev": false}
+{"qid": "es_mul_753", "answer": "A", "dev": false}
+{"qid": "es_tru_36", "answer": "False", "dev": false}
+{"qid": "es_mul_272", "answer": "B", "dev": false}
+{"qid": "es_fil_305", "answer": "site a, site b", "dev": false}
+{"qid": "es_fil_535", "answer": "23", "dev": false}
+{"qid": "es_mul_89", "answer": "B", "dev": false}
+{"qid": "es_fil_643", "answer": "1360", "dev": false}
+{"qid": "es_mul_382", "answer": "B", "dev": false}
+{"qid": "es_fil_346", "answer": "2", "dev": false}
+{"qid": "es_mul_486", "answer": "B", "dev": false}
+{"qid": "es_mul_568", "answer": "A", "dev": false}
+{"qid": "es_fil_137", "answer": "significant", "dev": false}
+{"qid": "es_mul_656", "answer": "B", "dev": false}
+{"qid": "es_fil_655", "answer": "h_eff", "dev": false}
+{"qid": "es_fil_79", "answer": "airbase, emep", "dev": false}
+{"qid": "es_tru_146", "answer": "True", "dev": false}
+{"qid": "es_tru_163", "answer": "True", "dev": false}
+{"qid": "es_fil_753", "answer": "more research", "dev": false}
+{"qid": "es_fil_291", "answer": "δn = 0.86 δs − 0.95 δp", "dev": false}
+{"qid": "es_fil_312", "answer": "presence of group a in year y", "dev": false}
+{"qid": "es_fil_195", "answer": "0.975", "dev": false}
+{"qid": "es_tru_224", "answer": "True", "dev": false}
+{"qid": "es_fil_115", "answer": "1667", "dev": false}
+{"qid": "es_mul_202", "answer": "B", "dev": false}
+{"qid": "es_fil_452", "answer": "latex", "dev": false}
+{"qid": "es_fil_644", "answer": "8", "dev": false}
+{"qid": "es_mul_157", "answer": "C", "dev": false}
+{"qid": "es_fil_231", "answer": "37.5", "dev": false}
+{"qid": "es_mul_269", "answer": "B", "dev": false}
+{"qid": "es_mul_671", "answer": "B", "dev": false}
+{"qid": "es_fil_283", "answer": "dissolved silicate", "dev": false}
+{"qid": "es_tru_414", "answer": "True", "dev": false}
+{"qid": "es_fil_622", "answer": "aethalometer, gps", "dev": false}
+{"qid": "es_fil_666", "answer": "underrepresented", "dev": false}

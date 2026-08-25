@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_intersection_189", "answer": "Greyhound Bus Station", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 1?", "dev": true}
+{"qid": "mq_california_full_adjacent_179", "answer": "The Coffee Bean & Tea Leaf", "dev": true}
+{"qid": "mq_california_full_intersection_136", "answer": "eVgo", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_53", "answer": "Kim Roth - Fine Art", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_24", "answer": "post_box; school", "dev": true}
+{"qid": "mq_california_full_compare-closer_4", "answer": "Pho Ha Vietnamese Restaurant", "dev": true}
+{"qid": "mq_california_full_amenities_48", "answer": "fuel", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 18 Ten from 18?", "dev": true}
+{"qid": "mq_illinois_test_amenities_29", "answer": "fast_food", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 19 - NW cor SE 1/4 NW 1/4 S3 T32S R47E MDM from 14th & Michigan?", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-Standard from 1?", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 1st & Boyle?", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_661", "answer": "Pollyanna Brewing Company", "dev": true}
+{"qid": "mq_california_full_intersection_283", "answer": "HearUSA", "dev": true}
+{"qid": "mq_california_full_amenities_around_134", "answer": "bar; dentist", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_95", "answer": "Maginn's Pub: Beer, Whiskey & Fine Food", "dev": true}
+{"qid": "mq_illinois_test_intersection_270", "answer": "Stone City Softball", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2493", "answer": "The Walk In Chicago", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_48", "answer": "place_of_worship", "dev": true}
+{"qid": "mq_california_full_direction_nearest_49", "answer": "Chipotle", "dev": false}
+{"qid": "mq_illinois_test_intersection_291", "answer": "Sherman Car Wash", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 100? from 17th-Broadway?", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_20", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1091", "answer": "Regions Bank", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1991", "answer": "Citibank", "dev": false}
+{"qid": "mq_california_full_amenities_around_85", "answer": "bar; ice_cream; parking; parking_entrance; pub; reception_desk", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_207", "answer": "U-Haul Truck Rental", "dev": false}
+{"qid": "mq_california_full_amenities_56", "answer": "bank", "dev": false}
+{"qid": "mq_california_full_intersection_25", "answer": "Savers Donation Area", "dev": false}
+{"qid": "mq_california_full_amenities_around_118", "answer": "cafe; fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_324", "answer": "Operating Engineers Training Trust - Devore", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1288", "answer": "Henry's; The Rec Room", "dev": false}
+{"qid": "mq_california_full_intersection_388", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_44", "answer": "U-Haul Truck Rental", "dev": false}
+{"qid": "mq_california_full_intersection_155", "answer": "Fish District Eatery", "dev": false}
+{"qid": "mq_california_full_direction_nearest_74", "answer": "Savers Donation Area", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_210", "answer": "Claremont Chefs Academy", "dev": false}
+{"qid": "mq_california_full_direction_nearest_150", "answer": "GoBuild", "dev": false}
+{"qid": "mq_illinois_test_intersection_236", "answer": "Envision Dance", "dev": false}
+{"qid": "mq_california_full_amenities_around_156", "answer": "cafe; car_rental; clinic; dentist; doctors; fast_food; post_office; restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_7", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_intersection_344", "answer": "Claremont Chefs Academy", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11905", "answer": "Beer Company", "dev": false}
+{"qid": "mq_illinois_test_adjacent_33", "answer": "PL", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_930", "answer": "Enolo Wine Cafe", "dev": false}
+{"qid": "mq_california_full_intersection_125", "answer": "Calvary Chapel Children's Church", "dev": false}
+{"qid": "mq_california_full_adjacent_57", "answer": "Ridgewalk Social", "dev": false}
+{"qid": "mq_california_full_direction_nearest_227", "answer": "GoldMax", "dev": false}
+{"qid": "mq_california_full_amenities_around_174", "answer": "community_centre", "dev": false}
+{"qid": "mq_illinois_test_intersection_252", "answer": "The Bronze Man", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2420", "answer": "Old Bridge Tavern", "dev": false}
+{"qid": "mq_illinois_test_amenities_43", "answer": "fuel", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_61", "answer": "Psychic & Astrology", "dev": false}
+{"qid": "mq_illinois_test_intersection_88", "answer": "SigRho", "dev": false}
+{"qid": "mq_california_full_direction_nearest_134", "answer": "Jacumba Fire Station", "dev": false}
+{"qid": "mq_illinois_test_intersection_83", "answer": "School of Ukrainian Studies", "dev": false}
+{"qid": "mq_illinois_test_intersection_364", "answer": "Marian Banquet Hall", "dev": false}
+{"qid": "mq_illinois_test_intersection_36", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_adjacent_212", "answer": "Santa Monica Dentistry For Children", "dev": false}

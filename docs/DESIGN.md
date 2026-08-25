@@ -121,7 +121,8 @@ TuiAltScreen (pi-tui 全屏差分渲染 + Windows 原生 VT 支持)
    `emit?`，headless 路径零改动；`RunSnapshot` reducer 把事件流聚合成头部
    状态。TUI 只是事件的一个订阅者（未来可加 RPC/watch 前端）。
 3. **纯函数渲染可测试**：组件 `render(width)` 无副作用 → `npm run tuitest`
-   53 项无 TTY 验证（reducer/命令解析/日志行/Header 渲染/AltScreen 全管线/
+   75 项无 TTY 验证（reducer/命令解析/日志行/Header 渲染/AltScreen 全管线/
+
    overlay/窄终端安全/真实 journal 回放合成）。
 4. **控制通道**：`RunController`（暂停门+停止标志）在循环安全点轮询
    （代际间/幸存者评测前/heldout 前），TUI 输入即改标志；反馈走
@@ -136,3 +137,54 @@ TuiAltScreen (pi-tui 全屏差分渲染 + Windows 原生 VT 支持)
 3. **止损**：stagnation_limit 停滞停跑；cost_cap_tokens 预算停跑；单 episode 墙钟硬顶
 4. **防挂死**：每 prompt 墙钟 + stall 双看门狗；python 子进程 120s 超时
 5. **防泄漏**：agent 工作区只拷贝 data/；eval 脚本与私有真值均不可达；公开分才进提示
+
+## 演进：外部基准、统一模型层、知识库与诚实性基础设施（2026-08-25，v1.1）
+
+### 外部基准接入（A/B 级）
+
+原 5 题合成套件之外，新增两条题目机制，全部走同一 `##SCORE##` 协议与
+`problems/<id>/problem.json` 覆盖项：
+
+- **quiz 批量模式**（`scripts/quiz_build.py`）：外部题库切块成批，一 chunk 一题；
+  题目在 `data/quiz.jsonl`（agent 可见），金标答案在 `answers.private.jsonl`
+  （不拷入工作区）；提交 = submit 工具交 answers.json，eval_cap=2，未答即错。
+  套件经 `config/<suite>.problems.json` 注册，`config.json` 的 `problems_file`
+  指向即可整卷运行。已接：earthse / k2 / mapqa / gkmc / stepgame / mgq。
+- **judge/oracle 模式**（`scripts/gab_build.py`、`gbx_build.py`）：
+  GeoAnalystBench 走 oracle 参考解 → LLM judge 链；GeoBenchX 走工具链 judge，
+  正确拒绝得确定性 1.0。共享缓存 judge（`problems/_shared/judge.py`，
+  model+prompt 为键），judge 凭据只在 eval 侧存在。
+
+设计取舍：quiz fitness 是知识有界的，衡量的是"策略能否把已有知识稳定兑现"，
+不是能力上限；公开分探测风险靠守卫缓解而非根除（见下）。
+
+### 统一模型调用层
+
+`config/model-profiles.json` 是唯一事实源（实测探针数据版本化），TS 侧
+`src/models.ts` 与 Python 侧 `problems/_shared/model_client.py` 都从它读取：
+推理参数风格翻译（effort / 对象 / thinking_budget 三派）、等级钳制、视觉位、
+端点路由。`PiHarness` 在会话创建前钳制 thinkingLevel 并记录降级；provider 按
+profiles 输出 models.json 能力位。新增 OpenRouter 端点（stealth/ox-alpha，
+免费档限速、强制推理）。人类视图见 `docs/MODELS.md`。
+
+### 标签知识库（跨 run 进化记忆）
+
+`src/knowledge.ts`：每个经验教训是一个带 region/genre 标签的节点，
+检索 = 标签求交 + 效用排序 + 字符预算硬顶——"图"的语义、"JSONL"的实现。
+确定性契约：同 store 版本 + 同题 ⇒ 同注入集（重评测同分）；统计更新只在
+episode 结束后发生，不再中途污染评测。
+
+### 诚实性基础设施（防 reward-hacking）
+
+协议保持 no-sandbox（agent 有真实文件系统），作弊改为**检测而非阻止**
+（`src/guard.ts`）：工作区硬围栏（resolve+包含判定，堵住旧正则放行 `../`
+的洞）、eval 侧文件完整性 manifest、episode 后对 agent 写过/执行过的一切
+扫描受保护路径引用（命中 ⇒ 该 episode fitness→null，毒化结果进不了冠军
+选择与知识库统计）、judge 凭据剥离。`npm run selftest` 断言守卫行为。
+
+### 按题覆盖项
+
+`problem.json` 可按题覆盖 config 旋钮（type/judge/python_cmd/超时/max_turns/
+eval_cap 等），合并优先级高于全局配置——quiz 批量、长任务、GIS venv
+（`.gisenv/`）等特例不再需要改全局配置。
+

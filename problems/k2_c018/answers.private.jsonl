@@ -1,0 +1,100 @@
+{"qid": "k2_ap_186", "answer": "A", "dev": true}
+{"qid": "k2_ap_1010", "answer": "A", "dev": true}
+{"qid": "k2_ap_1043", "answer": "C", "dev": true}
+{"qid": "k2_ap_283", "answer": "A", "dev": true}
+{"qid": "k2_np_f32", "answer": "On the contrary, inequality", "dev": true}
+{"qid": "k2_ap_741", "answer": "D", "dev": true}
+{"qid": "k2_ap_817", "answer": "E", "dev": true}
+{"qid": "k2_ap_1195", "answer": "B", "dev": true}
+{"qid": "k2_ap_877", "answer": "D", "dev": true}
+{"qid": "k2_ap_1197", "answer": "A", "dev": true}
+{"qid": "k2_np_c134", "answer": "A", "dev": true}
+{"qid": "k2_ap_538", "answer": "C", "dev": true}
+{"qid": "k2_ap_1103", "answer": "A", "dev": true}
+{"qid": "k2_np_f124", "answer": "Lagoon subfacies, tidal flat subfacies, barrier island subfacies", "dev": true}
+{"qid": "k2_np_c130", "answer": "C", "dev": true}
+{"qid": "k2_ap_505", "answer": "A", "dev": true}
+{"qid": "k2_np_f142", "answer": "Volcanic agglomerate, volcanic breccia, tuff", "dev": true}
+{"qid": "k2_ap_542", "answer": "B", "dev": true}
+{"qid": "k2_ap_292", "answer": "A", "dev": true}
+{"qid": "k2_ap_939", "answer": "A", "dev": true}
+{"qid": "k2_ap_1316", "answer": "A", "dev": false}
+{"qid": "k2_ap_810", "answer": "E", "dev": false}
+{"qid": "k2_ap_1022", "answer": "E", "dev": false}
+{"qid": "k2_ap_1342", "answer": "C", "dev": false}
+{"qid": "k2_ap_435", "answer": "A", "dev": false}
+{"qid": "k2_ap_644", "answer": "E", "dev": false}
+{"qid": "k2_np_c75", "answer": "B", "dev": false}
+{"qid": "k2_ap_1161", "answer": "E", "dev": false}
+{"qid": "k2_ap_432", "answer": "C", "dev": false}
+{"qid": "k2_ap_135", "answer": "C", "dev": false}
+{"qid": "k2_ap_548", "answer": "C", "dev": false}
+{"qid": "k2_ap_821", "answer": "A", "dev": false}
+{"qid": "k2_ap_646", "answer": "A", "dev": false}
+{"qid": "k2_np_t71", "answer": "False", "dev": false}
+{"qid": "k2_np_f132", "answer": "(adsorbed water, crystal water, structural water, zeolite water, interlayer water)", "dev": false}
+{"qid": "k2_np_t106", "answer": "False", "dev": false}
+{"qid": "k2_ap_469", "answer": "B", "dev": false}
+{"qid": "k2_ap_114", "answer": "B", "dev": false}
+{"qid": "k2_np_t12", "answer": "False", "dev": false}
+{"qid": "k2_np_c178", "answer": "B", "dev": false}
+{"qid": "k2_np_f15", "answer": "Strong horizontal extrusion.", "dev": false}
+{"qid": "k2_ap_664", "answer": "D", "dev": false}
+{"qid": "k2_np_c7", "answer": "B", "dev": false}
+{"qid": "k2_ap_449", "answer": "D", "dev": false}
+{"qid": "k2_ap_1140", "answer": "D", "dev": false}
+{"qid": "k2_np_c14", "answer": "C", "dev": false}
+{"qid": "k2_ap_1310", "answer": "B", "dev": false}
+{"qid": "k2_ap_552", "answer": "C", "dev": false}
+{"qid": "k2_ap_777", "answer": "D", "dev": false}
+{"qid": "k2_ap_946", "answer": "A", "dev": false}
+{"qid": "k2_ap_334", "answer": "B", "dev": false}
+{"qid": "k2_np_f144", "answer": "Triassic, Jurassic, Cretaceous T, J, K", "dev": false}
+{"qid": "k2_np_c98", "answer": "C", "dev": false}
+{"qid": "k2_ap_1093", "answer": "E", "dev": false}
+{"qid": "k2_ap_350", "answer": "A", "dev": false}
+{"qid": "k2_ap_1300", "answer": "E", "dev": false}
+{"qid": "k2_ap_1247", "answer": "D", "dev": false}
+{"qid": "k2_ap_146", "answer": "E", "dev": false}
+{"qid": "k2_ap_1327", "answer": "D", "dev": false}
+{"qid": "k2_np_c4", "answer": "B", "dev": false}
+{"qid": "k2_np_c42", "answer": "B", "dev": false}
+{"qid": "k2_ap_546", "answer": "E", "dev": false}
+{"qid": "k2_ap_1372", "answer": "B", "dev": false}
+{"qid": "k2_ap_429", "answer": "D", "dev": false}
+{"qid": "k2_ap_727", "answer": "E", "dev": false}
+{"qid": "k2_ap_758", "answer": "D", "dev": false}
+{"qid": "k2_ap_333", "answer": "B", "dev": false}
+{"qid": "k2_ap_747", "answer": "E", "dev": false}
+{"qid": "k2_np_t131", "answer": "True", "dev": false}
+{"qid": "k2_ap_1301", "answer": "E", "dev": false}
+{"qid": "k2_ap_928", "answer": "E", "dev": false}
+{"qid": "k2_np_f104", "answer": "Plastic deformation, elastic deformation, brittle deformation", "dev": false}
+{"qid": "k2_np_f97", "answer": "Hailing, transform fault, subduction zone and deep trench, ground suture", "dev": false}
+{"qid": "k2_ap_206", "answer": "B", "dev": false}
+{"qid": "k2_np_f63", "answer": "Aluminum rock, iron rock, manganese rock, phosphorous rock, evaporite, combustible organic rock, siliceous rock, carbonate rock", "dev": false}
+{"qid": "k2_np_f128", "answer": "(oxidation, dissolution, hydrolysis, hydration, biochemical weathering)", "dev": false}
+{"qid": "k2_np_f40", "answer": "Recrystallization, metamorphic crystallization, metasomatism, metamorphic differentiation, tectonic deformation.", "dev": false}
+{"qid": "k2_ap_163", "answer": "E", "dev": false}
+{"qid": "k2_ap_592", "answer": "D", "dev": false}
+{"qid": "k2_np_t6", "answer": "True", "dev": false}
+{"qid": "k2_ap_466", "answer": "D", "dev": false}
+{"qid": "k2_ap_1354", "answer": "C", "dev": false}
+{"qid": "k2_ap_93", "answer": "D", "dev": false}
+{"qid": "k2_ap_142", "answer": "A", "dev": false}
+{"qid": "k2_np_c47", "answer": "A", "dev": false}
+{"qid": "k2_ap_393", "answer": "E", "dev": false}
+{"qid": "k2_ap_1182", "answer": "A", "dev": false}
+{"qid": "k2_ap_740", "answer": "B", "dev": false}
+{"qid": "k2_np_f53", "answer": "Extremely angular, angular, sub-circular, circular, extremely circular", "dev": false}
+{"qid": "k2_ap_1266", "answer": "A", "dev": false}
+{"qid": "k2_ap_1287", "answer": "E", "dev": false}
+{"qid": "k2_np_t121", "answer": "True", "dev": false}
+{"qid": "k2_ap_600", "answer": "D", "dev": false}
+{"qid": "k2_ap_1130", "answer": "A", "dev": false}
+{"qid": "k2_ap_161", "answer": "B", "dev": false}
+{"qid": "k2_ap_775", "answer": "D", "dev": false}
+{"qid": "k2_ap_255", "answer": "A", "dev": false}
+{"qid": "k2_ap_1098", "answer": "B", "dev": false}
+{"qid": "k2_ap_940", "answer": "B", "dev": false}
+{"qid": "k2_np_c99", "answer": "A", "dev": false}

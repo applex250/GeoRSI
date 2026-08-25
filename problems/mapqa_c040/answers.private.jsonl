@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_nearest_amenity_8", "answer": "Santa Clarita Animal Hospital - Veterinarian", "dev": true}
+{"qid": "mq_california_full_compare-closer_10", "answer": "Wells Fargo", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_318", "answer": "Shay Chicago; Electric Hotel", "dev": true}
+{"qid": "mq_illinois_test_intersection_32", "answer": "charging_station", "dev": true}
+{"qid": "mq_illinois_test_intersection_176", "answer": "Eye Level Learning Center of Rockford", "dev": true}
+{"qid": "mq_california_full_compare-closer_14", "answer": "Shell", "dev": true}
+{"qid": "mq_illinois_test_intersection_247", "answer": "Alpha Gail Daycare", "dev": true}
+{"qid": "mq_california_full_amenities_58", "answer": "cafe", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_262", "answer": "Nubia Cafe", "dev": true}
+{"qid": "mq_california_full_adjacent_42", "answer": "WaBa Grill", "dev": true}
+{"qid": "mq_illinois_test_intersection_133", "answer": "Sherman Car Wash", "dev": true}
+{"qid": "mq_california_full_direction_nearest_86", "answer": "USU East Conference Center", "dev": true}
+{"qid": "mq_california_full_direction_nearest_100", "answer": "Watermill Express", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120 DegreeZ from 2?", "dev": true}
+{"qid": "mq_california_full_direction_nearest_6", "answer": "US Bankruptcy Court", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 18th & Western from 1?", "dev": true}
+{"qid": "mq_california_full_amenities_144", "answer": "library", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_79", "answer": "The UPS Store", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2222", "answer": "Faith and Whiskey", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 - SW cor GL6 S2 T12N R1E SBM from 2?", "dev": true}
+{"qid": "mq_illinois_test_amenities_24", "answer": "post_office", "dev": false}
+{"qid": "mq_california_full_adjacent_118", "answer": "A La Carte Thai Bistro / Thai Dishes", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15th St W & Ave J from 11?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2145", "answer": "Jelleybean Bar & Gaming", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_904", "answer": "Strewn", "dev": false}
+{"qid": "mq_illinois_test_intersection_387", "answer": "Preferred Imaging Centers", "dev": false}
+{"qid": "mq_california_full_compare-closer_24", "answer": "Terminal Island Fire Station", "dev": false}
+{"qid": "mq_california_full_intersection_300", "answer": "Jollibee", "dev": false}
+{"qid": "mq_california_full_direction_nearest_97", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5637", "answer": "Wells Fargo; Chase", "dev": false}
+{"qid": "mq_california_full_compare-closer_31", "answer": "Starbucks", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17 from 1st Hole?", "dev": false}
+{"qid": "mq_california_full_direction_nearest_54", "answer": "Nix / Payday Today Check Cashing", "dev": false}
+{"qid": "mq_california_full_intersection_238", "answer": "Goodwill", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1827", "answer": "Halligan Bar", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_49", "answer": "Hawthorne Plaza", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2497", "answer": "Clover", "dev": false}
+{"qid": "mq_california_full_direction_nearest_61", "answer": "Center for Neuroeconomics Studies (CNS)", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_297", "answer": "Pet Pharmacy", "dev": false}
+{"qid": "mq_california_full_amenities_around_247", "answer": "dentist; events_venue; restaurant; social_centre", "dev": false}
+{"qid": "mq_california_full_intersection_237", "answer": "Gould Mesa Trail Camp", "dev": false}
+{"qid": "mq_illinois_test_intersection_265", "answer": "Jimmy John's", "dev": false}
+{"qid": "mq_california_full_intersection_337", "answer": "West Coast Surrogacy", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 0556 from 101D 201D 301D?", "dev": false}
+{"qid": "mq_california_full_intersection_229", "answer": "Fish District Eatery", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_10029", "answer": "Pariah Brewing Company; Eppig Brewing North Park", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_98", "answer": "U-Haul Truck Rental", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_12", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_adjacent_52", "answer": "Leelin Bakery and Cafe", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 119th & Willowbrook from 1st & Cummings?", "dev": false}
+{"qid": "mq_illinois_test_intersection_68", "answer": "Springfield Clinic at the Villas", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1896", "answer": "Torrey Pines Bank", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Central from #159?", "dev": false}
+{"qid": "mq_illinois_test_intersection_318", "answer": "SigRho", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_371", "answer": "Vapor", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10th St W & Ave J-12 from 10?", "dev": false}
+{"qid": "mq_california_full_adjacent_169", "answer": "Los Panchos Taco Shop", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_726", "answer": "Whale Tale", "dev": false}
+{"qid": "mq_illinois_test_intersection_221", "answer": "Brew Camp", "dev": false}
+{"qid": "mq_california_full_direction_nearest_190", "answer": "Virtual Snow", "dev": false}

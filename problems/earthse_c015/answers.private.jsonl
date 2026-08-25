@@ -1,0 +1,100 @@
+{"qid": "es_tru_361", "answer": "True", "dev": true}
+{"qid": "es_mul_40", "answer": "A", "dev": true}
+{"qid": "es_fil_412", "answer": "1.09347", "dev": true}
+{"qid": "es_mul_797", "answer": "C", "dev": true}
+{"qid": "es_tru_42", "answer": "True", "dev": true}
+{"qid": "es_mul_423", "answer": "C", "dev": true}
+{"qid": "es_mul_127", "answer": "B", "dev": true}
+{"qid": "es_tru_33", "answer": "True", "dev": true}
+{"qid": "es_tru_136", "answer": "True", "dev": true}
+{"qid": "es_tru_293", "answer": "True", "dev": true}
+{"qid": "es_mul_677", "answer": "A", "dev": true}
+{"qid": "es_tru_16", "answer": "True", "dev": true}
+{"qid": "es_tru_31", "answer": "True", "dev": true}
+{"qid": "es_fil_539", "answer": "2.12", "dev": true}
+{"qid": "es_fil_514", "answer": "35", "dev": true}
+{"qid": "es_mul_312", "answer": "D", "dev": true}
+{"qid": "es_mul_784", "answer": "B", "dev": true}
+{"qid": "es_mul_473", "answer": "C", "dev": true}
+{"qid": "es_mul_308", "answer": "A", "dev": true}
+{"qid": "es_fil_670", "answer": "s", "dev": true}
+{"qid": "es_mul_165", "answer": "B", "dev": false}
+{"qid": "es_tru_288", "answer": "True", "dev": false}
+{"qid": "es_mul_654", "answer": "B", "dev": false}
+{"qid": "es_mul_687", "answer": "C", "dev": false}
+{"qid": "es_mul_556", "answer": "B", "dev": false}
+{"qid": "es_mul_480", "answer": "C", "dev": false}
+{"qid": "es_fil_686", "answer": "geographical", "dev": false}
+{"qid": "es_mul_158", "answer": "B", "dev": false}
+{"qid": "es_tru_82", "answer": "False", "dev": false}
+{"qid": "es_mul_562", "answer": "B", "dev": false}
+{"qid": "es_mul_489", "answer": "A", "dev": false}
+{"qid": "es_tru_465", "answer": "True", "dev": false}
+{"qid": "es_tru_174", "answer": "False", "dev": false}
+{"qid": "es_tru_249", "answer": "True", "dev": false}
+{"qid": "es_mul_567", "answer": "B", "dev": false}
+{"qid": "es_tru_487", "answer": "False", "dev": false}
+{"qid": "es_mul_506", "answer": "B", "dev": false}
+{"qid": "es_mul_530", "answer": "B", "dev": false}
+{"qid": "es_tru_103", "answer": "True", "dev": false}
+{"qid": "es_tru_154", "answer": "False", "dev": false}
+{"qid": "es_mul_325", "answer": "C", "dev": false}
+{"qid": "es_tru_95", "answer": "True", "dev": false}
+{"qid": "es_fil_703", "answer": "lu et al.", "dev": false}
+{"qid": "es_tru_55", "answer": "False", "dev": false}
+{"qid": "es_tru_215", "answer": "True", "dev": false}
+{"qid": "es_tru_436", "answer": "True", "dev": false}
+{"qid": "es_tru_88", "answer": "True", "dev": false}
+{"qid": "es_mul_649", "answer": "C", "dev": false}
+{"qid": "es_tru_401", "answer": "False", "dev": false}
+{"qid": "es_tru_326", "answer": "False", "dev": false}
+{"qid": "es_fil_408", "answer": "3000", "dev": false}
+{"qid": "es_fil_338", "answer": "62, 59", "dev": false}
+{"qid": "es_fil_95", "answer": "21 km by 21 km", "dev": false}
+{"qid": "es_mul_273", "answer": "B", "dev": false}
+{"qid": "es_tru_116", "answer": "False", "dev": false}
+{"qid": "es_mul_248", "answer": "B", "dev": false}
+{"qid": "es_mul_510", "answer": "C", "dev": false}
+{"qid": "es_tru_323", "answer": "True", "dev": false}
+{"qid": "es_fil_413", "answer": "soluble polyphenols", "dev": false}
+{"qid": "es_tru_133", "answer": "True", "dev": false}
+{"qid": "es_tru_242", "answer": "True", "dev": false}
+{"qid": "es_fil_61", "answer": "transpressive", "dev": false}
+{"qid": "es_mul_360", "answer": "B", "dev": false}
+{"qid": "es_mul_448", "answer": "B", "dev": false}
+{"qid": "es_fil_690", "answer": "25%", "dev": false}
+{"qid": "es_mul_218", "answer": "C", "dev": false}
+{"qid": "es_mul_11", "answer": "C", "dev": false}
+{"qid": "es_fil_734", "answer": "positive, negative", "dev": false}
+{"qid": "es_tru_525", "answer": "True", "dev": false}
+{"qid": "es_mul_302", "answer": "C", "dev": false}
+{"qid": "es_mul_499", "answer": "B", "dev": false}
+{"qid": "es_fil_223", "answer": "20°", "dev": false}
+{"qid": "es_tru_194", "answer": "True", "dev": false}
+{"qid": "es_mul_786", "answer": "C", "dev": false}
+{"qid": "es_fil_432", "answer": "46 zircon and 13 apatite", "dev": false}
+{"qid": "es_fil_427", "answer": "geopotential height", "dev": false}
+{"qid": "es_mul_398", "answer": "B", "dev": false}
+{"qid": "es_tru_360", "answer": "True", "dev": false}
+{"qid": "es_tru_471", "answer": "True", "dev": false}
+{"qid": "es_tru_30", "answer": "True", "dev": false}
+{"qid": "es_tru_114", "answer": "True", "dev": false}
+{"qid": "es_mul_149", "answer": "B", "dev": false}
+{"qid": "es_tru_433", "answer": "False", "dev": false}
+{"qid": "es_fil_567", "answer": "7, wind speed", "dev": false}
+{"qid": "es_mul_501", "answer": "B", "dev": false}
+{"qid": "es_mul_94", "answer": "B", "dev": false}
+{"qid": "es_fil_659", "answer": "jdmax", "dev": false}
+{"qid": "es_mul_301", "answer": "D", "dev": false}
+{"qid": "es_fil_608", "answer": "25.33", "dev": false}
+{"qid": "es_fil_540", "answer": "300", "dev": false}
+{"qid": "es_mul_635", "answer": "B", "dev": false}
+{"qid": "es_fil_13", "answer": "overpressured compartments", "dev": false}
+{"qid": "es_fil_397", "answer": "deforestation, selective logging", "dev": false}
+{"qid": "es_fil_454", "answer": "0.5", "dev": false}
+{"qid": "es_mul_686", "answer": "B", "dev": false}
+{"qid": "es_fil_462", "answer": "41 and 52", "dev": false}
+{"qid": "es_tru_478", "answer": "False", "dev": false}
+{"qid": "es_tru_541", "answer": "True", "dev": false}
+{"qid": "es_tru_237", "answer": "True", "dev": false}
+{"qid": "es_mul_581", "answer": "B", "dev": false}

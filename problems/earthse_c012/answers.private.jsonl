@@ -1,0 +1,100 @@
+{"qid": "es_tru_455", "answer": "True", "dev": true}
+{"qid": "es_tru_66", "answer": "True", "dev": true}
+{"qid": "es_fil_276", "answer": "19.0", "dev": true}
+{"qid": "es_fil_404", "answer": "stress state", "dev": true}
+{"qid": "es_tru_78", "answer": "True", "dev": true}
+{"qid": "es_tru_193", "answer": "True", "dev": true}
+{"qid": "es_fil_702", "answer": "j. heyrovský", "dev": true}
+{"qid": "es_tru_206", "answer": "True", "dev": true}
+{"qid": "es_fil_325", "answer": "15", "dev": true}
+{"qid": "es_fil_264", "answer": "-175", "dev": true}
+{"qid": "es_fil_158", "answer": "3", "dev": true}
+{"qid": "es_tru_141", "answer": "True", "dev": true}
+{"qid": "es_mul_254", "answer": "A", "dev": true}
+{"qid": "es_fil_701", "answer": "5.0, 5.19", "dev": true}
+{"qid": "es_mul_591", "answer": "B", "dev": true}
+{"qid": "es_fil_586", "answer": "modis", "dev": true}
+{"qid": "es_mul_339", "answer": "A", "dev": true}
+{"qid": "es_fil_758", "answer": "5-9 september 1994", "dev": true}
+{"qid": "es_mul_146", "answer": "B", "dev": true}
+{"qid": "es_mul_291", "answer": "C", "dev": true}
+{"qid": "es_mul_544", "answer": "B", "dev": false}
+{"qid": "es_tru_448", "answer": "True", "dev": false}
+{"qid": "es_fil_125", "answer": "17, 0.0588", "dev": false}
+{"qid": "es_tru_297", "answer": "True", "dev": false}
+{"qid": "es_mul_235", "answer": "B", "dev": false}
+{"qid": "es_fil_100", "answer": "0.00006", "dev": false}
+{"qid": "es_mul_405", "answer": "B", "dev": false}
+{"qid": "es_tru_329", "answer": "True", "dev": false}
+{"qid": "es_mul_478", "answer": "B", "dev": false}
+{"qid": "es_fil_520", "answer": "silica, flints, oxide of iron", "dev": false}
+{"qid": "es_fil_347", "answer": "3.18", "dev": false}
+{"qid": "es_fil_536", "answer": "205", "dev": false}
+{"qid": "es_mul_590", "answer": "B", "dev": false}
+{"qid": "es_mul_474", "answer": "C", "dev": false}
+{"qid": "es_mul_66", "answer": "B", "dev": false}
+{"qid": "es_mul_596", "answer": "B", "dev": false}
+{"qid": "es_tru_144", "answer": "False", "dev": false}
+{"qid": "es_tru_338", "answer": "False", "dev": false}
+{"qid": "es_fil_172", "answer": "porosity", "dev": false}
+{"qid": "es_mul_5", "answer": "A", "dev": false}
+{"qid": "es_mul_320", "answer": "B", "dev": false}
+{"qid": "es_mul_153", "answer": "B", "dev": false}
+{"qid": "es_tru_312", "answer": "False", "dev": false}
+{"qid": "es_mul_355", "answer": "B", "dev": false}
+{"qid": "es_mul_491", "answer": "C", "dev": false}
+{"qid": "es_mul_321", "answer": "D", "dev": false}
+{"qid": "es_mul_166", "answer": "B", "dev": false}
+{"qid": "es_fil_331", "answer": "cumulus", "dev": false}
+{"qid": "es_mul_432", "answer": "B", "dev": false}
+{"qid": "es_mul_425", "answer": "B", "dev": false}
+{"qid": "es_mul_203", "answer": "C", "dev": false}
+{"qid": "es_mul_123", "answer": "D", "dev": false}
+{"qid": "es_fil_254", "answer": "15", "dev": false}
+{"qid": "es_tru_60", "answer": "True", "dev": false}
+{"qid": "es_mul_608", "answer": "C", "dev": false}
+{"qid": "es_fil_82", "answer": "azimuth readings", "dev": false}
+{"qid": "es_tru_104", "answer": "False", "dev": false}
+{"qid": "es_fil_35", "answer": "omip", "dev": false}
+{"qid": "es_fil_383", "answer": "250", "dev": false}
+{"qid": "es_mul_462", "answer": "C", "dev": false}
+{"qid": "es_tru_34", "answer": "True", "dev": false}
+{"qid": "es_tru_324", "answer": "True", "dev": false}
+{"qid": "es_mul_242", "answer": "C", "dev": false}
+{"qid": "es_fil_250", "answer": "era-interim", "dev": false}
+{"qid": "es_mul_174", "answer": "B", "dev": false}
+{"qid": "es_fil_153", "answer": "impact guardrails, mitigation guardrails", "dev": false}
+{"qid": "es_tru_334", "answer": "True", "dev": false}
+{"qid": "es_fil_503", "answer": "late summer", "dev": false}
+{"qid": "es_mul_310", "answer": "B", "dev": false}
+{"qid": "es_mul_109", "answer": "C", "dev": false}
+{"qid": "es_mul_151", "answer": "D", "dev": false}
+{"qid": "es_tru_189", "answer": "True", "dev": false}
+{"qid": "es_tru_2", "answer": "True", "dev": false}
+{"qid": "es_mul_133", "answer": "B", "dev": false}
+{"qid": "es_mul_233", "answer": "B", "dev": false}
+{"qid": "es_tru_160", "answer": "False", "dev": false}
+{"qid": "es_mul_517", "answer": "B", "dev": false}
+{"qid": "es_mul_105", "answer": "C", "dev": false}
+{"qid": "es_mul_377", "answer": "B", "dev": false}
+{"qid": "es_fil_296", "answer": "standard deviations", "dev": false}
+{"qid": "es_fil_750", "answer": "turc (1961)", "dev": false}
+{"qid": "es_tru_162", "answer": "False", "dev": false}
+{"qid": "es_tru_143", "answer": "True", "dev": false}
+{"qid": "es_mul_582", "answer": "C", "dev": false}
+{"qid": "es_tru_357", "answer": "False", "dev": false}
+{"qid": "es_fil_528", "answer": "univectorial", "dev": false}
+{"qid": "es_fil_270", "answer": "1% to 4%", "dev": false}
+{"qid": "es_tru_421", "answer": "True", "dev": false}
+{"qid": "es_tru_524", "answer": "True", "dev": false}
+{"qid": "es_mul_598", "answer": "B", "dev": false}
+{"qid": "es_tru_409", "answer": "True", "dev": false}
+{"qid": "es_mul_111", "answer": "C", "dev": false}
+{"qid": "es_mul_93", "answer": "A", "dev": false}
+{"qid": "es_mul_561", "answer": "B", "dev": false}
+{"qid": "es_mul_259", "answer": "B", "dev": false}
+{"qid": "es_fil_10", "answer": "4000", "dev": false}
+{"qid": "es_mul_28", "answer": "B", "dev": false}
+{"qid": "es_fil_344", "answer": "7.33", "dev": false}
+{"qid": "es_fil_257", "answer": "lc-m", "dev": false}
+{"qid": "es_mul_739", "answer": "C", "dev": false}

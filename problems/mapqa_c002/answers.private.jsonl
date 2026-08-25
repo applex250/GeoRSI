@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_intersection_21", "answer": "Bobby's Kayak", "dev": true}
+{"qid": "mq_california_full_amenities_around_80", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_direction_nearest_57", "answer": "Ponderosa Car Wash", "dev": true}
+{"qid": "mq_illinois_test_amenities_19", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_7784", "answer": "Key Point Credit Union", "dev": true}
+{"qid": "mq_california_full_intersection_278", "answer": "Minuteman Press", "dev": true}
+{"qid": "mq_california_full_adjacent_183", "answer": "Little Free Library", "dev": true}
+{"qid": "mq_california_full_amenities_around_60", "answer": "bicycle_rental; cafe; restaurant", "dev": true}
+{"qid": "mq_california_full_direction_nearest_46", "answer": "Mail Center and More", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_45", "answer": "Head Start", "dev": true}
+{"qid": "mq_illinois_test_intersection_42", "answer": "Book Dropoff", "dev": true}
+{"qid": "mq_california_full_intersection_285", "answer": "Long Beach Fire Station 21", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_264", "answer": "Three Sixty Dentistry: Brian Edwards DDS, Amanda Jenney DDS & Stephanie Colletta DDS", "dev": true}
+{"qid": "mq_illinois_test_intersection_243", "answer": "Commerce Bank", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6199", "answer": "University Credit Union", "dev": true}
+{"qid": "mq_illinois_test_amenities_30", "answer": "fast_food", "dev": true}
+{"qid": "mq_california_full_amenities_118", "answer": "fast_food", "dev": true}
+{"qid": "mq_illinois_test_intersection_149", "answer": "Zipcar", "dev": true}
+{"qid": "mq_california_full_intersection_341", "answer": "Red Point", "dev": true}
+{"qid": "mq_california_full_adjacent_83", "answer": "Chipotle; Jersey Mike's Subs; California Fish Grill", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_219", "answer": "Road One Towing", "dev": false}
+{"qid": "mq_california_full_intersection_281", "answer": "Gould Mesa Trail Camp", "dev": false}
+{"qid": "mq_california_full_amenities_around_22", "answer": "library; social_centre; theatre; university", "dev": false}
+{"qid": "mq_california_full_direction_nearest_216", "answer": "Tortillas", "dev": false}
+{"qid": "mq_california_full_intersection_227", "answer": "Feet For Life", "dev": false}
+{"qid": "mq_california_full_intersection_342", "answer": "Tiny Heartz Daycare LLC", "dev": false}
+{"qid": "mq_california_full_amenities_around_78", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2064", "answer": "Raelyn's Pub & Eatery", "dev": false}
+{"qid": "mq_illinois_test_intersection_193", "answer": "Western Union", "dev": false}
+{"qid": "mq_illinois_test_intersection_351", "answer": "AMC Showplace 8", "dev": false}
+{"qid": "mq_california_full_adjacent_56", "answer": "My Store 3:16 Boba Express", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_30", "answer": "San Pedro County Courts Building", "dev": false}
+{"qid": "mq_illinois_test_intersection_311", "answer": "Greyhound Bus Station", "dev": false}
+{"qid": "mq_illinois_test_intersection_90", "answer": "Love Fridge at Augustana Lutheran Church", "dev": false}
+{"qid": "mq_california_full_amenities_around_55", "answer": "school", "dev": false}
+{"qid": "mq_california_full_intersection_2", "answer": "Collab&Play", "dev": false}
+{"qid": "mq_california_full_intersection_217", "answer": "3-Point Basketball Shoot", "dev": false}
+{"qid": "mq_illinois_test_intersection_242", "answer": "Learning Nook", "dev": false}
+{"qid": "mq_california_full_amenities_79", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_adjacent_1", "answer": "Plan Check", "dev": false}
+{"qid": "mq_california_full_direction_nearest_154", "answer": "Bakersfield Civic Auditorium", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_41", "answer": "FedEx World Service Center", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1 post Hummingbird Bush from 11A?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_975", "answer": "The Lobby", "dev": false}
+{"qid": "mq_california_full_amenities_around_193", "answer": "bicycle_parking; cafe; dojo; kindergarten; music_school; restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_173", "answer": "Bay Chiropractic", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7674", "answer": "Key Point Credit Union", "dev": false}
+{"qid": "mq_california_full_adjacent_82", "answer": "Little Caesars", "dev": false}
+{"qid": "mq_illinois_test_intersection_320", "answer": "Boat Drinks", "dev": false}
+{"qid": "mq_california_full_compare-closer_39", "answer": "Starbucks", "dev": false}
+{"qid": "mq_california_full_direction_nearest_106", "answer": "Chick-fil-A", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1094", "answer": "The Dime; Kelsey's", "dev": false}
+{"qid": "mq_california_full_intersection_202", "answer": "South Bay Aviation", "dev": false}
+{"qid": "mq_california_full_direction_nearest_222", "answer": "Inglewood Cemetery Mortuary", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_124", "answer": "LA Community Fridge East Palmdale", "dev": false}
+{"qid": "mq_california_full_direction_nearest_120", "answer": "Mellano Orthopedics", "dev": false}
+{"qid": "mq_illinois_test_adjacent_22", "answer": "China Station", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2005", "answer": "Madison Tavern; Rail Club", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4336", "answer": "Bar Pink; Califronia Tap Room; True North", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 12 Tee?", "dev": false}

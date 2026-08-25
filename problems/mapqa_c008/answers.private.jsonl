@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_nearest_amenity_115", "answer": "WVOC High School Equivalency Preparation", "dev": true}
+{"qid": "mq_illinois_test_intersection_125", "answer": "Greyhound Bus Station", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_5", "answer": "restaurant", "dev": true}
+{"qid": "mq_illinois_test_amenities_6", "answer": "parking", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st Crossing from 15?", "dev": true}
+{"qid": "mq_california_full_amenities_52", "answer": "fast_food", "dev": true}
+{"qid": "mq_california_full_adjacent_229", "answer": "Tempura House", "dev": true}
+{"qid": "mq_california_full_amenities_50", "answer": "nursing_home", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 11 from 173?", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_806", "answer": "Wolcott Tap", "dev": true}
+{"qid": "mq_california_full_adjacent_35", "answer": "Tuscan Son", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 103rd Street & Ridgeland (Metra) from 1258 S California?", "dev": true}
+{"qid": "mq_california_full_adjacent_124", "answer": "Chase", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_114", "answer": "Smog Inspection", "dev": true}
+{"qid": "mq_california_full_direction_nearest_133", "answer": "Vapor", "dev": true}
+{"qid": "mq_california_full_intersection_261", "answer": "PayDay Advance", "dev": true}
+{"qid": "mq_california_full_adjacent_215", "answer": "Citibank", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2438", "answer": "D.S. Tequila Company; Roscoe's Tavern & Cafe; Progress Bar Chicago", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_9047", "answer": "United Club", "dev": true}
+{"qid": "mq_california_full_amenities_around_25", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_intersection_163", "answer": "Goodwill", "dev": false}
+{"qid": "mq_california_full_intersection_374", "answer": "Jollibee", "dev": false}
+{"qid": "mq_california_full_amenities_110", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 103rd Street & St. Lawrence from 11th & Knox?", "dev": false}
+{"qid": "mq_california_full_amenities_around_249", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_intersection_296", "answer": "free ompressed air for bikes", "dev": false}
+{"qid": "mq_california_full_amenities_around_239", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 13 from 11th @ N Northbound?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_271", "answer": "Big Bully Turf", "dev": false}
+{"qid": "mq_california_full_direction_nearest_62", "answer": "Bear Valley Church", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 119th Street & Wentworth from 115th Street & State EB?", "dev": false}
+{"qid": "mq_california_full_intersection_228", "answer": "Catalina Express Long Beach Downtown Landing", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1589", "answer": "Chatterbox", "dev": false}
+{"qid": "mq_california_full_adjacent_218", "answer": "The Laguna Coffee Company", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2299", "answer": "Bank of America", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_179", "answer": "Chevron", "dev": false}
+{"qid": "mq_illinois_test_intersection_330", "answer": "FAA", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_138", "answer": "Claremont Chefs Academy", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_24", "answer": "CityView Banquet and Meeting Center", "dev": false}
+{"qid": "mq_california_full_intersection_279", "answer": "MCASD Sherwood Auditorium", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7550", "answer": "Kensington Club", "dev": false}
+{"qid": "mq_illinois_test_compare-closer_11", "answer": "Bubba Gump Shrimp Company", "dev": false}
+{"qid": "mq_california_full_amenities_around_154", "answer": "cafe; ice_cream; restaurant; theatre", "dev": false}
+{"qid": "mq_illinois_test_intersection_376", "answer": "Community Mulch Pile", "dev": false}
+{"qid": "mq_illinois_test_intersection_310", "answer": "Preferred Imaging Centers", "dev": false}
+{"qid": "mq_california_full_adjacent_66", "answer": "Casa Garibay", "dev": false}
+{"qid": "mq_california_full_direction_nearest_206", "answer": "Chula Vista Animal Care Facility", "dev": false}
+{"qid": "mq_california_full_intersection_80", "answer": "Locker Rooms", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1728", "answer": "Ale House", "dev": false}
+{"qid": "mq_california_full_intersection_397", "answer": "Law Office of Raymond Perez", "dev": false}
+{"qid": "mq_illinois_test_intersection_138", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_243", "answer": "Xai Verandah Lounge and hookah", "dev": false}
+{"qid": "mq_california_full_intersection_34", "answer": "Double Peak Telescope", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4362", "answer": "Spring St Bar", "dev": false}
+{"qid": "mq_california_full_intersection_399", "answer": "Goodwill", "dev": false}
+{"qid": "mq_california_full_direction_nearest_121", "answer": "GoldMax", "dev": false}
+{"qid": "mq_illinois_test_intersection_170", "answer": "Midwest Five Star Driving School", "dev": false}
+{"qid": "mq_california_full_intersection_149", "answer": "Vernetta's Dance Studio", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5515", "answer": "Gold Room", "dev": false}
+{"qid": "mq_california_full_amenities_81", "answer": "fire_station", "dev": false}

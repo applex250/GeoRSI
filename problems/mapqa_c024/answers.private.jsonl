@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_intersection_92", "answer": "7-Eleven", "dev": true}
+{"qid": "mq_illinois_test_intersection_346", "answer": "Endres Tavern", "dev": true}
+{"qid": "mq_illinois_test_amenities_17", "answer": "bank", "dev": true}
+{"qid": "mq_california_full_amenities_around_33", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_5", "answer": "Kernville Cowork", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_5592", "answer": "Double Black Lounge Bar & Kitchen", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_961", "answer": "The Dugout Bar", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_360", "answer": "Jumbo's Clown Room", "dev": true}
+{"qid": "mq_california_full_adjacent_173", "answer": "Obi's Sushi", "dev": true}
+{"qid": "mq_california_full_amenities_around_229", "answer": "bar; bench; cafe; ice_cream; restaurant", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_340", "answer": "Collab&Play", "dev": true}
+{"qid": "mq_california_full_amenities_198", "answer": "school", "dev": true}
+{"qid": "mq_california_full_adjacent_127", "answer": "Hop Louies; Blossom", "dev": true}
+{"qid": "mq_illinois_test_intersection_12", "answer": "Scully Park Fountain", "dev": true}
+{"qid": "mq_california_full_compare-closer_52", "answer": "Mission 76", "dev": true}
+{"qid": "mq_illinois_test_intersection_200", "answer": "Maple Lake Boating Center", "dev": true}
+{"qid": "mq_illinois_test_intersection_54", "answer": "charging_station", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_372", "answer": "Newport Beach Boat Rental", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_7497", "answer": "Union Bank", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1919 Cafe from 19 Sports Bar & Grill?", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_34", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_amenities_197", "answer": "school", "dev": false}
+{"qid": "mq_illinois_test_adjacent_6", "answer": "Blind Faith Cafe", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_153", "answer": "Chevron", "dev": false}
+{"qid": "mq_california_full_direction_nearest_143", "answer": "Sasha Cosmetics", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_25", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1066", "answer": "West Central Illinois Arts Center", "dev": false}
+{"qid": "mq_california_full_compare-closer_64", "answer": "Alamo School", "dev": false}
+{"qid": "mq_california_full_direction_nearest_171", "answer": "Little Free Library", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_99", "answer": "California Lutheran University", "dev": false}
+{"qid": "mq_california_full_intersection_350", "answer": "Fish District Eatery", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_391", "answer": "Guest Services", "dev": false}
+{"qid": "mq_california_full_adjacent_158", "answer": "Mia's Cafe; Ume Tea", "dev": false}
+{"qid": "mq_california_full_amenities_around_113", "answer": "fast_food; restaurant", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_368", "answer": "BMO", "dev": false}
+{"qid": "mq_california_full_adjacent_117", "answer": "Burros & fries; bluepokē", "dev": false}
+{"qid": "mq_california_full_adjacent_78", "answer": "Nanay Gloria's; Mamma Mia", "dev": false}
+{"qid": "mq_illinois_test_intersection_132", "answer": "First Aid Station", "dev": false}
+{"qid": "mq_california_full_amenities_221", "answer": "school", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12th Hole from 1st & Lorena?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_118", "answer": "Slo City Midwives", "dev": false}
+{"qid": "mq_california_full_intersection_84", "answer": "Gould Mesa Trail Camp", "dev": false}
+{"qid": "mq_california_full_intersection_87", "answer": "Red Point", "dev": false}
+{"qid": "mq_california_full_adjacent_116", "answer": "Woori", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_7", "answer": "Rockford Career College", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2431", "answer": "Room 13", "dev": false}
+{"qid": "mq_california_full_amenities_around_146", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_direction_nearest_248", "answer": "Pico Rivera Sheriffs Station", "dev": false}
+{"qid": "mq_california_full_intersection_7", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_illinois_test_amenities_1", "answer": "ferry_terminal", "dev": false}
+{"qid": "mq_california_full_adjacent_140", "answer": "Village Dental & Orthodontics", "dev": false}
+{"qid": "mq_california_full_amenities_176", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2945", "answer": "Bar Ama", "dev": false}
+{"qid": "mq_illinois_test_intersection_281", "answer": "Skill Aviation", "dev": false}
+{"qid": "mq_illinois_test_intersection_107", "answer": "Scully Park Fountain", "dev": false}
+{"qid": "mq_illinois_test_intersection_19", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_direction_nearest_234", "answer": "Jack in the Box", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_253", "answer": "La Michoacana USA", "dev": false}
+{"qid": "mq_california_full_intersection_63", "answer": "Nature’s Juice", "dev": false}
+{"qid": "mq_california_full_intersection_242", "answer": "Red Point", "dev": false}

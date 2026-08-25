@@ -55,6 +55,7 @@ export async function runExam(
 			model: inner,
 			workspace: join(runDir, "exam", p.id),
 			memory,
+			log,
 			tag: `exam-${p.id}`,
 		});
 		results.push({

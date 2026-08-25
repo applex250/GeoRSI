@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_95", "answer": "place_of_worship", "dev": true}
+{"qid": "mq_illinois_test_intersection_315", "answer": "Ignite Gaming", "dev": true}
+{"qid": "mq_california_full_direction_nearest_244", "answer": "Ticketing | Check In", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_376", "answer": "PacTrans Federal Credit Union", "dev": true}
+{"qid": "mq_california_full_intersection_5", "answer": "Hertz Thrify", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_17", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_direction_nearest_174", "answer": "Hookah", "dev": true}
+{"qid": "mq_california_full_direction_nearest_136", "answer": "Oasis Elementary School", "dev": true}
+{"qid": "mq_illinois_test_intersection_326", "answer": "Ignite Gaming", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_7684", "answer": "The Olde Carriage Tavern", "dev": true}
+{"qid": "mq_california_full_adjacent_75", "answer": "Cali Smiles", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_516", "answer": "Cafe Prague", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 112th Street & Avenue B from 107th Street (Beverly Hills)?", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_32", "answer": "place_of_worship; school", "dev": true}
+{"qid": "mq_california_full_intersection_262", "answer": "Wells Fargo", "dev": true}
+{"qid": "mq_california_full_direction_nearest_165", "answer": "Compass Recovery", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_17", "answer": "Semper Solaris", "dev": true}
+{"qid": "mq_illinois_test_intersection_60", "answer": "Springfield Art Association", "dev": true}
+{"qid": "mq_california_full_adjacent_86", "answer": "FedEx", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_137", "answer": "HueHue Pronto a Guatemala", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 121 from 1st Lieutenant Jared M. Landaker US Marine Corps Memorial Highway?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9011", "answer": "Gaslamp Tavern", "dev": false}
+{"qid": "mq_california_full_amenities_around_126", "answer": "clinic; fast_food; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_76", "answer": "Tom Ham's Lighthouse", "dev": false}
+{"qid": "mq_illinois_test_intersection_70", "answer": "Jimmy John's", "dev": false}
+{"qid": "mq_california_full_intersection_320", "answer": "Caique Jiu Jitsu", "dev": false}
+{"qid": "mq_illinois_test_intersection_205", "answer": "Caritas Hall Association", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_382", "answer": "CSL Rm 333 Auditorium", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1541", "answer": "Palm Court", "dev": false}
+{"qid": "mq_california_full_amenities_227", "answer": "school", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5980", "answer": "Menagerie; W at Worthington's; Raincross Pub", "dev": false}
+{"qid": "mq_california_full_intersection_367", "answer": "Southern Lites Collective", "dev": false}
+{"qid": "mq_california_full_direction_nearest_73", "answer": "Little Free Library", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_32", "answer": "Newport Beach Boat Rental", "dev": false}
+{"qid": "mq_california_full_adjacent_91", "answer": "Hyde Park Miriam Matthews Branch Los Angeles Public Library", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1594", "answer": "Cheswick’s West; Tony’s Newport Cafe; Sunshine Company", "dev": false}
+{"qid": "mq_california_full_amenities_around_206", "answer": "cafe; ice_cream; restaurant", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 105F from 106?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_302", "answer": "Unplug Meditation", "dev": false}
+{"qid": "mq_california_full_intersection_3", "answer": "CSL Rm 333 Auditorium", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_301", "answer": "Avila Beach Paddlesports", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 1275 N Milwaukee Ave from 103rd Street & Southwest Hwy?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is #184 from 1800?", "dev": false}
+{"qid": "mq_california_full_amenities_around_45", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities_40", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_68", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_27", "answer": "iRepair", "dev": false}
+{"qid": "mq_illinois_test_amenities_40", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_75", "answer": "fire_station", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1087", "answer": "Circuit", "dev": false}
+{"qid": "mq_california_full_direction_nearest_89", "answer": "Pasadena Senior Center", "dev": false}
+{"qid": "mq_illinois_test_adjacent_45", "answer": "Oberweis", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_252", "answer": "Kernville Cowork", "dev": false}
+{"qid": "mq_california_full_direction_nearest_69", "answer": "Academy of Culinary Arts", "dev": false}
+{"qid": "mq_california_full_intersection_199", "answer": "Cerritos Library book return", "dev": false}
+{"qid": "mq_california_full_adjacent_139", "answer": "Top Round Roast Beef", "dev": false}
+{"qid": "mq_california_full_amenities_14", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_intersection_20", "answer": "Greyhound Bus Station", "dev": false}
+{"qid": "mq_california_full_adjacent_176", "answer": "Azusa Pacific University", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_42", "answer": "First Aid Station", "dev": false}

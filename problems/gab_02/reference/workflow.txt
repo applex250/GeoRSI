@@ -1,0 +1,6 @@
+1. Load dataset
+2. Filter(Poverty)
+3. Filter(population density)
+4. Filter(No Access to vehicle)
+5. Overlay
+6. Visualization

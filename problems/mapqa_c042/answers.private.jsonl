@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_intersection_356", "answer": "Lincoln Elementary School", "dev": true}
+{"qid": "mq_illinois_test_intersection_3", "answer": "AMC Showplace 8", "dev": true}
+{"qid": "mq_california_full_intersection_368", "answer": "Long Beach Civic Center", "dev": true}
+{"qid": "mq_illinois_test_intersection_238", "answer": "Southern Illinois University HR Department", "dev": true}
+{"qid": "mq_california_full_intersection_110", "answer": "Jollibee", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 23 from 1st & Cummings?", "dev": true}
+{"qid": "mq_california_full_intersection_46", "answer": "Chablis Cruises", "dev": true}
+{"qid": "mq_california_full_adjacent_119", "answer": "Los Primos Mexican Food; Ika Sushi & Grill", "dev": true}
+{"qid": "mq_illinois_test_intersection_146", "answer": "Maple Lake Boating Center", "dev": true}
+{"qid": "mq_california_full_intersection_239", "answer": "Computer Lab", "dev": true}
+{"qid": "mq_california_full_direction_nearest_72", "answer": "Tae Kwon Do Plus", "dev": true}
+{"qid": "mq_illinois_test_intersection_314", "answer": "Progressive Kenpo Karate", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_83", "answer": "Joslyn Senior Center", "dev": true}
+{"qid": "mq_california_full_amenities_179", "answer": "bear_box", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2436", "answer": "Mortgage Services III", "dev": true}
+{"qid": "mq_illinois_test_adjacent_41", "answer": "Dunkin'", "dev": true}
+{"qid": "mq_illinois_test_adjacent_9", "answer": "676 Restaurant & Bar", "dev": true}
+{"qid": "mq_california_full_intersection_170", "answer": "Van De Kamp Hall", "dev": true}
+{"qid": "mq_california_full_intersection_51", "answer": "3-Point Basketball Shoot", "dev": true}
+{"qid": "mq_california_full_direction_nearest_178", "answer": "Walgreens", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 183rd Street / Alburtis Avenue from 1st Choice Pharmacy?", "dev": false}
+{"qid": "mq_california_full_adjacent_25", "answer": "Round Table Pizza; Gen Sushi; Pan of Asia", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_11", "answer": "Road One Towing", "dev": false}
+{"qid": "mq_california_full_intersection_12", "answer": "Kernville Cowork", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1173", "answer": "Rhythm Room of Hawg Dogs", "dev": false}
+{"qid": "mq_california_full_adjacent_81", "answer": "Cofax Coffee Fairfax", "dev": false}
+{"qid": "mq_illinois_test_intersection_119", "answer": "Lincoln Elementary School", "dev": false}
+{"qid": "mq_california_full_intersection_49", "answer": "Liquor Beer Wine Grocery", "dev": false}
+{"qid": "mq_california_full_intersection_174", "answer": "MCASD Sherwood Auditorium", "dev": false}
+{"qid": "mq_california_full_amenities_123", "answer": "cafe", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_516", "answer": "Navy Federal", "dev": false}
+{"qid": "mq_california_full_intersection_157", "answer": "Pico Rivera Golf", "dev": false}
+{"qid": "mq_california_full_intersection_362", "answer": "Depth Perceptions", "dev": false}
+{"qid": "mq_illinois_test_adjacent_27", "answer": "Saint Laurence School", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 19 Basket from 1st & New Hampshire?", "dev": false}
+{"qid": "mq_california_full_intersection_123", "answer": "Zoom Room", "dev": false}
+{"qid": "mq_california_full_intersection_153", "answer": "Long Beach Civic Center", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1050", "answer": "Bluefoot; Modern Times: North Park Flavordome", "dev": false}
+{"qid": "mq_california_full_amenities_152", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_amenities_around_151", "answer": "fast_food; restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_22", "answer": "Hertz Thrify", "dev": false}
+{"qid": "mq_california_full_amenities_223", "answer": "school", "dev": false}
+{"qid": "mq_california_full_amenities_around_143", "answer": "bench", "dev": false}
+{"qid": "mq_illinois_test_intersection_313", "answer": "free ompressed air for bikes", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4222", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_illinois_test_adjacent_17", "answer": "Sip & Savor", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120th & Compton from 1st & Evergreen?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 1930's Colorado River Work Boat?", "dev": false}
+{"qid": "mq_california_full_direction_nearest_67", "answer": "Automated Postal Machine", "dev": false}
+{"qid": "mq_california_full_amenities_236", "answer": "school", "dev": false}
+{"qid": "mq_california_full_direction_nearest_125", "answer": "Enterprise", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_3661", "answer": "Wells Fargo; Chase", "dev": false}
+{"qid": "mq_california_full_intersection_255", "answer": "Vernetta's Dance Studio", "dev": false}
+{"qid": "mq_california_full_direction_nearest_79", "answer": "Burgertown USA", "dev": false}
+{"qid": "mq_california_full_compare-closer_5", "answer": "Arco", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_57", "answer": "Turkey Legs", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_293", "answer": "Vineyard Car Wash", "dev": false}
+{"qid": "mq_california_full_direction_nearest_90", "answer": "Kindred Hospital Westminster", "dev": false}
+{"qid": "mq_california_full_compare-closer_38", "answer": "El Pollo Loco", "dev": false}
+{"qid": "mq_california_full_direction_nearest_9", "answer": "Feet For Life", "dev": false}

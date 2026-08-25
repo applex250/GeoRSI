@@ -1,0 +1,54 @@
+{
+  "suite": "gkmc",
+  "problems": [
+    {
+      "id": "gkmc_c001"
+    },
+    {
+      "id": "gkmc_c002"
+    },
+    {
+      "id": "gkmc_c003"
+    },
+    {
+      "id": "gkmc_c004"
+    },
+    {
+      "id": "gkmc_c005"
+    },
+    {
+      "id": "gkmc_c006"
+    },
+    {
+      "id": "gkmc_c007"
+    },
+    {
+      "id": "gkmc_c008"
+    },
+    {
+      "id": "gkmc_c009"
+    },
+    {
+      "id": "gkmc_c010"
+    },
+    {
+      "id": "gkmc_c011"
+    },
+    {
+      "id": "gkmc_c012"
+    },
+    {
+      "id": "gkmc_c013"
+    },
+    {
+      "id": "gkmc_c014"
+    },
+    {
+      "id": "gkmc_c015"
+    },
+    {
+      "id": "gkmc_c016",
+      "heldout": true
+    }
+  ]
+}

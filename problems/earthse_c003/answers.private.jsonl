@@ -1,0 +1,100 @@
+{"qid": "es_tru_302", "answer": "True", "dev": true}
+{"qid": "es_mul_69", "answer": "B", "dev": true}
+{"qid": "es_fil_481", "answer": "era20c", "dev": true}
+{"qid": "es_mul_195", "answer": "B", "dev": true}
+{"qid": "es_mul_592", "answer": "A", "dev": true}
+{"qid": "es_mul_227", "answer": "D", "dev": true}
+{"qid": "es_fil_199", "answer": "molecular weight", "dev": true}
+{"qid": "es_mul_132", "answer": "C", "dev": true}
+{"qid": "es_mul_182", "answer": "B", "dev": true}
+{"qid": "es_fil_92", "answer": "decreases, raises, increases", "dev": true}
+{"qid": "es_tru_477", "answer": "False", "dev": true}
+{"qid": "es_mul_736", "answer": "B", "dev": true}
+{"qid": "es_tru_333", "answer": "True", "dev": true}
+{"qid": "es_fil_713", "answer": "5", "dev": true}
+{"qid": "es_mul_13", "answer": "B", "dev": true}
+{"qid": "es_mul_731", "answer": "B", "dev": true}
+{"qid": "es_tru_419", "answer": "True", "dev": true}
+{"qid": "es_fil_119", "answer": "1,000 psi", "dev": true}
+{"qid": "es_tru_255", "answer": "True", "dev": true}
+{"qid": "es_fil_431", "answer": "advection", "dev": true}
+{"qid": "es_fil_661", "answer": "7", "dev": false}
+{"qid": "es_mul_299", "answer": "B", "dev": false}
+{"qid": "es_mul_107", "answer": "A", "dev": false}
+{"qid": "es_mul_780", "answer": "B", "dev": false}
+{"qid": "es_tru_407", "answer": "True", "dev": false}
+{"qid": "es_tru_223", "answer": "True", "dev": false}
+{"qid": "es_mul_199", "answer": "D", "dev": false}
+{"qid": "es_mul_251", "answer": "C", "dev": false}
+{"qid": "es_mul_769", "answer": "C", "dev": false}
+{"qid": "es_mul_718", "answer": "B", "dev": false}
+{"qid": "es_fil_677", "answer": "impermeable", "dev": false}
+{"qid": "es_tru_153", "answer": "True", "dev": false}
+{"qid": "es_tru_372", "answer": "False", "dev": false}
+{"qid": "es_fil_121", "answer": "10.95", "dev": false}
+{"qid": "es_mul_49", "answer": "B", "dev": false}
+{"qid": "es_mul_573", "answer": "B", "dev": false}
+{"qid": "es_mul_357", "answer": "C", "dev": false}
+{"qid": "es_mul_399", "answer": "D", "dev": false}
+{"qid": "es_fil_395", "answer": "7.12", "dev": false}
+{"qid": "es_tru_107", "answer": "False", "dev": false}
+{"qid": "es_fil_712", "answer": "runoff, discharge", "dev": false}
+{"qid": "es_fil_149", "answer": "f-test", "dev": false}
+{"qid": "es_mul_136", "answer": "B", "dev": false}
+{"qid": "es_fil_140", "answer": "eq. (5)", "dev": false}
+{"qid": "es_mul_114", "answer": "B", "dev": false}
+{"qid": "es_fil_99", "answer": "filter media", "dev": false}
+{"qid": "es_fil_491", "answer": "c-axis", "dev": false}
+{"qid": "es_mul_805", "answer": "C", "dev": false}
+{"qid": "es_mul_344", "answer": "C", "dev": false}
+{"qid": "es_tru_291", "answer": "True", "dev": false}
+{"qid": "es_tru_245", "answer": "True", "dev": false}
+{"qid": "es_fil_332", "answer": "13", "dev": false}
+{"qid": "es_mul_60", "answer": "A", "dev": false}
+{"qid": "es_fil_564", "answer": "positive", "dev": false}
+{"qid": "es_mul_715", "answer": "B", "dev": false}
+{"qid": "es_fil_425", "answer": "0.98", "dev": false}
+{"qid": "es_fil_171", "answer": "mixing triangle", "dev": false}
+{"qid": "es_tru_11", "answer": "False", "dev": false}
+{"qid": "es_fil_407", "answer": "5.95°f", "dev": false}
+{"qid": "es_tru_482", "answer": "True", "dev": false}
+{"qid": "es_fil_45", "answer": "0.15 to 0.25, 7.5 /g", "dev": false}
+{"qid": "es_fil_463", "answer": "280", "dev": false}
+{"qid": "es_tru_243", "answer": "True", "dev": false}
+{"qid": "es_fil_236", "answer": "-2", "dev": false}
+{"qid": "es_mul_609", "answer": "D", "dev": false}
+{"qid": "es_mul_172", "answer": "A", "dev": false}
+{"qid": "es_fil_160", "answer": "automated identification system (ais) dataset", "dev": false}
+{"qid": "es_fil_272", "answer": "1903873", "dev": false}
+{"qid": "es_mul_673", "answer": "B", "dev": false}
+{"qid": "es_fil_146", "answer": "2 mm/yr", "dev": false}
+{"qid": "es_mul_352", "answer": "B", "dev": false}
+{"qid": "es_fil_244", "answer": "0", "dev": false}
+{"qid": "es_fil_208", "answer": "associated", "dev": false}
+{"qid": "es_mul_115", "answer": "B", "dev": false}
+{"qid": "es_tru_435", "answer": "True", "dev": false}
+{"qid": "es_fil_571", "answer": "3.9", "dev": false}
+{"qid": "es_tru_479", "answer": "True", "dev": false}
+{"qid": "es_tru_20", "answer": "False", "dev": false}
+{"qid": "es_mul_757", "answer": "B", "dev": false}
+{"qid": "es_tru_301", "answer": "True", "dev": false}
+{"qid": "es_mul_684", "answer": "B", "dev": false}
+{"qid": "es_tru_446", "answer": "True", "dev": false}
+{"qid": "es_fil_151", "answer": "3–10", "dev": false}
+{"qid": "es_fil_234", "answer": "ellesmerian, banks island, devonian clastic", "dev": false}
+{"qid": "es_fil_625", "answer": "euxinic, phosphoria rocks, structural", "dev": false}
+{"qid": "es_fil_64", "answer": "67.5", "dev": false}
+{"qid": "es_tru_21", "answer": "False", "dev": false}
+{"qid": "es_tru_200", "answer": "True", "dev": false}
+{"qid": "es_mul_307", "answer": "B", "dev": false}
+{"qid": "es_mul_192", "answer": "B", "dev": false}
+{"qid": "es_mul_526", "answer": "C", "dev": false}
+{"qid": "es_mul_295", "answer": "B", "dev": false}
+{"qid": "es_mul_328", "answer": "B", "dev": false}
+{"qid": "es_tru_44", "answer": "True", "dev": false}
+{"qid": "es_fil_460", "answer": "6.17", "dev": false}
+{"qid": "es_tru_500", "answer": "False", "dev": false}
+{"qid": "es_fil_187", "answer": "50", "dev": false}
+{"qid": "es_mul_72", "answer": "B", "dev": false}
+{"qid": "es_mul_298", "answer": "C", "dev": false}
+{"qid": "es_fil_458", "answer": "300 m, 100 m", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_adjacent_80", "answer": "Subway", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_88", "answer": "Samuel Oschin Planetarium", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 102 from 1st & Mission?", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2235", "answer": "Figo Wine Bar; Room 13", "dev": true}
+{"qid": "mq_california_full_adjacent_3", "answer": "The Coffee Bean & Tea Leaf", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_359", "answer": "La Michoacana USA", "dev": true}
+{"qid": "mq_illinois_test_adjacent_14", "answer": "Harry Carry’s Shortstop", "dev": true}
+{"qid": "mq_california_full_amenities_around_187", "answer": "dentist; restaurant", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14? from 2?", "dev": true}
+{"qid": "mq_illinois_test_intersection_307", "answer": "Sherman Public Library", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_34", "answer": "Valmeyer Police Department", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_18", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_intersection_278", "answer": "Aspen Dental", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_34", "answer": "My Friends Discovery Center", "dev": true}
+{"qid": "mq_california_full_direction_nearest_177", "answer": "Gateway to Nature", "dev": true}
+{"qid": "mq_illinois_test_amenities_35", "answer": "fast_food", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_10402", "answer": "Fairweather Rooftop Bar", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_205", "answer": "Bikes and Brew", "dev": true}
+{"qid": "mq_california_full_amenities_7", "answer": "pub", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_159", "answer": "Mostly Saxes", "dev": true}
+{"qid": "mq_california_full_direction_nearest_31", "answer": "Coventry Pet Resort", "dev": false}
+{"qid": "mq_illinois_test_intersection_263", "answer": "African Wonderland Imports", "dev": false}
+{"qid": "mq_illinois_test_intersection_273", "answer": "Hookas", "dev": false}
+{"qid": "mq_california_full_adjacent_14", "answer": "Wahlburgers", "dev": false}
+{"qid": "mq_california_full_intersection_312", "answer": "Cinemark", "dev": false}
+{"qid": "mq_california_full_amenities_around_173", "answer": "bar", "dev": false}
+{"qid": "mq_california_full_intersection_234", "answer": "Red Point", "dev": false}
+{"qid": "mq_california_full_direction_nearest_157", "answer": "Nature’s Juice", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_74", "answer": "Crash Investigation Site", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_18", "answer": "Villa Maria Retreat Center", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_42", "answer": "Randolph County Jail", "dev": false}
+{"qid": "mq_california_full_direction_nearest_47", "answer": "Watermill Express", "dev": false}
+{"qid": "mq_illinois_test_adjacent_4", "answer": "Handlebar", "dev": false}
+{"qid": "mq_illinois_test_intersection_108", "answer": "Ignite Gaming", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_12156", "answer": "Rocco's Tavern", "dev": false}
+{"qid": "mq_illinois_test_intersection_268", "answer": "Deo Gratias Food Market", "dev": false}
+{"qid": "mq_illinois_test_intersection_102", "answer": "Skill Aviation", "dev": false}
+{"qid": "mq_california_full_adjacent_48", "answer": "Il Caffe", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_202", "answer": "Rocbar; Jojo's Milk Bar", "dev": false}
+{"qid": "mq_california_full_compare-closer_55", "answer": "Rock n' Fish", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_350", "answer": "Circle K", "dev": false}
+{"qid": "mq_california_full_intersection_371", "answer": "Nix / Payday Today Check Cashing", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2103", "answer": "Concrete Cowboy", "dev": false}
+{"qid": "mq_california_full_intersection_17", "answer": "Cinemark", "dev": false}
+{"qid": "mq_california_full_intersection_30", "answer": "Academy of Motion Picture Arts and Sciences Film Archive", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_904", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2146", "answer": "Game Room; Drawing Room", "dev": false}
+{"qid": "mq_california_full_intersection_183", "answer": "Law Office of Raymond Perez", "dev": false}
+{"qid": "mq_illinois_test_intersection_103", "answer": "Glenview Currency Exchange", "dev": false}
+{"qid": "mq_california_full_amenities_around_181", "answer": "bank; bar; cafe; fast_food; restaurant; toilets", "dev": false}
+{"qid": "mq_illinois_test_amenities_44", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_152", "answer": "bicycle_repair_station; parking_entrance; restaurant", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11186", "answer": "Griffin's of Kinsale", "dev": false}
+{"qid": "mq_california_full_adjacent_193", "answer": "Red Baron Pizza; Restaurant & Sports Bar", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6635", "answer": "19", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_119", "answer": "Feet For Life", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_213", "answer": "KKJZ 88.1 campus radio", "dev": false}
+{"qid": "mq_california_full_amenities_around_92", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_amenities_174", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Palm from 17th Street Cafe?", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_direction_nearest_31", "answer": "Olney Elks Lodge #926", "dev": true}
+{"qid": "mq_california_full_amenities_120", "answer": "fast_food", "dev": true}
+{"qid": "mq_california_full_direction_nearest_116", "answer": "Barstow Dental", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Grand from 10th St W & Ave J-12?", "dev": true}
+{"qid": "mq_illinois_test_adjacent_8", "answer": "Ukai Sushi; Jin Asian Cafe", "dev": true}
+{"qid": "mq_california_full_intersection_384", "answer": "HearUSA", "dev": true}
+{"qid": "mq_california_full_intersection_386", "answer": "Long Beach Fire Station 21", "dev": true}
+{"qid": "mq_illinois_test_intersection_338", "answer": "India Association of Greater Springfield (IAGS)", "dev": true}
+{"qid": "mq_illinois_test_intersection_183", "answer": "Scully Park Fountain", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2336", "answer": "The Berkshire Room; Broken Shaker Chicago", "dev": true}
+{"qid": "mq_illinois_test_intersection_139", "answer": "Zipcar", "dev": true}
+{"qid": "mq_california_full_amenities_around_75", "answer": "school", "dev": true}
+{"qid": "mq_california_full_intersection_301", "answer": "Vernetta's Dance Studio", "dev": true}
+{"qid": "mq_illinois_test_intersection_92", "answer": "Urban Kayaks", "dev": true}
+{"qid": "mq_california_full_amenities_around_214", "answer": "dentist; fast_food; ice_cream; restaurant", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_241", "answer": "Industrial Fabrications", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_224", "answer": "Rocbar; Jojo's Milk Bar", "dev": true}
+{"qid": "mq_california_full_amenities_around_32", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_16", "answer": "place_of_worship", "dev": true}
+{"qid": "mq_illinois_test_intersection_127", "answer": "Turner-Eighner Funeral Home and Crematory", "dev": true}
+{"qid": "mq_california_full_adjacent_50", "answer": "Blown Out", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6069", "answer": "Wells Fargo External ATM", "dev": false}
+{"qid": "mq_california_full_amenities_around_123", "answer": "cafe; parking; pharmacy; post_office; restaurant; vending_machine", "dev": false}
+{"qid": "mq_california_full_adjacent_221", "answer": "The Gibson Girl Ice Cream Parlor", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_83", "answer": "The Graystone Tavern", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1872", "answer": "The Junction", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_41", "answer": "Drop off for Morton Public Library", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8483", "answer": "Bank of America", "dev": false}
+{"qid": "mq_california_full_intersection_309", "answer": "I Said Sit!", "dev": false}
+{"qid": "mq_california_full_adjacent_24", "answer": "Charles C Wood D D S", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 from 19 Tee?", "dev": false}
+{"qid": "mq_california_full_intersection_251", "answer": "Caique Jiu Jitsu", "dev": false}
+{"qid": "mq_illinois_test_amenities_50", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_330", "answer": "Disneyland Resort Casting Center", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2453", "answer": "Gannon’s Pub", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_22", "answer": "Sylvan", "dev": false}
+{"qid": "mq_california_full_amenities_164", "answer": "library", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_85", "answer": "Jumbo's Clown Room", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_316", "answer": "Calico High School", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_65", "answer": "Deja Vu Showgirls", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_449", "answer": "The Lobby", "dev": false}
+{"qid": "mq_california_full_amenities_around_117", "answer": "library; school", "dev": false}
+{"qid": "mq_illinois_test_intersection_109", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_338", "answer": "GoldMax", "dev": false}
+{"qid": "mq_california_full_direction_nearest_76", "answer": "Regelin Hall", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 115th Street & State WB from 103rd Street & State EB?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_373", "answer": "Silverado Children's Center", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_139", "answer": "Chase; Bank of America", "dev": false}
+{"qid": "mq_illinois_test_amenities_22", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 111 from 1112 W Garvey Ave, Monterey Park, CA 91754?", "dev": false}
+{"qid": "mq_illinois_test_intersection_77", "answer": "Learning Nook", "dev": false}
+{"qid": "mq_california_full_intersection_328", "answer": "Long Beach Transit Gallery", "dev": false}
+{"qid": "mq_california_full_adjacent_100", "answer": "Subway", "dev": false}
+{"qid": "mq_california_full_adjacent_145", "answer": "Entre Nous French Bistro", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_308", "answer": "CVS Pharmacy", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11619", "answer": "Wachovia Bank", "dev": false}
+{"qid": "mq_california_full_intersection_211", "answer": "HearUSA", "dev": false}
+{"qid": "mq_california_full_adjacent_126", "answer": "Menchie's", "dev": false}
+{"qid": "mq_california_full_intersection_232", "answer": "Red Point", "dev": false}
+{"qid": "mq_california_full_adjacent_248", "answer": "Chicken BunBun; Organico", "dev": false}

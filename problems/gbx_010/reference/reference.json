@@ -1,0 +1,28 @@
+{
+ "task_ID": "TASK_250309_135125_782046",
+ "task_text": "Make a heatmap final size of fire incidents in USA.",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Current Wildland Fire Incident Locations, size in acres",
+      "output_geodataframe_name": "fires"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "make_heatmap",
+     "arguments": {
+      "geodataframe_name": "fires",
+      "value_column": "IncidentSi",
+      "radius": 25,
+      "map_style": "carto-positron"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

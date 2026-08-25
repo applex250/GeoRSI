@@ -1,0 +1,6 @@
+1. Load dataset
+2. Filter(2014 bands)
+3. Filter(2015 bands)
+4. Calculate NBR
+5. Store in polygons
+6. Visualization

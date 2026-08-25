@@ -1,0 +1,2 @@
+Analyze the impacts of land subsidence on flooding
+Your task is analyzing the impact of land subsidence on flooding based on future elevation data of the study area. Identify flood-prone areas and estimate potential building damage to support urban planning and mitigation strategies. Save the results to "pred_results/flooding_analysis.png".

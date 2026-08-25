@@ -1,0 +1,6 @@
+1. Load Dataset
+2. Buffer
+3. Calculate road buffer area
+4. Clip
+5. Calculate deforest area
+6. Calculate percentage

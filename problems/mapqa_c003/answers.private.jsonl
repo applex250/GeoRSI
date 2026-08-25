@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_direction_nearest_208", "answer": "Orcutt Post Office", "dev": true}
+{"qid": "mq_california_full_adjacent_201", "answer": "Cheval Bistro", "dev": true}
+{"qid": "mq_california_full_adjacent_49", "answer": "Thelma Terry Building", "dev": true}
+{"qid": "mq_illinois_test_intersection_390", "answer": "Caritas Hall Association", "dev": true}
+{"qid": "mq_california_full_compare-closer_79", "answer": "Baptist Day School", "dev": true}
+{"qid": "mq_california_full_direction_nearest_28", "answer": "Riff's Music Lessons", "dev": true}
+{"qid": "mq_california_full_amenities_206", "answer": "school", "dev": true}
+{"qid": "mq_california_full_intersection_13", "answer": "South Bay Aviation", "dev": true}
+{"qid": "mq_california_full_intersection_99", "answer": "Wells Fargo", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_321", "answer": "BW Spa", "dev": true}
+{"qid": "mq_california_full_amenities_216", "answer": "school", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1807", "answer": "The Gin Mill; Bar None", "dev": true}
+{"qid": "mq_california_full_amenities_around_234", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_compare-closer_7", "answer": "Temple Judea Mizpah", "dev": true}
+{"qid": "mq_california_full_amenities_around_217", "answer": "cafe; restaurant; veterinary", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_248", "answer": "BizMilk - Orange County Web Design", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_43", "answer": "childcare", "dev": true}
+{"qid": "mq_california_full_adjacent_88", "answer": "Pizza Hut Express", "dev": true}
+{"qid": "mq_california_full_amenities_around_79", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_136", "answer": "Remington Hot Springs", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_35", "answer": "Roc One Stop", "dev": false}
+{"qid": "mq_california_full_adjacent_26", "answer": "The Bulldog Pub", "dev": false}
+{"qid": "mq_illinois_test_intersection_279", "answer": "Eye Level Learning Center of Rockford", "dev": false}
+{"qid": "mq_california_full_amenities_around_114", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8361", "answer": "Tommys Place", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_47", "answer": "grave_yard", "dev": false}
+{"qid": "mq_california_full_amenities_around_28", "answer": "cafe; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_99", "answer": "Chihuahua", "dev": false}
+{"qid": "mq_california_full_adjacent_186", "answer": "Lincoln Avenue Presbyterian Church", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_367", "answer": "U-Haul Truck Rental", "dev": false}
+{"qid": "mq_california_full_intersection_62", "answer": "Depth Perceptions", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 11 from 119?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_520", "answer": "Regions Bank", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 171 from 19th-Harbor?", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Spruce from 127th Street & Bishop?", "dev": false}
+{"qid": "mq_illinois_test_intersection_196", "answer": "Rieke Interiors", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7362", "answer": "North Pine Brewing", "dev": false}
+{"qid": "mq_california_full_direction_nearest_16", "answer": "Claremont Chefs Academy", "dev": false}
+{"qid": "mq_california_full_adjacent_37", "answer": "Jamba; Zankou Chicken; Al's Hot Chicken; Fatburger", "dev": false}
+{"qid": "mq_california_full_intersection_166", "answer": "Express Car Wash", "dev": false}
+{"qid": "mq_illinois_test_intersection_214", "answer": "Macker Cemetery", "dev": false}
+{"qid": "mq_california_full_direction_nearest_145", "answer": "Max Karaoke", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 16A from 17th-Bristol?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1646", "answer": "Doc's Bar", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6875", "answer": "Premier America Credit Union", "dev": false}
+{"qid": "mq_illinois_test_intersection_79", "answer": "Community Mulch Pile", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 from 003?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_12023", "answer": "Woori", "dev": false}
+{"qid": "mq_california_full_amenities_242", "answer": "school", "dev": false}
+{"qid": "mq_california_full_compare-closer_74", "answer": "Ascension School", "dev": false}
+{"qid": "mq_california_full_amenities_210", "answer": "school", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_11", "answer": "bar; cafe; fast_food; social_centre", "dev": false}
+{"qid": "mq_california_full_adjacent_146", "answer": "Neca's Kitchen", "dev": false}
+{"qid": "mq_california_full_intersection_243", "answer": "Locker Rooms", "dev": false}
+{"qid": "mq_california_full_adjacent_59", "answer": "WaBa Grill", "dev": false}
+{"qid": "mq_illinois_test_intersection_182", "answer": "Endres Tavern", "dev": false}
+{"qid": "mq_california_full_adjacent_237", "answer": "Fatburger", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_347", "answer": "EagleRider", "dev": false}
+{"qid": "mq_illinois_test_intersection_225", "answer": "Caritas Hall Association", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 12W02-310E?", "dev": false}

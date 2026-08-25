@@ -1,0 +1,158 @@
+{
+  "version": "2026-08-25-openrouter",
+  "probe_scripts": [
+    "scripts/model_probe.py",
+    "scripts/model_probe2.py"
+  ],
+  "notes": [
+    "vision flags describe RAW API support; the pi harness wires input:[text] only for every model today",
+    "'none'/'off' thinking measurably breaks quantitative accuracy on mimo/dsv4f - clamped to 'low' floor",
+    "probe scripts consolidated: scripts/model_probe.py --mode stab|vision|levels|all"
+  ],
+  "models": {
+    "hy3": {
+      "endpoint": "zen",
+      "api_style": "chat-completions",
+      "stability_class": "A",
+      "latency_class": "medium",
+      "vision_raw_api": false,
+      "reasoning": {
+        "style": "reasoning_effort",
+        "levels_accepted": [
+          "minimal",
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "levels_rejected": [
+          "off",
+          "max"
+        ],
+        "quality_floor": "low",
+        "verified_real_levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ]
+      }
+    },
+    "mimo-v2.5": {
+      "endpoint": "zen",
+      "api_style": "chat-completions",
+      "stability_class": "B",
+      "latency_class": "slow",
+      "vision_raw_api": true,
+      "reasoning": {
+        "style": "reasoning_effort",
+        "levels_accepted": [
+          "none",
+          "low",
+          "medium",
+          "high"
+        ],
+        "levels_rejected": [
+          "minimal",
+          "off",
+          "xhigh",
+          "max"
+        ],
+        "object_style_accepts_all_but_unverifiable": true,
+        "quality_floor": "low"
+      }
+    },
+    "ox-alpha-free": {
+      "endpoint": "zen",
+      "api_style": "chat-completions",
+      "stability_class": "B-recovered-2026-08-25-late",
+      "latency_class": "fast",
+      "vision_raw_api": true,
+      "reasoning": {
+        "style": "reasoning_effort",
+        "levels_accepted_trusted_history": [
+          "low",
+          "medium"
+        ],
+        "levels_rejected_trusted_history": [
+          "high"
+        ],
+        "status": "source recovered late 2026-08-25 (stab 4/4, json 2/2); reasoning levels still need clean re-probe"
+      }
+    },
+    "dsv4f": {
+      "endpoint": "local",
+      "api_style": "chat-completions",
+      "server": "WSGIServer/0.2 CPython/3.10.12 wrapper (custom)",
+      "stability_class": "A",
+      "latency_class": "very-fast",
+      "vision_raw_api": false,
+      "vision_server_disabled": true,
+      "reasoning": {
+        "style": "effort_plus_budget",
+        "levels_accepted": [
+          "low",
+          "medium",
+          "xhigh"
+        ],
+        "levels_rejected": [
+          "high",
+          "max",
+          "off",
+          "minimal"
+        ],
+        "budget_param": "thinking_budget",
+        "budget_verified_tokens": [
+          16384,
+          32768
+        ],
+        "quality_floor": "low"
+      }
+    },
+    "muse-spark-1.2-contributor": {
+      "endpoint": "zen",
+      "api_style": "responses",
+      "responses_path": "/responses",
+      "stability_class": "C-retry-required",
+      "latency_class": "unknown",
+      "vision_raw_api": false,
+      "reasoning": {
+        "style": "none",
+        "note": "any reasoning parameter yields HTTP 400"
+      }
+    },
+    "stealth/ox-alpha": {
+      "endpoint": "openrouter",
+      "api_style": "chat-completions",
+      "stability_class": "C-rate-limited-free-tier",
+      "latency_class": "medium",
+      "vision_raw_api": true,
+      "input_modalities_official": [
+        "text",
+        "image",
+        "video"
+      ],
+      "context_length_official": 1048576,
+      "pricing": "free (bursty 429s)",
+      "reasoning": {
+        "style": "reasoning_effort",
+        "mandatory": true,
+        "levels_accepted": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "levels_rejected": [],
+        "disable_rejected": "reasoning:{enabled:false} -> HTTP 400 \"Reasoning is mandatory\"",
+        "quality_floor": "low",
+        "quality_warning": "verified correct at low/medium and object-style; answer quality erratic at effort.high/xhigh and no-param on a trivial math probe (free tier)"
+      },
+      "special": {
+        "reasoning_details_passthrough": "message.reasoning_details is a list; pass back unmodified on assistant messages for inter-turn reasoning continuity (verified)"
+      }
+    }
+  }
+}

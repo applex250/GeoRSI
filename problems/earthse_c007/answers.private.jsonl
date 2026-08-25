@@ -1,0 +1,100 @@
+{"qid": "es_tru_264", "answer": "True", "dev": true}
+{"qid": "es_fil_123", "answer": "1.0 to 5.9", "dev": true}
+{"qid": "es_tru_101", "answer": "True", "dev": true}
+{"qid": "es_fil_729", "answer": "cab", "dev": true}
+{"qid": "es_fil_599", "answer": "0.4", "dev": true}
+{"qid": "es_tru_375", "answer": "True", "dev": true}
+{"qid": "es_mul_599", "answer": "A", "dev": true}
+{"qid": "es_fil_522", "answer": "younger", "dev": true}
+{"qid": "es_mul_639", "answer": "C", "dev": true}
+{"qid": "es_mul_67", "answer": "A", "dev": true}
+{"qid": "es_mul_748", "answer": "B", "dev": true}
+{"qid": "es_tru_169", "answer": "True", "dev": true}
+{"qid": "es_tru_340", "answer": "True", "dev": true}
+{"qid": "es_tru_342", "answer": "True", "dev": true}
+{"qid": "es_mul_695", "answer": "B", "dev": true}
+{"qid": "es_fil_147", "answer": "0.72", "dev": true}
+{"qid": "es_mul_742", "answer": "A", "dev": true}
+{"qid": "es_fil_358", "answer": "32", "dev": true}
+{"qid": "es_fil_553", "answer": "4 inches, 4 hours, 3 miles", "dev": true}
+{"qid": "es_tru_227", "answer": "True", "dev": true}
+{"qid": "es_fil_386", "answer": "turbulence intensities", "dev": false}
+{"qid": "es_mul_31", "answer": "C", "dev": false}
+{"qid": "es_mul_469", "answer": "B", "dev": false}
+{"qid": "es_fil_54", "answer": "modified input-output", "dev": false}
+{"qid": "es_mul_533", "answer": "B", "dev": false}
+{"qid": "es_fil_34", "answer": "40.2", "dev": false}
+{"qid": "es_mul_733", "answer": "B", "dev": false}
+{"qid": "es_mul_515", "answer": "B", "dev": false}
+{"qid": "es_tru_483", "answer": "True", "dev": false}
+{"qid": "es_fil_544", "answer": "inversely", "dev": false}
+{"qid": "es_fil_423", "answer": "rainforest", "dev": false}
+{"qid": "es_mul_525", "answer": "C", "dev": false}
+{"qid": "es_mul_370", "answer": "B", "dev": false}
+{"qid": "es_fil_104", "answer": "tangled nature framework", "dev": false}
+{"qid": "es_fil_518", "answer": "fanning and weaver 1998", "dev": false}
+{"qid": "es_mul_65", "answer": "B", "dev": false}
+{"qid": "es_fil_445", "answer": "smooth line, nearly plane-filling object", "dev": false}
+{"qid": "es_tru_132", "answer": "True", "dev": false}
+{"qid": "es_fil_322", "answer": "decreased solar radiation", "dev": false}
+{"qid": "es_tru_142", "answer": "True", "dev": false}
+{"qid": "es_mul_53", "answer": "B", "dev": false}
+{"qid": "es_tru_119", "answer": "True", "dev": false}
+{"qid": "es_mul_652", "answer": "C", "dev": false}
+{"qid": "es_fil_602", "answer": "absolute humidity, relative humidity", "dev": false}
+{"qid": "es_mul_331", "answer": "B", "dev": false}
+{"qid": "es_fil_26", "answer": "whiter", "dev": false}
+{"qid": "es_mul_243", "answer": "A", "dev": false}
+{"qid": "es_mul_366", "answer": "C", "dev": false}
+{"qid": "es_fil_469", "answer": "1.5", "dev": false}
+{"qid": "es_fil_202", "answer": "80 mm", "dev": false}
+{"qid": "es_fil_747", "answer": "0.2", "dev": false}
+{"qid": "es_mul_112", "answer": "B", "dev": false}
+{"qid": "es_mul_178", "answer": "B", "dev": false}
+{"qid": "es_mul_807", "answer": "A", "dev": false}
+{"qid": "es_fil_90", "answer": "60", "dev": false}
+{"qid": "es_tru_355", "answer": "False", "dev": false}
+{"qid": "es_fil_366", "answer": "kelvin-helmholtz", "dev": false}
+{"qid": "es_fil_55", "answer": "ignition energy, average ignition energy, 0.22, 0.78", "dev": false}
+{"qid": "es_tru_191", "answer": "False", "dev": false}
+{"qid": "es_mul_610", "answer": "C", "dev": false}
+{"qid": "es_tru_352", "answer": "True", "dev": false}
+{"qid": "es_fil_581", "answer": "heat flow", "dev": false}
+{"qid": "es_mul_238", "answer": "C", "dev": false}
+{"qid": "es_tru_499", "answer": "False", "dev": false}
+{"qid": "es_mul_600", "answer": "C", "dev": false}
+{"qid": "es_fil_333", "answer": "105", "dev": false}
+{"qid": "es_fil_70", "answer": "50%", "dev": false}
+{"qid": "es_fil_77", "answer": "7242, 6890", "dev": false}
+{"qid": "es_fil_420", "answer": "rigid contact force", "dev": false}
+{"qid": "es_mul_578", "answer": "C", "dev": false}
+{"qid": "es_mul_128", "answer": "B", "dev": false}
+{"qid": "es_mul_249", "answer": "C", "dev": false}
+{"qid": "es_mul_341", "answer": "B", "dev": false}
+{"qid": "es_mul_51", "answer": "B", "dev": false}
+{"qid": "es_mul_21", "answer": "A", "dev": false}
+{"qid": "es_fil_31", "answer": "1/4", "dev": false}
+{"qid": "es_tru_29", "answer": "True", "dev": false}
+{"qid": "es_tru_261", "answer": "True", "dev": false}
+{"qid": "es_fil_616", "answer": "daytime maximum temperature", "dev": false}
+{"qid": "es_fil_220", "answer": "hydroclimatic data network 2009 (hcdn-2009)", "dev": false}
+{"qid": "es_fil_285", "answer": "inverse distance weighted", "dev": false}
+{"qid": "es_mul_751", "answer": "C", "dev": false}
+{"qid": "es_mul_125", "answer": "C", "dev": false}
+{"qid": "es_mul_809", "answer": "C", "dev": false}
+{"qid": "es_tru_216", "answer": "False", "dev": false}
+{"qid": "es_fil_722", "answer": "kriging", "dev": false}
+{"qid": "es_mul_62", "answer": "B", "dev": false}
+{"qid": "es_fil_47", "answer": "200", "dev": false}
+{"qid": "es_tru_282", "answer": "True", "dev": false}
+{"qid": "es_tru_290", "answer": "True", "dev": false}
+{"qid": "es_mul_376", "answer": "C", "dev": false}
+{"qid": "es_mul_703", "answer": "C", "dev": false}
+{"qid": "es_fil_596", "answer": "advective", "dev": false}
+{"qid": "es_mul_241", "answer": "D", "dev": false}
+{"qid": "es_fil_617", "answer": "450 km and 180 km", "dev": false}
+{"qid": "es_tru_80", "answer": "False", "dev": false}
+{"qid": "es_fil_212", "answer": "375", "dev": false}
+{"qid": "es_fil_310", "answer": "4", "dev": false}
+{"qid": "es_mul_33", "answer": "B", "dev": false}
+{"qid": "es_mul_286", "answer": "C", "dev": false}

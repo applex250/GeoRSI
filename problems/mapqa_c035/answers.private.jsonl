@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_compare-closer_45", "answer": "Wells Fargo", "dev": true}
+{"qid": "mq_california_full_amenities_around_19", "answer": "cafe; post_office; restaurant", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 20th & Washington from 10 Speed Coffee?", "dev": true}
+{"qid": "mq_california_full_direction_nearest_224", "answer": "Stanley", "dev": true}
+{"qid": "mq_california_full_amenities_59", "answer": "restaurant", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1499", "answer": "The Range Bourbon & Brew", "dev": true}
+{"qid": "mq_california_full_direction_nearest_203", "answer": "Phillips Graduate Institute", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_4015", "answer": "The Red Piano", "dev": true}
+{"qid": "mq_illinois_test_adjacent_3", "answer": "Wicker Park Seafood & Sushi Bar", "dev": true}
+{"qid": "mq_california_full_amenities_around_222", "answer": "college", "dev": true}
+{"qid": "mq_california_full_amenities_13", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_intersection_141", "answer": "Figueroa Mountain Brewing Company", "dev": true}
+{"qid": "mq_illinois_test_intersection_63", "answer": "Hookas", "dev": true}
+{"qid": "mq_california_full_amenities_around_122", "answer": "atm; dojo; fast_food; fuel; ice_cream; vending_machine", "dev": true}
+{"qid": "mq_california_full_intersection_218", "answer": "Cerritos Library book return", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 201A 101A from 1946 Willys Jeep?", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 003 from 111?", "dev": true}
+{"qid": "mq_california_full_direction_nearest_156", "answer": "Canyon View Ranch", "dev": true}
+{"qid": "mq_illinois_test_intersection_343", "answer": "Harper College", "dev": true}
+{"qid": "mq_illinois_test_intersection_344", "answer": "Sherman Car Wash", "dev": true}
+{"qid": "mq_california_full_adjacent_189", "answer": "McConnell's Fine Ice Creams", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_324", "answer": "Maginn's Pub: Beer, Whiskey & Fine Food", "dev": false}
+{"qid": "mq_illinois_test_intersection_50", "answer": "Alleycat Comics", "dev": false}
+{"qid": "mq_illinois_test_intersection_148", "answer": "Brew Camp", "dev": false}
+{"qid": "mq_california_full_intersection_271", "answer": "West Coast Surrogacy", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_222", "answer": "Taft Senior Quad Stage", "dev": false}
+{"qid": "mq_illinois_test_intersection_174", "answer": "AMC Showplace 8", "dev": false}
+{"qid": "mq_california_full_intersection_231", "answer": "MCASD Sherwood Auditorium", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6600", "answer": "Desert Fox Bar", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_595", "answer": "Game Room; Drawing Room", "dev": false}
+{"qid": "mq_california_full_direction_nearest_132", "answer": "Ticketing | Check In", "dev": false}
+{"qid": "mq_california_full_amenities_237", "answer": "school", "dev": false}
+{"qid": "mq_illinois_test_intersection_110", "answer": "Springfield Art Association", "dev": false}
+{"qid": "mq_illinois_test_intersection_9", "answer": "African Wonderland Imports", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_81", "answer": "Palm Terrace Care Center", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 20th & Wilshire from 17th-Freeman?", "dev": false}
+{"qid": "mq_illinois_test_intersection_374", "answer": "charging_station", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-B from 1st Lady?", "dev": false}
+{"qid": "mq_illinois_test_intersection_112", "answer": "charging_station", "dev": false}
+{"qid": "mq_california_full_intersection_82", "answer": "Regelin Hall", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 01?", "dev": false}
+{"qid": "mq_illinois_test_intersection_237", "answer": "U.S. Bank", "dev": false}
+{"qid": "mq_california_full_intersection_377", "answer": "Bikes and Brew", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2894", "answer": "Creeky Tiki", "dev": false}
+{"qid": "mq_california_full_amenities_around_158", "answer": "bank; cafe; parking_entrance; post_box; prep_school", "dev": false}
+{"qid": "mq_california_full_intersection_133", "answer": "ACE Dental", "dev": false}
+{"qid": "mq_california_full_amenities_around_116", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_adjacent_63", "answer": "The Coffee Bean & Tea Leaf", "dev": false}
+{"qid": "mq_california_full_intersection_325", "answer": "Art Zone", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8733", "answer": "Wells Fargo", "dev": false}
+{"qid": "mq_california_full_intersection_257", "answer": "Nix / Payday Today Check Cashing", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_614", "answer": "Replay - Andersonville", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-Pacific from 12W02-270E?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_172", "answer": "Big Bully Turf", "dev": false}
+{"qid": "mq_illinois_test_amenities_5", "answer": "grave_yard", "dev": false}
+{"qid": "mq_california_full_adjacent_152", "answer": "76", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_130", "answer": "Calico High School", "dev": false}
+{"qid": "mq_california_full_amenities_around_149", "answer": "bank; fast_food; restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_35", "answer": "CSL Rm 333 Auditorium", "dev": false}
+{"qid": "mq_california_full_intersection_15", "answer": "The Villa", "dev": false}

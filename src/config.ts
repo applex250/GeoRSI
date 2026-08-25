@@ -49,7 +49,7 @@ export interface ModelSpec {
 	/** how requests to this model must leave the machine */
 	route: "direct" | "proxy";
 	/** which endpoint serves this model */
-	endpoint: "zen" | "local";
+	endpoint: "zen" | "local" | "openrouter";
 	/** true context window, tokens (drives pi compaction decisions) */
 	contextWindow: number;
 	/** provider-advertised max output, tokens (informational; we cap lower) */
@@ -63,6 +63,7 @@ export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
+	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter free tier (429 under burst); reasoning mandatory; text+image+video input; quality flaky above medium effort" },
 ];
 
 export function modelSpec(id: string): ModelSpec | undefined {
@@ -73,6 +74,8 @@ export interface Config {
 	base_url: string;
 	/** campus-local OpenAI-compatible server (may be down at any time) */
 	local_base_url: string;
+	/** OpenRouter gateway (optional; key in api_key_or.txt) */
+	openrouter_base_url?: string;
 	inner_model: string;
 	outer_model: string;
 	generations: number;
@@ -123,6 +126,20 @@ function num(v: unknown, dflt: number): number {
 
 export function loadConfig(path?: string): Config {
 	const raw = loadJson(path ?? join(ROOT, "config.json"));
+	// suite mechanism: problems_file lists extra problems (quiz chunk batches)
+	// so config.json stays clean when dozens of benchmark chunks are registered
+	if (typeof raw.problems_file === "string" && existsSync(join(ROOT, raw.problems_file))) {
+		const suite = JSON.parse(readFileSync(join(ROOT, raw.problems_file), "utf8")) as { problems?: ProblemSpec[] };
+		const merged = [...(Array.isArray(raw.problems) ? raw.problems : []), ...(suite.problems ?? [])];
+		// dedupe by id (first occurrence wins): config entries override suite ones
+		const seen = new Set<string>();
+		raw.problems = merged.filter((p) => {
+			if (!p || typeof p.id !== "string") return true;
+			if (seen.has(p.id)) return false;
+			seen.add(p.id);
+			return true;
+		});
+	}
 	const problems = Array.isArray(raw.problems)
 		? (raw.problems as ProblemSpec[]).filter((p) => p && typeof p.id === "string")
 		: [];
@@ -142,6 +159,7 @@ export function loadConfig(path?: string): Config {
 	return {
 		base_url: String(raw.base_url ?? "https://opencode.ai/zen/go/v1"),
 		local_base_url: String(raw.local_base_url ?? "http://172.27.116.56:8080/v1"),
+		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
 		inner_model: inner,
 		outer_model: outer,
 		generations: num(raw.generations, 4),

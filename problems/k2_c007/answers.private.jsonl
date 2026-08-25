@@ -1,0 +1,100 @@
+{"qid": "k2_np_f74", "answer": "Moho surface, Gutenberg surface, crust, mantle, core", "dev": true}
+{"qid": "k2_ap_203", "answer": "E", "dev": true}
+{"qid": "k2_np_t15", "answer": "True", "dev": true}
+{"qid": "k2_np_t68", "answer": "False", "dev": true}
+{"qid": "k2_ap_840", "answer": "D", "dev": true}
+{"qid": "k2_ap_1056", "answer": "A", "dev": true}
+{"qid": "k2_ap_953", "answer": "E", "dev": true}
+{"qid": "k2_ap_718", "answer": "B", "dev": true}
+{"qid": "k2_ap_803", "answer": "E", "dev": true}
+{"qid": "k2_np_f37", "answer": "Vertical fold, inclined fold, inverted fold, recumbent fold.", "dev": true}
+{"qid": "k2_ap_955", "answer": "E", "dev": true}
+{"qid": "k2_np_t54", "answer": "True", "dev": true}
+{"qid": "k2_ap_559", "answer": "C", "dev": true}
+{"qid": "k2_ap_979", "answer": "D", "dev": true}
+{"qid": "k2_np_f64", "answer": "Calcite, dolomite", "dev": true}
+{"qid": "k2_ap_9", "answer": "A", "dev": true}
+{"qid": "k2_np_c48", "answer": "B", "dev": true}
+{"qid": "k2_ap_470", "answer": "E", "dev": true}
+{"qid": "k2_ap_1282", "answer": "B", "dev": true}
+{"qid": "k2_ap_749", "answer": "D", "dev": true}
+{"qid": "k2_ap_896", "answer": "A", "dev": false}
+{"qid": "k2_np_f46", "answer": "solubility", "dev": false}
+{"qid": "k2_ap_597", "answer": "B", "dev": false}
+{"qid": "k2_np_c147", "answer": "A", "dev": false}
+{"qid": "k2_ap_246", "answer": "C", "dev": false}
+{"qid": "k2_ap_1049", "answer": "D", "dev": false}
+{"qid": "k2_ap_920", "answer": "A", "dev": false}
+{"qid": "k2_ap_80", "answer": "A", "dev": false}
+{"qid": "k2_ap_825", "answer": "E", "dev": false}
+{"qid": "k2_ap_174", "answer": "B", "dev": false}
+{"qid": "k2_ap_184", "answer": "A", "dev": false}
+{"qid": "k2_ap_579", "answer": "C", "dev": false}
+{"qid": "k2_ap_804", "answer": "D", "dev": false}
+{"qid": "k2_ap_1318", "answer": "D", "dev": false}
+{"qid": "k2_ap_250", "answer": "A", "dev": false}
+{"qid": "k2_ap_1243", "answer": "C", "dev": false}
+{"qid": "k2_ap_441", "answer": "A", "dev": false}
+{"qid": "k2_ap_383", "answer": "E", "dev": false}
+{"qid": "k2_ap_1353", "answer": "D", "dev": false}
+{"qid": "k2_ap_300", "answer": "A", "dev": false}
+{"qid": "k2_ap_57", "answer": "D", "dev": false}
+{"qid": "k2_ap_1357", "answer": "A", "dev": false}
+{"qid": "k2_ap_47", "answer": "C", "dev": false}
+{"qid": "k2_ap_763", "answer": "C", "dev": false}
+{"qid": "k2_ap_306", "answer": "C", "dev": false}
+{"qid": "k2_ap_170", "answer": "B", "dev": false}
+{"qid": "k2_ap_454", "answer": "B", "dev": false}
+{"qid": "k2_ap_681", "answer": "D", "dev": false}
+{"qid": "k2_ap_648", "answer": "D", "dev": false}
+{"qid": "k2_ap_100", "answer": "D", "dev": false}
+{"qid": "k2_ap_444", "answer": "D", "dev": false}
+{"qid": "k2_ap_92", "answer": "B", "dev": false}
+{"qid": "k2_np_t51", "answer": "True", "dev": false}
+{"qid": "k2_ap_1167", "answer": "B", "dev": false}
+{"qid": "k2_np_f21", "answer": "Atmosphere, hydrosphere, biosphere (crust, mantle, core).", "dev": false}
+{"qid": "k2_ap_240", "answer": "C", "dev": false}
+{"qid": "k2_ap_70", "answer": "C", "dev": false}
+{"qid": "k2_ap_632", "answer": "D", "dev": false}
+{"qid": "k2_ap_36", "answer": "C", "dev": false}
+{"qid": "k2_ap_1026", "answer": "A", "dev": false}
+{"qid": "k2_ap_1065", "answer": "A", "dev": false}
+{"qid": "k2_ap_641", "answer": "E", "dev": false}
+{"qid": "k2_ap_324", "answer": "B", "dev": false}
+{"qid": "k2_np_f78", "answer": "Wave, tide, current, turbidity current", "dev": false}
+{"qid": "k2_ap_989", "answer": "E", "dev": false}
+{"qid": "k2_ap_336", "answer": "C", "dev": false}
+{"qid": "k2_ap_847", "answer": "E", "dev": false}
+{"qid": "k2_np_t23", "answer": "True", "dev": false}
+{"qid": "k2_ap_1249", "answer": "E", "dev": false}
+{"qid": "k2_np_f1", "answer": "Flow velocity, rock properties that make up the riverbed, and sediment concentration in the flowing water", "dev": false}
+{"qid": "k2_ap_346", "answer": "C", "dev": false}
+{"qid": "k2_np_f120", "answer": "River bed, embankment, river apron, oxbow lake", "dev": false}
+{"qid": "k2_ap_970", "answer": "E", "dev": false}
+{"qid": "k2_ap_1216", "answer": "B", "dev": false}
+{"qid": "k2_ap_1200", "answer": "C", "dev": false}
+{"qid": "k2_np_f33", "answer": "Load release (unloading), thermal expansion and contraction of rocks and minerals, freezing and thawing of water (ice splitting), crystallization and deliquescence of salts.", "dev": false}
+{"qid": "k2_ap_419", "answer": "C", "dev": false}
+{"qid": "k2_ap_147", "answer": "B", "dev": false}
+{"qid": "k2_ap_15", "answer": "D", "dev": false}
+{"qid": "k2_np_f95", "answer": "Normal fault", "dev": false}
+{"qid": "k2_np_f0", "answer": "Tectonism, earthquake, magmatism, metamorphism", "dev": false}
+{"qid": "k2_np_t103", "answer": "False", "dev": false}
+{"qid": "k2_ap_450", "answer": "A", "dev": false}
+{"qid": "k2_ap_1164", "answer": "C", "dev": false}
+{"qid": "k2_ap_339", "answer": "E", "dev": false}
+{"qid": "k2_ap_604", "answer": "B", "dev": false}
+{"qid": "k2_ap_1024", "answer": "A", "dev": false}
+{"qid": "k2_ap_980", "answer": "E", "dev": false}
+{"qid": "k2_ap_1158", "answer": "C", "dev": false}
+{"qid": "k2_ap_802", "answer": "D", "dev": false}
+{"qid": "k2_ap_950", "answer": "A", "dev": false}
+{"qid": "k2_ap_822", "answer": "B", "dev": false}
+{"qid": "k2_ap_679", "answer": "C", "dev": false}
+{"qid": "k2_np_c131", "answer": "A", "dev": false}
+{"qid": "k2_ap_390", "answer": "A", "dev": false}
+{"qid": "k2_np_c24", "answer": "C", "dev": false}
+{"qid": "k2_ap_1211", "answer": "D", "dev": false}
+{"qid": "k2_ap_44", "answer": "B", "dev": false}
+{"qid": "k2_ap_420", "answer": "E", "dev": false}
+{"qid": "k2_ap_1082", "answer": "E", "dev": false}

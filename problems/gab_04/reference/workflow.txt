@@ -1,0 +1,12 @@
+1. Load dataset
+2. Project (shapefile)
+3. Polygon to Raster (get drainage conditions from soils)
+4. Reclassify (drainage conditions)
+5. Polygon to Raster (get water depth from soils)
+6. Reclassify (water depth)
+7. Calculate vulnerable areas
+8. Reclassify (vulnerable areas)
+9. Reclassify (land cover)
+10. Calculate risk zones
+11. Conditional Evaluation the high risk zones
+12. Conditional Evaluation the undeveloped areas

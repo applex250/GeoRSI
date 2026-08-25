@@ -27,7 +27,7 @@ import { solveEpisode, setBudgetExhausted, type EpisodeResult } from "./inner/so
 import { propose, ANGLES } from "./outer/improve.js";
 import { critiquePanel } from "./outer/critique.js";
 import { makeGoalPlan, checkGoal, readFeedback, type GoalPlan } from "./goal.js";
-import { writeReports, summarizeProposals, type EpisodeRecord, type FindingRow } from "./board.js";
+import { writeReports, type EpisodeRecord, type FindingRow } from "./board.js";
 import { openMemory, addMemory, defaultObservation } from "./memory.js";
 import { runHeldoutExam } from "./exam.js";
 import type { RsiEvent } from "./tui/events.js";
@@ -60,6 +60,7 @@ async function evaluateScaffold(
 	memory: ReturnType<typeof openMemory>,
 	emit: (ev: RsiEvent) => void = () => {},
 	controller?: RunController,
+	log: (m: string) => void = () => {},
 ): Promise<{ mean: number | null; detail: EpisodeRecord[] }> {
 	const evalCtx = makeEvalContext(cfg, ROOT);
 	const detail: EpisodeRecord[] = [];
@@ -76,6 +77,7 @@ async function evaluateScaffold(
 			model,
 			workspace,
 			memory,
+			log,
 			tag,
 			emit,
 		});
@@ -164,7 +166,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		log("\n[gen 0] baseline episode suite ...");
 		emit({ type: "phase", phase: "baseline suite", detail: "seed scaffold" });
 		const seed = cfg.seed_scaffold ?? SEED_SCAFFOLD;
-		const { mean, detail } = await evaluateScaffold(cfg, problems, seed, runDir, "g0", inner, memory, emit, controller);
+		const { mean, detail } = await evaluateScaffold(cfg, problems, seed, runDir, "g0", inner, memory, emit, controller, log);
 		log(`[gen 0] baseline mean fitness=${mean?.toFixed(4) ?? "ERR"} tokens=${TOKENS.total}`);
 		journal.append({
 			kind: "episode",
@@ -191,7 +193,6 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		saveRunState(runDir, state);
 	}
 
-	const boardRows: Parameters<typeof writeReports>[1] = [];
 	const findings: FindingRow[] = rebuildFindings(runDir);
 	emit({
 		type: "run_start",
@@ -313,6 +314,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 
 		// 3) evaluate survivors
 		let best: { mean: number; child: Scaffold; detail: EpisodeRecord[]; mechanism: string } | null = null;
+		let bestFinding: FindingRow | null = null;
 		for (const [i, p] of survivors.entries()) {
 			await controller?.waitIfPaused();
 			if (controller?.stopRequested) break;
@@ -320,15 +322,16 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 			child.generation = gen;
 			log(`  [eval survivor ${i + 1}/${survivors.length}] ${p.mechanism.slice(0, 80)}`);
 			emit({ type: "phase", phase: `gen ${gen}: eval survivor ${i + 1}/${survivors.length}`, detail: p.mechanism.slice(0, 90) });
-			const { mean, detail } = await evaluateScaffold(cfg, problems, child, runDir, `g${gen}-s${i + 1}`, inner, memory, emit, controller);
+			const { mean, detail } = await evaluateScaffold(cfg, problems, child, runDir, `g${gen}-s${i + 1}`, inner, memory, emit, controller, log);
 			log(`    -> mean fitness=${mean?.toFixed(4) ?? "ERR"}`);
-			findings.push({
+			const finding: FindingRow = {
 				generation: gen,
 				mechanism: p.mechanism,
 				expected: p.expectedDelta,
 				fitness: mean,
 				accepted: false,
-			});
+			};
+			findings.push(finding);
 			journal.append({
 				kind: "episode",
 				ts: nowTs(),
@@ -339,7 +342,10 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				detail,
 				tokens: TOKENS.total,
 			});
-			if (mean != null && (!best || mean > best.mean)) best = { mean, child, detail, mechanism: p.mechanism };
+			if (mean != null && (!best || mean > best.mean)) {
+				best = { mean, child, detail, mechanism: p.mechanism };
+				bestFinding = finding;
+			}
 		}
 
 		// 4) adversarial verification: fresh re-eval; avg of 2 must beat champion
@@ -348,7 +354,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		} else if (best && state.bestFitness != null && best.mean > state.bestFitness) {
 			log(`  [verify] challenger ${best.mean.toFixed(4)} > champion ${state.bestFitness.toFixed(4)}: fresh re-eval`);
 			emit({ type: "phase", phase: `gen ${gen}: adversarial verify` });
-			const v = await evaluateScaffold(cfg, problems, best.child, runDir, `g${gen}-verify`, inner, memory, emit, controller);
+			const v = await evaluateScaffold(cfg, problems, best.child, runDir, `g${gen}-verify`, inner, memory, emit, controller, log);
 			const avg = v.mean != null ? (best.mean + v.mean) / 2 : null;
 			log(`  [verify] re-eval=${v.mean?.toFixed(4) ?? "ERR"} avg=${avg?.toFixed(4) ?? "—"}`);
 			emit({ type: "verify", first: best.mean, second: v.mean, avg, champion: state.bestFitness });
@@ -373,8 +379,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				state.champion = best.child;
 				state.bestFitness = avg;
 				state.stagnation = 0;
-				const last = findings[findings.length - 1];
-				if (last && last.generation === gen) last.accepted = true;
+				if (bestFinding) bestFinding.accepted = true;
 				journal.append({
 					kind: "accept",
 					ts: nowTs(),

@@ -1,15 +1,11 @@
 /** Full /research run handler path against the real engine (the path that crashed). */
+import { makePiMock } from "./pi-mock.js";
 const notifications: string[] = [];
 const entries: { lines: string[] }[] = [];
-const pi: any = {
-	registerCommand: () => {},
-	registerEntryRenderer: () => {},
+const { pi, cmds } = makePiMock({
 	appendEntry: (_t: string, data: any) => entries.push({ lines: data.lines ?? [] }),
-};
-const cmds: Record<string, any> = {};
-pi.registerCommand = (n: string, d: any) => {
-	cmds[n] = d;
-};
+	captureNotifications: notifications,
+});
 (await import("../extensions/georsi.js")).default(pi);
 const handler = cmds["research"].handler;
 let widgetContent: string[] | undefined;

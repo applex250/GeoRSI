@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_around_71", "answer": "doctors; fast_food; place_of_worship; restaurant; theatre", "dev": true}
+{"qid": "mq_illinois_test_intersection_160", "answer": "Commerce Bank", "dev": true}
+{"qid": "mq_california_full_intersection_85", "answer": "Long Beach Fire Station 21", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1 from 172?", "dev": true}
+{"qid": "mq_california_full_amenities_around_133", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_intersection_80", "answer": "Learning Nook", "dev": true}
+{"qid": "mq_illinois_test_intersection_395", "answer": "Deo Gratias Food Market", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_366", "answer": "JT Salon", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Cabrillo Park from $300 Data Recovery?", "dev": true}
+{"qid": "mq_illinois_test_intersection_249", "answer": "DPS Mart", "dev": true}
+{"qid": "mq_california_full_intersection_76", "answer": "Academy of Motion Picture Arts and Sciences Film Archive", "dev": true}
+{"qid": "mq_california_full_direction_nearest_127", "answer": "Prometric Testing Center", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Oberlin from 11th & Cottonwood?", "dev": true}
+{"qid": "mq_california_full_adjacent_144", "answer": "Los Jilbertos", "dev": true}
+{"qid": "mq_illinois_test_intersection_359", "answer": "Scully Park Fountain", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_233", "answer": "Joslyn Senior Center", "dev": true}
+{"qid": "mq_california_full_adjacent_153", "answer": "Cafe 86", "dev": true}
+{"qid": "mq_california_full_intersection_132", "answer": "7-Eleven", "dev": true}
+{"qid": "mq_california_full_compare-closer_19", "answer": "Citibank", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_984", "answer": "The Scout", "dev": true}
+{"qid": "mq_illinois_test_amenities_2", "answer": "ferry_terminal", "dev": false}
+{"qid": "mq_california_full_amenities_6", "answer": "pub", "dev": false}
+{"qid": "mq_illinois_test_intersection_269", "answer": "Western Union", "dev": false}
+{"qid": "mq_illinois_test_intersection_14", "answer": "Sherman Fire Protection District", "dev": false}
+{"qid": "mq_california_full_amenities_116", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_direction_nearest_144", "answer": "Savers Donation Area", "dev": false}
+{"qid": "mq_illinois_test_intersection_229", "answer": "Alleycat Comics", "dev": false}
+{"qid": "mq_california_full_compare-closer_72", "answer": "Arizona Middle School", "dev": false}
+{"qid": "mq_illinois_test_intersection_35", "answer": "First Aid Station", "dev": false}
+{"qid": "mq_california_full_intersection_23", "answer": "Feet For Life", "dev": false}
+{"qid": "mq_california_full_intersection_144", "answer": "The Villa", "dev": false}
+{"qid": "mq_california_full_direction_nearest_108", "answer": "Raas Marketplace", "dev": false}
+{"qid": "mq_california_full_amenities_49", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_compare-closer_58", "answer": "Camp Hi-Hill", "dev": false}
+{"qid": "mq_illinois_test_intersection_324", "answer": "Rieke Interiors", "dev": false}
+{"qid": "mq_illinois_test_amenities_46", "answer": "theatre", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 16 from 17th-Orange?", "dev": false}
+{"qid": "mq_california_full_direction_nearest_91", "answer": "City of Los Angeles", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_187", "answer": "Newbury Park Bike Shop", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 170th St. E & Ave K-8 from 15?", "dev": false}
+{"qid": "mq_illinois_test_intersection_341", "answer": "Springfield Clinic Wabash", "dev": false}
+{"qid": "mq_california_full_adjacent_122", "answer": "Citizens Business Bank", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_23", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_adjacent_18", "answer": "Salam", "dev": false}
+{"qid": "mq_california_full_intersection_27", "answer": "Helix Brewing Co", "dev": false}
+{"qid": "mq_california_full_intersection_310", "answer": "CalArts Bicycle Parking", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_45", "answer": "Skyway cafe", "dev": false}
+{"qid": "mq_california_full_amenities_119", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11681", "answer": "Wachovia Bank", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_223", "answer": "Slab City Internet Café", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7806", "answer": "Bank of America", "dev": false}
+{"qid": "mq_california_full_direction_nearest_118", "answer": "English Language Centers", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2384", "answer": "The Shout! House", "dev": false}
+{"qid": "mq_illinois_test_amenities_31", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_193", "answer": "The Villa", "dev": false}
+{"qid": "mq_illinois_test_intersection_118", "answer": "Sherman Car Wash", "dev": false}
+{"qid": "mq_california_full_direction_nearest_242", "answer": "Law Office of Raymond Perez", "dev": false}
+{"qid": "mq_california_full_intersection_327", "answer": "Vernetta's Dance Studio", "dev": false}
+{"qid": "mq_california_full_intersection_359", "answer": "Academy of Motion Picture Arts and Sciences Film Archive", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8825", "answer": "Premier America Credit Union", "dev": false}

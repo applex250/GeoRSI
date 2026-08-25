@@ -1,0 +1,7 @@
+1. Load Dataset
+2. Raster Calculation
+3. Intersection
+4. Store in polygon
+5. Damage Calculation
+6. Overlay
+7. Visualization

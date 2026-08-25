@@ -1,0 +1,82 @@
+{
+ "task_ID": "TASK_250309_135125_438953",
+ "task_text": "Create a bivariate map showing the relationship between CO2 emissions per capita and greenhouse gases emissions per capita for 1990 and 2020 across all countries.",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_data",
+     "arguments": {
+      "dataset": "CO2 emissions per capita, tons",
+      "output_dataframe_name": "co2_data"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_data",
+     "arguments": {
+      "dataset": "Greenhouse gases emission, per capita, tons of carbon dioxide-equivalents ",
+      "output_dataframe_name": "ghg_data"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Countries",
+      "output_geodataframe_name": "countries"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "merge_dataframes",
+     "arguments": {
+      "dataframe_name": "co2_data",
+      "geodataframe_name": "countries",
+      "statkey": "Country name",
+      "geokey": "NAME_EN",
+      "output_dataframe_name": "merged_co2"
+     },
+     "comment": "If 'statkey' is 'Country Name', then 'geokey' should be 'NAME_EN'. If 'statkey' is 'Country Code', then 'geokey' can be either 'WB_A3' or 'ISO_A3'."
+    },
+    {
+     "function_name": "merge_dataframes",
+     "arguments": {
+      "dataframe_name": "ghg_data",
+      "geodataframe_name": "merged_co2",
+      "statkey": "Country Name",
+      "geokey": "NAME_EN",
+      "output_dataframe_name": "final_merged"
+     },
+     "comment": "If 'statkey' is 'Country Name', then 'geokey' should be 'NAME_EN'. If 'statkey' is 'Country Code', then 'geokey' can be either 'WB_A3' or 'ISO_A3'."
+    },
+    {
+     "function_name": "make_bivariate_map",
+     "arguments": {
+      "dataframe_name": "final_merged",
+      "var1": "1990_x",
+      "var2": "1990_y",
+      "var1_name": "CO2 emissions per capita",
+      "var2_name": "Total GHG emissions per capita",
+      "title": "Relationship between CO2 and GHG emissions per capita (1990)",
+      "output_variable_name": "map_1990"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "make_bivariate_map",
+     "arguments": {
+      "dataframe_name": "final_merged",
+      "var1": "2020_x",
+      "var2": "2020_y",
+      "var1_name": "CO2 emissions per capita",
+      "var2_name": "Total GHG emissions per capita",
+      "title": "Relationship between CO2 and GHG emissions per capita (2020)",
+      "output_variable_name": "map_2020"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

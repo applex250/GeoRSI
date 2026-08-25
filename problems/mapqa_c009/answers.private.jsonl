@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_intersection_309", "answer": "Starbucks", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 - S cor S2 T12N R1E SBM from 12,14?", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_21", "answer": "Lakewood Dental", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_46", "answer": "Law Office of Raymond Perez", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_10981", "answer": "Meleose Rooftop", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_175", "answer": "San Pedro County Courts Building", "dev": true}
+{"qid": "mq_california_full_amenities_24", "answer": "school", "dev": true}
+{"qid": "mq_california_full_intersection_375", "answer": "Bay Chiropractic", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 Degrees C from 1st & Central?", "dev": true}
+{"qid": "mq_illinois_test_adjacent_43", "answer": "Raven Masonic Lodge", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_161", "answer": "Popcorn Small World", "dev": true}
+{"qid": "mq_illinois_test_intersection_365", "answer": "TopDriver", "dev": true}
+{"qid": "mq_california_full_amenities_around_163", "answer": "clinic; restaurant", "dev": true}
+{"qid": "mq_california_full_amenities_around_104", "answer": "cafe; marketplace; pharmacy; restaurant", "dev": true}
+{"qid": "mq_california_full_adjacent_70", "answer": "Action Urgent Care", "dev": true}
+{"qid": "mq_california_full_compare-closer_35", "answer": "Mamma's Brick Oven Pizza & Pasta", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_201", "answer": "Samuel Oschin Planetarium", "dev": true}
+{"qid": "mq_california_full_adjacent_210", "answer": "Dentist", "dev": true}
+{"qid": "mq_california_full_adjacent_147", "answer": "Wetzel's Pretzels", "dev": true}
+{"qid": "mq_illinois_test_intersection_197", "answer": "Alleycat Comics", "dev": true}
+{"qid": "mq_california_full_amenities_around_95", "answer": "atm; bank", "dev": false}
+{"qid": "mq_california_full_amenities_around_30", "answer": "bar; cafe; ice_cream; parking_entrance; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_36", "answer": "Lake Arrowhead Post Office", "dev": false}
+{"qid": "mq_california_full_amenities_around_70", "answer": "clinic; dentist; social_facility", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_29", "answer": "Elks Lodge", "dev": false}
+{"qid": "mq_california_full_intersection_213", "answer": "The Villa", "dev": false}
+{"qid": "mq_california_full_amenities_225", "answer": "school", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_46", "answer": "Clock Tower", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1401 Bailey Avenue from 17th-Freeman?", "dev": false}
+{"qid": "mq_california_full_compare-closer_63", "answer": "Acacia School", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_344", "answer": "Cabana at Oasis Pool", "dev": false}
+{"qid": "mq_california_full_amenities_80", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_amenities_202", "answer": "school", "dev": false}
+{"qid": "mq_california_full_amenities_around_74", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_direction_nearest_159", "answer": "Lucky Dog", "dev": false}
+{"qid": "mq_illinois_test_intersection_301", "answer": "Springfield Clinic at the Villas", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8591", "answer": "Citibank; Chase", "dev": false}
+{"qid": "mq_illinois_test_amenities_20", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_60", "answer": "Long Beach Fire Station 21", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_40", "answer": "Carbon Cliff Village Hall", "dev": false}
+{"qid": "mq_california_full_intersection_56", "answer": "Long Beach Fire Station 21", "dev": false}
+{"qid": "mq_california_full_amenities_73", "answer": "fire_station", "dev": false}
+{"qid": "mq_illinois_test_intersection_47", "answer": "Bike Repair Station", "dev": false}
+{"qid": "mq_california_full_adjacent_136", "answer": "The Little Jewel of New Orleans", "dev": false}
+{"qid": "mq_california_full_amenities_203", "answer": "school", "dev": false}
+{"qid": "mq_california_full_intersection_306", "answer": "Pasadena Humane Society", "dev": false}
+{"qid": "mq_illinois_test_intersection_284", "answer": "Zipcar", "dev": false}
+{"qid": "mq_california_full_intersection_120", "answer": "Bikes and Brew", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_168", "answer": "Ventura County Animal Services", "dev": false}
+{"qid": "mq_california_full_direction_nearest_102", "answer": "Hawthorne Plaza", "dev": false}
+{"qid": "mq_california_full_direction_nearest_77", "answer": "Turkey Legs", "dev": false}
+{"qid": "mq_california_full_adjacent_120", "answer": "Restrooms; Restrooms", "dev": false}
+{"qid": "mq_california_full_amenities_around_199", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities_around_58", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_39", "answer": "Big Bully Turf", "dev": false}
+{"qid": "mq_california_full_intersection_282", "answer": "Freeway Easy Traffic and Driving School", "dev": false}
+{"qid": "mq_california_full_intersection_221", "answer": "Cerritos Library book return", "dev": false}
+{"qid": "mq_illinois_test_compare-closer_4", "answer": "Beck's", "dev": false}
+{"qid": "mq_california_full_compare-closer_16", "answer": "Clairemont Auto Care", "dev": false}
+{"qid": "mq_california_full_amenities_around_94", "answer": "bicycle_parking; community_centre; theatre", "dev": false}

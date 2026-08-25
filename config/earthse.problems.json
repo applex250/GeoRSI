@@ -1,0 +1,72 @@
+{
+  "suite": "earthse",
+  "problems": [
+    {
+      "id": "earthse_c001"
+    },
+    {
+      "id": "earthse_c002"
+    },
+    {
+      "id": "earthse_c003"
+    },
+    {
+      "id": "earthse_c004"
+    },
+    {
+      "id": "earthse_c005"
+    },
+    {
+      "id": "earthse_c006"
+    },
+    {
+      "id": "earthse_c007"
+    },
+    {
+      "id": "earthse_c008"
+    },
+    {
+      "id": "earthse_c009"
+    },
+    {
+      "id": "earthse_c010"
+    },
+    {
+      "id": "earthse_c011"
+    },
+    {
+      "id": "earthse_c012"
+    },
+    {
+      "id": "earthse_c013"
+    },
+    {
+      "id": "earthse_c014"
+    },
+    {
+      "id": "earthse_c015"
+    },
+    {
+      "id": "earthse_c016"
+    },
+    {
+      "id": "earthse_c017"
+    },
+    {
+      "id": "earthse_c018"
+    },
+    {
+      "id": "earthse_c019"
+    },
+    {
+      "id": "earthse_c020"
+    },
+    {
+      "id": "earthse_c021"
+    },
+    {
+      "id": "earthse_c022",
+      "heldout": true
+    }
+  ]
+}

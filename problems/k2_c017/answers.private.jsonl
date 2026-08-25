@@ -1,0 +1,100 @@
+{"qid": "k2_ap_1059", "answer": "B", "dev": true}
+{"qid": "k2_ap_897", "answer": "C", "dev": true}
+{"qid": "k2_ap_764", "answer": "D", "dev": true}
+{"qid": "k2_np_f121", "answer": "Lake delta, shore lake, shallow lake, semi-deep lake, deep lake", "dev": true}
+{"qid": "k2_ap_1375", "answer": "D", "dev": true}
+{"qid": "k2_np_t129", "answer": "True", "dev": true}
+{"qid": "k2_ap_638", "answer": "D", "dev": true}
+{"qid": "k2_np_c65", "answer": "A", "dev": true}
+{"qid": "k2_ap_411", "answer": "C", "dev": true}
+{"qid": "k2_np_c17", "answer": "B", "dev": true}
+{"qid": "k2_np_f88", "answer": "Lake delta, shore lake, shallow lake, semi-deep lake, deep lake", "dev": true}
+{"qid": "k2_np_c151", "answer": "C", "dev": true}
+{"qid": "k2_np_t69", "answer": "False", "dev": true}
+{"qid": "k2_ap_433", "answer": "D", "dev": true}
+{"qid": "k2_ap_866", "answer": "D", "dev": true}
+{"qid": "k2_ap_1242", "answer": "C", "dev": true}
+{"qid": "k2_ap_1080", "answer": "C", "dev": true}
+{"qid": "k2_np_f6", "answer": "Tracing erosion, meandering, delta formation", "dev": true}
+{"qid": "k2_ap_338", "answer": "E", "dev": true}
+{"qid": "k2_ap_1125", "answer": "B", "dev": true}
+{"qid": "k2_ap_973", "answer": "C", "dev": false}
+{"qid": "k2_ap_1351", "answer": "A", "dev": false}
+{"qid": "k2_ap_262", "answer": "D", "dev": false}
+{"qid": "k2_ap_257", "answer": "E", "dev": false}
+{"qid": "k2_np_c173", "answer": "B", "dev": false}
+{"qid": "k2_ap_1090", "answer": "C", "dev": false}
+{"qid": "k2_np_c162", "answer": "B", "dev": false}
+{"qid": "k2_ap_141", "answer": "C", "dev": false}
+{"qid": "k2_ap_995", "answer": "C", "dev": false}
+{"qid": "k2_np_c103", "answer": "C", "dev": false}
+{"qid": "k2_ap_175", "answer": "D", "dev": false}
+{"qid": "k2_np_f83", "answer": "Grain structure", "dev": false}
+{"qid": "k2_np_f16", "answer": "The occurrence of underlying strata is inconsistent", "dev": false}
+{"qid": "k2_ap_493", "answer": "B", "dev": false}
+{"qid": "k2_ap_118", "answer": "D", "dev": false}
+{"qid": "k2_ap_490", "answer": "A", "dev": false}
+{"qid": "k2_ap_629", "answer": "B", "dev": false}
+{"qid": "k2_ap_743", "answer": "E", "dev": false}
+{"qid": "k2_ap_229", "answer": "C", "dev": false}
+{"qid": "k2_ap_39", "answer": "B", "dev": false}
+{"qid": "k2_ap_1000", "answer": "B", "dev": false}
+{"qid": "k2_ap_663", "answer": "A", "dev": false}
+{"qid": "k2_ap_1226", "answer": "C", "dev": false}
+{"qid": "k2_ap_1", "answer": "A", "dev": false}
+{"qid": "k2_ap_1086", "answer": "E", "dev": false}
+{"qid": "k2_np_t17", "answer": "False", "dev": false}
+{"qid": "k2_ap_1104", "answer": "E", "dev": false}
+{"qid": "k2_ap_330", "answer": "A", "dev": false}
+{"qid": "k2_np_c166", "answer": "A", "dev": false}
+{"qid": "k2_ap_765", "answer": "A", "dev": false}
+{"qid": "k2_np_t119", "answer": "True", "dev": false}
+{"qid": "k2_np_f123", "answer": "Coastal dunes, backshore, foreshore, nearshore", "dev": false}
+{"qid": "k2_np_f45", "answer": "Jump, overhang, creep", "dev": false}
+{"qid": "k2_np_t81", "answer": "True", "dev": false}
+{"qid": "k2_ap_1308", "answer": "C", "dev": false}
+{"qid": "k2_ap_611", "answer": "E", "dev": false}
+{"qid": "k2_ap_1280", "answer": "A", "dev": false}
+{"qid": "k2_ap_217", "answer": "C", "dev": false}
+{"qid": "k2_ap_1039", "answer": "E", "dev": false}
+{"qid": "k2_ap_365", "answer": "D", "dev": false}
+{"qid": "k2_np_c165", "answer": "D", "dev": false}
+{"qid": "k2_ap_1025", "answer": "D", "dev": false}
+{"qid": "k2_ap_539", "answer": "E", "dev": false}
+{"qid": "k2_np_c78", "answer": "C", "dev": false}
+{"qid": "k2_np_c83", "answer": "C", "dev": false}
+{"qid": "k2_ap_6", "answer": "E", "dev": false}
+{"qid": "k2_ap_929", "answer": "C", "dev": false}
+{"qid": "k2_ap_323", "answer": "A", "dev": false}
+{"qid": "k2_ap_890", "answer": "D", "dev": false}
+{"qid": "k2_ap_601", "answer": "D", "dev": false}
+{"qid": "k2_np_f148", "answer": "Volcanic agglomerate, volcanic breccia, tuff", "dev": false}
+{"qid": "k2_np_f105", "answer": "Magnetic declination, magnetic inclination and magnetic field strength", "dev": false}
+{"qid": "k2_ap_1312", "answer": "D", "dev": false}
+{"qid": "k2_np_c179", "answer": "A", "dev": false}
+{"qid": "k2_np_f50", "answer": "There are four major types of terrigenous clastic rocks, endogenous sedimentary rocks, pyroclastic rocks and sedimentary rock associations.", "dev": false}
+{"qid": "k2_np_c142", "answer": "B", "dev": false}
+{"qid": "k2_ap_1099", "answer": "D", "dev": false}
+{"qid": "k2_np_c1", "answer": "C", "dev": false}
+{"qid": "k2_ap_234", "answer": "C", "dev": false}
+{"qid": "k2_np_c81", "answer": "A", "dev": false}
+{"qid": "k2_np_t115", "answer": "True", "dev": false}
+{"qid": "k2_ap_23", "answer": "B", "dev": false}
+{"qid": "k2_ap_1133", "answer": "E", "dev": false}
+{"qid": "k2_ap_514", "answer": "E", "dev": false}
+{"qid": "k2_ap_1083", "answer": "A", "dev": false}
+{"qid": "k2_ap_958", "answer": "A", "dev": false}
+{"qid": "k2_ap_1220", "answer": "D", "dev": false}
+{"qid": "k2_ap_781", "answer": "D", "dev": false}
+{"qid": "k2_ap_788", "answer": "E", "dev": false}
+{"qid": "k2_ap_130", "answer": "E", "dev": false}
+{"qid": "k2_ap_1221", "answer": "C", "dev": false}
+{"qid": "k2_np_f133", "answer": "(Ultrabasic rock SiO2<45%, basic rock SiO245-52%, neutral rock SiO252-65%, acidic rock SiO2>65%)", "dev": false}
+{"qid": "k2_ap_1393", "answer": "A", "dev": false}
+{"qid": "k2_np_t45", "answer": "True", "dev": false}
+{"qid": "k2_ap_327", "answer": "D", "dev": false}
+{"qid": "k2_ap_1285", "answer": "B", "dev": false}
+{"qid": "k2_ap_313", "answer": "C", "dev": false}
+{"qid": "k2_ap_224", "answer": "C", "dev": false}
+{"qid": "k2_ap_96", "answer": "A", "dev": false}
+{"qid": "k2_np_c152", "answer": "B", "dev": false}

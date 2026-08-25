@@ -37,7 +37,7 @@ export interface RunState {
 export class Journal {
 	private readonly fh: number;
 
-	constructor(private readonly dir: string) {
+	constructor(dir: string) {
 		mkdirSync(dir, { recursive: true });
 		this.fh = openSync(join(dir, "board.jsonl"), "a");
 	}

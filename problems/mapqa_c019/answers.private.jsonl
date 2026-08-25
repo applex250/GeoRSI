@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_intersection_72", "answer": "CSL Rm 333 Auditorium", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_44", "answer": "Celeste", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th Street Bar and Grill from 2?", "dev": true}
+{"qid": "mq_illinois_test_intersection_162", "answer": "Skill Aviation", "dev": true}
+{"qid": "mq_california_full_direction_nearest_195", "answer": "Advance America Cash Advance", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 173 from 20th & Delaware?", "dev": true}
+{"qid": "mq_california_full_intersection_216", "answer": "West LA Academy of Dance", "dev": true}
+{"qid": "mq_illinois_test_intersection_111", "answer": "Instituto Cervantes", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_44", "answer": "grave_yard", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10th St W & Ave J from 120th & Central?", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_3483", "answer": "Chase", "dev": true}
+{"qid": "mq_california_full_adjacent_67", "answer": "Arco", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1855", "answer": "Loop Tavern", "dev": true}
+{"qid": "mq_california_full_intersection_139", "answer": "Goodwill", "dev": true}
+{"qid": "mq_california_full_amenities_26", "answer": "trailer_park", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 22?", "dev": true}
+{"qid": "mq_california_full_intersection_115", "answer": "Catalina Express Long Beach Downtown Landing", "dev": true}
+{"qid": "mq_california_full_intersection_160", "answer": "Express Car Wash", "dev": true}
+{"qid": "mq_california_full_adjacent_72", "answer": "Sunset Plaza Dental", "dev": true}
+{"qid": "mq_california_full_amenities_173", "answer": "restaurant", "dev": true}
+{"qid": "mq_illinois_test_adjacent_29", "answer": "Sweet Virginia’s Kitchen", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_3", "answer": "Shell", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4137", "answer": "Chase", "dev": false}
+{"qid": "mq_california_full_compare-closer_76", "answer": "Baker Elementary School", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1719", "answer": "State Bank of India", "dev": false}
+{"qid": "mq_california_full_amenities_107", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_adjacent_154", "answer": "Kumon", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_54", "answer": "AJ's Bar and Grill", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_378", "answer": "HearUSA", "dev": false}
+{"qid": "mq_california_full_amenities_166", "answer": "fuel", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_111", "answer": "The Commerce Casino", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 Tee from 15th St W & Ave J-8?", "dev": false}
+{"qid": "mq_california_full_amenities_191", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 15a?", "dev": false}
+{"qid": "mq_illinois_test_amenities_3", "answer": "parking", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4801", "answer": "Dumonts", "dev": false}
+{"qid": "mq_california_full_amenities_148", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 1112 Gallery from 130th Street & Carondolet?", "dev": false}
+{"qid": "mq_california_full_amenities_around_153", "answer": "ice_cream", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 16A from 111?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 105? from 2?", "dev": false}
+{"qid": "mq_illinois_test_intersection_195", "answer": "India Association of Greater Springfield (IAGS)", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_25", "answer": "Kaiser Branch Library", "dev": false}
+{"qid": "mq_california_full_amenities_around_183", "answer": "atm; bureau_de_change; cafe; dentist; fast_food; pharmacy; place_of_worship; toilets; townhall", "dev": false}
+{"qid": "mq_california_full_amenities_around_127", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2469", "answer": "Griffins Pint", "dev": false}
+{"qid": "mq_illinois_test_adjacent_40", "answer": "Jet's Pizza", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_93", "answer": "Sister Servants of Mary", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Williams from 1st-Main?", "dev": false}
+{"qid": "mq_california_full_amenities_145", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_170", "answer": "Bristol Warner Marketplace", "dev": false}
+{"qid": "mq_illinois_test_amenities_8", "answer": "fuel", "dev": false}
+{"qid": "mq_california_full_direction_nearest_12", "answer": "Xai Verandah Lounge and hookah", "dev": false}
+{"qid": "mq_illinois_test_intersection_84", "answer": "Turner-Eighner Funeral Home and Crematory", "dev": false}
+{"qid": "mq_california_full_intersection_290", "answer": "Catalina Express Long Beach Downtown Landing", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_468", "answer": "Brixies", "dev": false}
+{"qid": "mq_illinois_test_amenities_41", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_130", "answer": "Law Office of Raymond Perez", "dev": false}
+{"qid": "mq_illinois_test_intersection_306", "answer": "Alleycat Comics", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Orange from 1st & Vignes?", "dev": false}

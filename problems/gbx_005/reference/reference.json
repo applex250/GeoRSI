@@ -1,0 +1,80 @@
+{
+ "task_ID": "TASK_250309_135125_741001",
+ "task_text": "How many Latin American seaports are located within 5 km of major rivers?",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Seaports of Latin America",
+      "output_geodataframe_name": "seaports"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Rivers in South America",
+      "output_geodataframe_name": "rivers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "create_buffer",
+     "arguments": {
+      "geodataframe_name": "rivers",
+      "buffer_size": 5000,
+      "output_geodataframe_name": "rivers_buffer"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "select_features_by_spatial_relationship",
+     "arguments": {
+      "features_geodataframe_name": "seaports",
+      "reference_geodataframe_name": "rivers_buffer",
+      "spatial_predicates": [
+       "within",
+       "intersects"
+      ],
+      "output_geodataframe_name": "seaports_near_rivers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "visualize_geographies",
+     "arguments": {
+      "geodataframe_names": [
+       "rivers",
+       "seaports_near_rivers",
+       "seaports"
+      ],
+      "layer_styles": [
+       {
+        "color": "blue",
+        "alpha": 0.6,
+        "linewidth": 1,
+        "label": "Rivers"
+       },
+       {
+        "color": "green",
+        "alpha": 1,
+        "linewidth": 2,
+        "label": "Seaports within 5km of rivers"
+       },
+       {
+        "color": "red",
+        "alpha": 1,
+        "linewidth": 2,
+        "label": "Other seaports"
+       }
+      ],
+      "title": "Latin American Seaports and Major Rivers"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

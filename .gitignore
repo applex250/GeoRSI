@@ -11,3 +11,16 @@ pi-repo/
 api_key_local.txt
 .zcode/
 benchmarks/
+
+api_key_or.txt
+
+# python venv for GIS problems (.gisenv created by problems/<id> setup)
+.gisenv/
+
+# external-benchmark data is regenerable from source banks via scripts/
+# quiz_build.py / gab_build.py / gbx_build.py — never commit gigabytes
+problems/*/data/
+
+# derived LLM-judge disk cache (same submission -> same score)
+problems/_shared/judge_cache.jsonl
+

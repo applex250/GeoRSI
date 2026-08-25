@@ -5,7 +5,6 @@
  */
 import { join } from "node:path";
 import { writeTextAtomic } from "./journal.js";
-import type { Proposal } from "./outer/improve.js";
 
 export interface EpisodeRecord {
 	problem: string;
@@ -69,8 +68,3 @@ export function writeReports(
 	writeTextAtomic(join(runDir, "FINDINGS.md"), renderFindings(findings));
 }
 
-export function summarizeProposals(proposals: Proposal[]): string {
-	return proposals
-		.map((p, i) => `${i + 1}. [${p.angle}] ${p.mechanism} (expect ${p.expectedDelta})`)
-		.join("\n");
-}

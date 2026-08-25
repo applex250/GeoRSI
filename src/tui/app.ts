@@ -21,12 +21,10 @@ import {
 	ScrollView,
 	Container,
 	Input,
-	Text,
 	matchesKey,
-	type Component,
 } from "@earendil-works/pi-tui";
 import chalk from "chalk";
-import { loadConfig, ROOT, type Config } from "../config.js";
+import { ROOT, type Config } from "../config.js";
 import {
 	RsiEventBus,
 	applyEvent,

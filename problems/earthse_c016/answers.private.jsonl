@@ -1,0 +1,100 @@
+{"qid": "es_mul_173", "answer": "C", "dev": true}
+{"qid": "es_fil_498", "answer": "higher", "dev": true}
+{"qid": "es_mul_347", "answer": "B", "dev": true}
+{"qid": "es_tru_151", "answer": "True", "dev": true}
+{"qid": "es_tru_228", "answer": "True", "dev": true}
+{"qid": "es_fil_446", "answer": "blackbody, sky, water", "dev": true}
+{"qid": "es_fil_19", "answer": "0.1", "dev": true}
+{"qid": "es_tru_87", "answer": "True", "dev": true}
+{"qid": "es_fil_298", "answer": "wilting, field", "dev": true}
+{"qid": "es_fil_755", "answer": "slag-alkaline binders", "dev": true}
+{"qid": "es_mul_659", "answer": "C", "dev": true}
+{"qid": "es_tru_522", "answer": "False", "dev": true}
+{"qid": "es_fil_561", "answer": "serial correlation", "dev": true}
+{"qid": "es_tru_369", "answer": "True", "dev": true}
+{"qid": "es_fil_282", "answer": "shallow, deep, hydrostatic, non-hydrostatic", "dev": true}
+{"qid": "es_fil_274", "answer": "0.8534", "dev": true}
+{"qid": "es_mul_587", "answer": "A", "dev": true}
+{"qid": "es_mul_622", "answer": "A", "dev": true}
+{"qid": "es_mul_0", "answer": "B", "dev": true}
+{"qid": "es_tru_304", "answer": "True", "dev": true}
+{"qid": "es_tru_13", "answer": "True", "dev": false}
+{"qid": "es_mul_616", "answer": "B", "dev": false}
+{"qid": "es_tru_347", "answer": "True", "dev": false}
+{"qid": "es_tru_442", "answer": "True", "dev": false}
+{"qid": "es_fil_761", "answer": "813", "dev": false}
+{"qid": "es_fil_23", "answer": "seismic techniques", "dev": false}
+{"qid": "es_fil_441", "answer": "0.1", "dev": false}
+{"qid": "es_tru_543", "answer": "True", "dev": false}
+{"qid": "es_tru_43", "answer": "True", "dev": false}
+{"qid": "es_fil_477", "answer": "25", "dev": false}
+{"qid": "es_mul_260", "answer": "D", "dev": false}
+{"qid": "es_fil_336", "answer": "willow creek, maurice", "dev": false}
+{"qid": "es_mul_605", "answer": "C", "dev": false}
+{"qid": "es_fil_63", "answer": "10.9", "dev": false}
+{"qid": "es_fil_484", "answer": "deciduous shrub, sedges and grasses, conifer", "dev": false}
+{"qid": "es_mul_668", "answer": "C", "dev": false}
+{"qid": "es_tru_18", "answer": "True", "dev": false}
+{"qid": "es_fil_271", "answer": "375", "dev": false}
+{"qid": "es_mul_633", "answer": "A", "dev": false}
+{"qid": "es_tru_220", "answer": "True", "dev": false}
+{"qid": "es_mul_615", "answer": "D", "dev": false}
+{"qid": "es_fil_110", "answer": "azimuthal", "dev": false}
+{"qid": "es_mul_255", "answer": "B", "dev": false}
+{"qid": "es_fil_334", "answer": "approximately 10 meters, approximately 5 meters, optimum interpolation", "dev": false}
+{"qid": "es_fil_207", "answer": "equations", "dev": false}
+{"qid": "es_tru_458", "answer": "True", "dev": false}
+{"qid": "es_fil_521", "answer": "2 km", "dev": false}
+{"qid": "es_tru_542", "answer": "True", "dev": false}
+{"qid": "es_mul_143", "answer": "B", "dev": false}
+{"qid": "es_tru_65", "answer": "True", "dev": false}
+{"qid": "es_mul_745", "answer": "D", "dev": false}
+{"qid": "es_mul_403", "answer": "B", "dev": false}
+{"qid": "es_fil_9", "answer": "snyder et al. [1981], komen et al. [1984]", "dev": false}
+{"qid": "es_fil_145", "answer": "purification", "dev": false}
+{"qid": "es_fil_155", "answer": "linear regression", "dev": false}
+{"qid": "es_fil_623", "answer": "2.1", "dev": false}
+{"qid": "es_fil_42", "answer": "700 and 1000", "dev": false}
+{"qid": "es_tru_284", "answer": "True", "dev": false}
+{"qid": "es_tru_246", "answer": "True", "dev": false}
+{"qid": "es_mul_3", "answer": "A", "dev": false}
+{"qid": "es_fil_206", "answer": "surface area", "dev": false}
+{"qid": "es_fil_87", "answer": "chondrites, cylindrichnus, skolithos", "dev": false}
+{"qid": "es_fil_580", "answer": "1.77", "dev": false}
+{"qid": "es_mul_521", "answer": "B", "dev": false}
+{"qid": "es_fil_476", "answer": "regression approach", "dev": false}
+{"qid": "es_fil_508", "answer": "6.4", "dev": false}
+{"qid": "es_fil_654", "answer": "rainfall", "dev": false}
+{"qid": "es_fil_218", "answer": "10", "dev": false}
+{"qid": "es_tru_229", "answer": "True", "dev": false}
+{"qid": "es_tru_423", "answer": "False", "dev": false}
+{"qid": "es_tru_75", "answer": "True", "dev": false}
+{"qid": "es_fil_415", "answer": "25, 75", "dev": false}
+{"qid": "es_fil_128", "answer": "5.0", "dev": false}
+{"qid": "es_mul_707", "answer": "B", "dev": false}
+{"qid": "es_tru_71", "answer": "True", "dev": false}
+{"qid": "es_fil_656", "answer": "inductively coupled plasma mass spectrometry (icp-ms)", "dev": false}
+{"qid": "es_mul_222", "answer": "B", "dev": false}
+{"qid": "es_mul_78", "answer": "B", "dev": false}
+{"qid": "es_fil_356", "answer": "gypsum", "dev": false}
+{"qid": "es_tru_371", "answer": "True", "dev": false}
+{"qid": "es_fil_619", "answer": "1.0e+15", "dev": false}
+{"qid": "es_fil_381", "answer": "6", "dev": false}
+{"qid": "es_fil_330", "answer": "era-40", "dev": false}
+{"qid": "es_mul_56", "answer": "C", "dev": false}
+{"qid": "es_mul_678", "answer": "B", "dev": false}
+{"qid": "es_fil_749", "answer": "electrostatic charging", "dev": false}
+{"qid": "es_fil_27", "answer": "-48", "dev": false}
+{"qid": "es_tru_0", "answer": "True", "dev": false}
+{"qid": "es_fil_669", "answer": "27%", "dev": false}
+{"qid": "es_tru_495", "answer": "True", "dev": false}
+{"qid": "es_mul_719", "answer": "D", "dev": false}
+{"qid": "es_fil_684", "answer": "0.015 mm/day", "dev": false}
+{"qid": "es_fil_219", "answer": "84%, 16%", "dev": false}
+{"qid": "es_mul_142", "answer": "A", "dev": false}
+{"qid": "es_fil_470", "answer": "1 second", "dev": false}
+{"qid": "es_mul_672", "answer": "B", "dev": false}
+{"qid": "es_mul_816", "answer": "C", "dev": false}
+{"qid": "es_mul_395", "answer": "A", "dev": false}
+{"qid": "es_fil_568", "answer": "mr. g. l. barstow", "dev": false}
+{"qid": "es_mul_48", "answer": "B", "dev": false}

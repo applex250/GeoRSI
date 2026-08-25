@@ -1,0 +1,165 @@
+{
+  "suite": "mapqa",
+  "problems": [
+    {
+      "id": "mapqa_c001"
+    },
+    {
+      "id": "mapqa_c002"
+    },
+    {
+      "id": "mapqa_c003"
+    },
+    {
+      "id": "mapqa_c004"
+    },
+    {
+      "id": "mapqa_c005"
+    },
+    {
+      "id": "mapqa_c006"
+    },
+    {
+      "id": "mapqa_c007"
+    },
+    {
+      "id": "mapqa_c008"
+    },
+    {
+      "id": "mapqa_c009"
+    },
+    {
+      "id": "mapqa_c010"
+    },
+    {
+      "id": "mapqa_c011"
+    },
+    {
+      "id": "mapqa_c012"
+    },
+    {
+      "id": "mapqa_c013"
+    },
+    {
+      "id": "mapqa_c014"
+    },
+    {
+      "id": "mapqa_c015"
+    },
+    {
+      "id": "mapqa_c016"
+    },
+    {
+      "id": "mapqa_c017"
+    },
+    {
+      "id": "mapqa_c018"
+    },
+    {
+      "id": "mapqa_c019"
+    },
+    {
+      "id": "mapqa_c020"
+    },
+    {
+      "id": "mapqa_c021"
+    },
+    {
+      "id": "mapqa_c022"
+    },
+    {
+      "id": "mapqa_c023"
+    },
+    {
+      "id": "mapqa_c024"
+    },
+    {
+      "id": "mapqa_c025"
+    },
+    {
+      "id": "mapqa_c026"
+    },
+    {
+      "id": "mapqa_c027"
+    },
+    {
+      "id": "mapqa_c028"
+    },
+    {
+      "id": "mapqa_c029"
+    },
+    {
+      "id": "mapqa_c030"
+    },
+    {
+      "id": "mapqa_c031"
+    },
+    {
+      "id": "mapqa_c032"
+    },
+    {
+      "id": "mapqa_c033"
+    },
+    {
+      "id": "mapqa_c034"
+    },
+    {
+      "id": "mapqa_c035"
+    },
+    {
+      "id": "mapqa_c036"
+    },
+    {
+      "id": "mapqa_c037"
+    },
+    {
+      "id": "mapqa_c038"
+    },
+    {
+      "id": "mapqa_c039"
+    },
+    {
+      "id": "mapqa_c040"
+    },
+    {
+      "id": "mapqa_c041"
+    },
+    {
+      "id": "mapqa_c042"
+    },
+    {
+      "id": "mapqa_c043"
+    },
+    {
+      "id": "mapqa_c044"
+    },
+    {
+      "id": "mapqa_c045"
+    },
+    {
+      "id": "mapqa_c046"
+    },
+    {
+      "id": "mapqa_c047"
+    },
+    {
+      "id": "mapqa_c048"
+    },
+    {
+      "id": "mapqa_c049"
+    },
+    {
+      "id": "mapqa_c050"
+    },
+    {
+      "id": "mapqa_c051"
+    },
+    {
+      "id": "mapqa_c052"
+    },
+    {
+      "id": "mapqa_c053",
+      "heldout": true
+    }
+  ]
+}

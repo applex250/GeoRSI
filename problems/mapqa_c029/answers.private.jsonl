@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_156", "answer": "townhall", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_10655", "answer": "City National Bank", "dev": true}
+{"qid": "mq_illinois_test_amenities_12", "answer": "fuel", "dev": true}
+{"qid": "mq_california_full_direction_nearest_84", "answer": "Depth Perceptions", "dev": true}
+{"qid": "mq_california_full_intersection_28", "answer": "Stanley", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1919 Cafe from 1?", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2171", "answer": "Commons Club", "dev": true}
+{"qid": "mq_illinois_test_intersection_121", "answer": "Blue Jay Services Inc.", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 2 from 10?", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1695", "answer": "Frankie's Blue Room", "dev": true}
+{"qid": "mq_illinois_test_intersection_157", "answer": "Tail Command", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_13", "answer": "Tail Command", "dev": true}
+{"qid": "mq_illinois_test_intersection_57", "answer": "Macker Cemetery", "dev": true}
+{"qid": "mq_california_full_compare-closer_61", "answer": "Pizza Hut", "dev": true}
+{"qid": "mq_california_full_intersection_298", "answer": "PayDay Advance", "dev": true}
+{"qid": "mq_illinois_test_amenities_36", "answer": "restaurant", "dev": true}
+{"qid": "mq_illinois_test_intersection_82", "answer": "Tail Command", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_3", "answer": "bicycle_rental", "dev": true}
+{"qid": "mq_california_full_intersection_336", "answer": "Academy of Motion Picture Arts and Sciences Film Archive", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 119th Street & Laflin from 100 Forest Place?", "dev": true}
+{"qid": "mq_california_full_intersection_168", "answer": "Fish District Eatery", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_512", "answer": "Santa Baby Bar; Nola pub", "dev": false}
+{"qid": "mq_california_full_direction_nearest_153", "answer": "Los Angeles County Sheriff's Department - Crescenta Valley Station", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10 from 14th St & F St?", "dev": false}
+{"qid": "mq_california_full_direction_nearest_233", "answer": "Guest Services", "dev": false}
+{"qid": "mq_california_full_amenities_around_89", "answer": "school", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_732", "answer": "Woori", "dev": false}
+{"qid": "mq_california_full_adjacent_135", "answer": "Fertility Care", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_302", "answer": "Stella’s Sports Bar", "dev": false}
+{"qid": "mq_illinois_test_adjacent_21", "answer": "Bacino's Pizza", "dev": false}
+{"qid": "mq_california_full_amenities_around_185", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_adjacent_166", "answer": "Pickles & Swiss", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_364", "answer": "Newbury Park Bike Shop", "dev": false}
+{"qid": "mq_california_full_intersection_274", "answer": "Skyway cafe", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from $300 Data Recovery?", "dev": false}
+{"qid": "mq_california_full_compare-closer_30", "answer": "Roberto's Taco Shop", "dev": false}
+{"qid": "mq_california_full_intersection_332", "answer": "Claremont Chefs Academy", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 161 and 423 from 052?", "dev": false}
+{"qid": "mq_illinois_test_intersection_69", "answer": "Kampsville Ferry", "dev": false}
+{"qid": "mq_california_full_amenities_98", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_322", "answer": "Locker Rooms", "dev": false}
+{"qid": "mq_illinois_test_compare-closer_2", "answer": "Busse Forest South", "dev": false}
+{"qid": "mq_california_full_adjacent_64", "answer": "Philz Coffee", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 141 from 12th & Imperial Transit Center?", "dev": false}
+{"qid": "mq_illinois_test_intersection_342", "answer": "Enterprise", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_26", "answer": "cafe; fast_food", "dev": false}
+{"qid": "mq_california_full_direction_nearest_17", "answer": "Baskin-Robbins", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-Yorba from 1?", "dev": false}
+{"qid": "mq_california_full_intersection_58", "answer": "Distance Education Center", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120th & Compton from 15th St Surf and Supply?", "dev": false}
+{"qid": "mq_california_full_adjacent_89", "answer": "Moxie", "dev": false}
+{"qid": "mq_illinois_test_adjacent_26", "answer": "Mays School; Saint Basil School", "dev": false}
+{"qid": "mq_california_full_intersection_322", "answer": "Nob Hill", "dev": false}
+{"qid": "mq_california_full_compare-closer_57", "answer": "Jerry's Famous Deli", "dev": false}
+{"qid": "mq_california_full_amenities_201", "answer": "school", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_493", "answer": "beaudevin", "dev": false}
+{"qid": "mq_illinois_test_intersection_128", "answer": "AMC Showplace 8", "dev": false}
+{"qid": "mq_california_full_compare-closer_77", "answer": "Baldwin Park Christian School", "dev": false}
+{"qid": "mq_california_full_amenities_17", "answer": "pub", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_39", "answer": "No amenities found", "dev": false}

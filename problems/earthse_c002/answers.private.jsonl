@@ -1,0 +1,100 @@
+{"qid": "es_fil_486", "answer": "450000000", "dev": true}
+{"qid": "es_tru_67", "answer": "False", "dev": true}
+{"qid": "es_mul_463", "answer": "B", "dev": true}
+{"qid": "es_mul_723", "answer": "C", "dev": true}
+{"qid": "es_tru_277", "answer": "False", "dev": true}
+{"qid": "es_fil_740", "answer": "evapotranspiration", "dev": true}
+{"qid": "es_tru_296", "answer": "True", "dev": true}
+{"qid": "es_mul_790", "answer": "C", "dev": true}
+{"qid": "es_mul_280", "answer": "B", "dev": true}
+{"qid": "es_fil_638", "answer": "50 m³/s, 30%", "dev": true}
+{"qid": "es_fil_295", "answer": "waldoboro", "dev": true}
+{"qid": "es_tru_365", "answer": "True", "dev": true}
+{"qid": "es_fil_73", "answer": "20", "dev": true}
+{"qid": "es_fil_455", "answer": "laser sizers", "dev": true}
+{"qid": "es_fil_394", "answer": "0.71", "dev": true}
+{"qid": "es_tru_7", "answer": "True", "dev": true}
+{"qid": "es_fil_688", "answer": "arcturus", "dev": true}
+{"qid": "es_mul_527", "answer": "B", "dev": true}
+{"qid": "es_mul_658", "answer": "C", "dev": true}
+{"qid": "es_mul_183", "answer": "A", "dev": true}
+{"qid": "es_mul_32", "answer": "B", "dev": false}
+{"qid": "es_fil_83", "answer": "2", "dev": false}
+{"qid": "es_tru_502", "answer": "True", "dev": false}
+{"qid": "es_mul_595", "answer": "C", "dev": false}
+{"qid": "es_mul_354", "answer": "D", "dev": false}
+{"qid": "es_fil_682", "answer": "potential density", "dev": false}
+{"qid": "es_tru_267", "answer": "False", "dev": false}
+{"qid": "es_mul_760", "answer": "B", "dev": false}
+{"qid": "es_fil_748", "answer": "brunt's, stefan-boltzmann's, turbulent, fourier's, tokyo metropolitan government", "dev": false}
+{"qid": "es_mul_767", "answer": "B", "dev": false}
+{"qid": "es_mul_364", "answer": "C", "dev": false}
+{"qid": "es_mul_17", "answer": "D", "dev": false}
+{"qid": "es_fil_487", "answer": "no", "dev": false}
+{"qid": "es_fil_361", "answer": "pangaea", "dev": false}
+{"qid": "es_tru_188", "answer": "True", "dev": false}
+{"qid": "es_fil_645", "answer": "0.01", "dev": false}
+{"qid": "es_fil_229", "answer": "1.20%, 5.90%", "dev": false}
+{"qid": "es_mul_387", "answer": "B", "dev": false}
+{"qid": "es_fil_299", "answer": "mudflat progradation, shoreface erosion", "dev": false}
+{"qid": "es_fil_0", "answer": "1500", "dev": false}
+{"qid": "es_fil_194", "answer": "20", "dev": false}
+{"qid": "es_fil_174", "answer": "10^-4 m^2/s, 0.01 m^2/s", "dev": false}
+{"qid": "es_mul_290", "answer": "B", "dev": false}
+{"qid": "es_mul_368", "answer": "A", "dev": false}
+{"qid": "es_fil_471", "answer": "432000", "dev": false}
+{"qid": "es_mul_137", "answer": "C", "dev": false}
+{"qid": "es_fil_717", "answer": "-100 to 0, 0 to 100", "dev": false}
+{"qid": "es_mul_580", "answer": "B", "dev": false}
+{"qid": "es_fil_439", "answer": "water, energy", "dev": false}
+{"qid": "es_tru_171", "answer": "True", "dev": false}
+{"qid": "es_fil_633", "answer": "αpri", "dev": false}
+{"qid": "es_tru_37", "answer": "True", "dev": false}
+{"qid": "es_fil_33", "answer": "model outputs", "dev": false}
+{"qid": "es_mul_206", "answer": "A", "dev": false}
+{"qid": "es_fil_483", "answer": "vegetation, 613, dry, wet, vegetation", "dev": false}
+{"qid": "es_fil_178", "answer": "80", "dev": false}
+{"qid": "es_tru_102", "answer": "True", "dev": false}
+{"qid": "es_fil_577", "answer": "100", "dev": false}
+{"qid": "es_mul_483", "answer": "B", "dev": false}
+{"qid": "es_fil_294", "answer": "the horizontal component of the delta-front migration vector becomes zero", "dev": false}
+{"qid": "es_fil_368", "answer": "ar", "dev": false}
+{"qid": "es_fil_216", "answer": "67.6", "dev": false}
+{"qid": "es_mul_603", "answer": "B", "dev": false}
+{"qid": "es_fil_4", "answer": "200 hpa, stronger", "dev": false}
+{"qid": "es_fil_473", "answer": "increases, decrease", "dev": false}
+{"qid": "es_fil_440", "answer": "1022600", "dev": false}
+{"qid": "es_mul_253", "answer": "B", "dev": false}
+{"qid": "es_fil_597", "answer": "ionospheric weather, multipath", "dev": false}
+{"qid": "es_fil_205", "answer": "66, 21, 13", "dev": false}
+{"qid": "es_tru_165", "answer": "False", "dev": false}
+{"qid": "es_mul_265", "answer": "D", "dev": false}
+{"qid": "es_mul_523", "answer": "B", "dev": false}
+{"qid": "es_tru_430", "answer": "True", "dev": false}
+{"qid": "es_fil_287", "answer": "38.9", "dev": false}
+{"qid": "es_mul_701", "answer": "B", "dev": false}
+{"qid": "es_fil_724", "answer": "15", "dev": false}
+{"qid": "es_fil_695", "answer": "flame ionization detector (fid)", "dev": false}
+{"qid": "es_fil_280", "answer": "5", "dev": false}
+{"qid": "es_fil_350", "answer": "unique and independent connection", "dev": false}
+{"qid": "es_mul_804", "answer": "B", "dev": false}
+{"qid": "es_fil_326", "answer": "90", "dev": false}
+{"qid": "es_fil_306", "answer": "halfway", "dev": false}
+{"qid": "es_fil_533", "answer": "identity matrix", "dev": false}
+{"qid": "es_tru_393", "answer": "True", "dev": false}
+{"qid": "es_mul_750", "answer": "D", "dev": false}
+{"qid": "es_mul_274", "answer": "B", "dev": false}
+{"qid": "es_mul_528", "answer": "D", "dev": false}
+{"qid": "es_mul_211", "answer": "A", "dev": false}
+{"qid": "es_tru_390", "answer": "True", "dev": false}
+{"qid": "es_fil_504", "answer": "two to four", "dev": false}
+{"qid": "es_tru_260", "answer": "False", "dev": false}
+{"qid": "es_fil_22", "answer": "radon, salinity, uniform pattern", "dev": false}
+{"qid": "es_mul_537", "answer": "C", "dev": false}
+{"qid": "es_fil_534", "answer": "gravimetric", "dev": false}
+{"qid": "es_tru_248", "answer": "True", "dev": false}
+{"qid": "es_fil_352", "answer": "850 hpa, 150 hpa", "dev": false}
+{"qid": "es_fil_704", "answer": "17", "dev": false}
+{"qid": "es_tru_305", "answer": "True", "dev": false}
+{"qid": "es_tru_257", "answer": "True", "dev": false}
+{"qid": "es_fil_736", "answer": "tm/etm+-based burn scars", "dev": false}

@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_31", "answer": "bar", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 1st Wok?", "dev": true}
+{"qid": "mq_california_full_intersection_258", "answer": "Locker Rooms", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_20", "answer": "Zoom Room", "dev": true}
+{"qid": "mq_california_full_intersection_376", "answer": "Anaheim Cultural Arts Center", "dev": true}
+{"qid": "mq_california_full_direction_nearest_119", "answer": "Carol's Custom Draperies", "dev": true}
+{"qid": "mq_california_full_adjacent_51", "answer": "Wells Fargo", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_9400", "answer": "Rainbow Bar and Grill", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_955", "answer": "The Dugout Bar", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1893", "answer": "Leviathan", "dev": true}
+{"qid": "mq_california_full_direction_nearest_151", "answer": "Big Bully Turf", "dev": true}
+{"qid": "mq_illinois_test_intersection_43", "answer": "Sherman Fire Protection District", "dev": true}
+{"qid": "mq_california_full_adjacent_224", "answer": "Jimmy John's; Nekter Juice Bar; Poké Kai", "dev": true}
+{"qid": "mq_california_full_adjacent_187", "answer": "Starbucks", "dev": true}
+{"qid": "mq_california_full_direction_nearest_78", "answer": "Enterprise", "dev": true}
+{"qid": "mq_california_full_amenities_around_44", "answer": "bicycle_parking", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2342", "answer": "Village Inn", "dev": true}
+{"qid": "mq_california_full_adjacent_58", "answer": "Happy Veggie; Bollywood Zaika", "dev": true}
+{"qid": "mq_california_full_direction_nearest_193", "answer": "JT Salon", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 1101 West from 103rd Street & Eberhart?", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 19 Sports Bar & Grill from 12th & Imperial Transit Center?", "dev": false}
+{"qid": "mq_california_full_amenities_207", "answer": "school", "dev": false}
+{"qid": "mq_california_full_direction_nearest_168", "answer": "Banorte", "dev": false}
+{"qid": "mq_california_full_amenities_71", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_8982", "answer": "Chase; Wells Fargo", "dev": false}
+{"qid": "mq_california_full_direction_nearest_114", "answer": "Mt Laguna Post Office", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_320", "answer": "3-Point Basketball Shoot", "dev": false}
+{"qid": "mq_california_full_direction_nearest_87", "answer": "Pacers Showgirls International", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_56", "answer": "The Anteatery", "dev": false}
+{"qid": "mq_california_full_amenities_162", "answer": "fuel", "dev": false}
+{"qid": "mq_illinois_test_intersection_168", "answer": "Vigo", "dev": false}
+{"qid": "mq_california_full_amenities_34", "answer": "bank", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_390", "answer": "Jumbo's Clown Room", "dev": false}
+{"qid": "mq_california_full_amenities_around_15", "answer": "ice_cream", "dev": false}
+{"qid": "mq_illinois_test_intersection_340", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_amenities_64", "answer": "fuel", "dev": false}
+{"qid": "mq_california_full_amenities_around_20", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_220", "answer": "school", "dev": false}
+{"qid": "mq_illinois_test_intersection_295", "answer": "Preferred Imaging Centers", "dev": false}
+{"qid": "mq_california_full_direction_nearest_210", "answer": "Coronado Brewing Company | Brew Pub", "dev": false}
+{"qid": "mq_california_full_direction_nearest_64", "answer": "Marina \"Mother's\" Beach", "dev": false}
+{"qid": "mq_illinois_test_intersection_280", "answer": "Springfield Art Association", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 100A Community Center from 1?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12th & Grand from 10?", "dev": false}
+{"qid": "mq_illinois_test_intersection_156", "answer": "OH-ICEE", "dev": false}
+{"qid": "mq_california_full_intersection_196", "answer": "Goodwill", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_1", "answer": "Sylvan", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_361", "answer": "Watermill Express", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_213", "answer": "Taylorville Tap", "dev": false}
+{"qid": "mq_illinois_test_intersection_388", "answer": "Southern Illinois University HR Department", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 11th Marines Chow Hall?", "dev": false}
+{"qid": "mq_california_full_direction_nearest_209", "answer": "Mustang Daily", "dev": false}
+{"qid": "mq_california_full_compare-closer_22", "answer": "Cafe 222", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2396", "answer": "First Northern Credit Union", "dev": false}
+{"qid": "mq_california_full_amenities_183", "answer": "public_bath", "dev": false}
+{"qid": "mq_california_full_direction_nearest_160", "answer": "Big Bear Superior Court", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7209", "answer": "California Credit Union", "dev": false}
+{"qid": "mq_california_full_adjacent_71", "answer": "Gary's New York Deli", "dev": false}
+{"qid": "mq_california_full_intersection_289", "answer": "Depth Perceptions", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_103", "answer": "Jollibee", "dev": false}

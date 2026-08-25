@@ -1,0 +1,100 @@
+{"qid": "es_fil_768", "answer": "40", "dev": true}
+{"qid": "es_mul_466", "answer": "B", "dev": true}
+{"qid": "es_mul_625", "answer": "B", "dev": true}
+{"qid": "es_mul_716", "answer": "B", "dev": true}
+{"qid": "es_tru_124", "answer": "True", "dev": true}
+{"qid": "es_mul_408", "answer": "D", "dev": true}
+{"qid": "es_mul_455", "answer": "B", "dev": true}
+{"qid": "es_tru_145", "answer": "False", "dev": true}
+{"qid": "es_mul_79", "answer": "B", "dev": true}
+{"qid": "es_mul_783", "answer": "C", "dev": true}
+{"qid": "es_mul_221", "answer": "B", "dev": true}
+{"qid": "es_fil_72", "answer": "1.6 to 2.5", "dev": true}
+{"qid": "es_fil_720", "answer": "4.5", "dev": true}
+{"qid": "es_fil_636", "answer": "0.6", "dev": true}
+{"qid": "es_mul_508", "answer": "B", "dev": true}
+{"qid": "es_fil_141", "answer": "cold-end", "dev": true}
+{"qid": "es_fil_403", "answer": "time dependency", "dev": true}
+{"qid": "es_tru_25", "answer": "True", "dev": true}
+{"qid": "es_fil_238", "answer": "0.7", "dev": true}
+{"qid": "es_mul_680", "answer": "C", "dev": true}
+{"qid": "es_fil_144", "answer": "atmospheric river", "dev": false}
+{"qid": "es_mul_367", "answer": "B", "dev": false}
+{"qid": "es_mul_50", "answer": "B", "dev": false}
+{"qid": "es_tru_26", "answer": "True", "dev": false}
+{"qid": "es_mul_362", "answer": "B", "dev": false}
+{"qid": "es_mul_332", "answer": "B", "dev": false}
+{"qid": "es_fil_451", "answer": "50", "dev": false}
+{"qid": "es_mul_316", "answer": "C", "dev": false}
+{"qid": "es_fil_170", "answer": "2.54", "dev": false}
+{"qid": "es_tru_453", "answer": "False", "dev": false}
+{"qid": "es_fil_449", "answer": "bottom-to-west-southwest", "dev": false}
+{"qid": "es_tru_328", "answer": "True", "dev": false}
+{"qid": "es_fil_233", "answer": "x, y", "dev": false}
+{"qid": "es_mul_724", "answer": "B", "dev": false}
+{"qid": "es_mul_210", "answer": "C", "dev": false}
+{"qid": "es_fil_1", "answer": "power diversion", "dev": false}
+{"qid": "es_fil_468", "answer": "environment canada gridded observational dataset", "dev": false}
+{"qid": "es_fil_640", "answer": "caa", "dev": false}
+{"qid": "es_mul_430", "answer": "B", "dev": false}
+{"qid": "es_mul_732", "answer": "A", "dev": false}
+{"qid": "es_fil_390", "answer": "2.5", "dev": false}
+{"qid": "es_fil_266", "answer": "1.0", "dev": false}
+{"qid": "es_mul_746", "answer": "C", "dev": false}
+{"qid": "es_mul_631", "answer": "B", "dev": false}
+{"qid": "es_mul_85", "answer": "B", "dev": false}
+{"qid": "es_mul_261", "answer": "B", "dev": false}
+{"qid": "es_tru_62", "answer": "True", "dev": false}
+{"qid": "es_mul_303", "answer": "B", "dev": false}
+{"qid": "es_tru_313", "answer": "True", "dev": false}
+{"qid": "es_tru_374", "answer": "False", "dev": false}
+{"qid": "es_fil_351", "answer": "33", "dev": false}
+{"qid": "es_mul_73", "answer": "C", "dev": false}
+{"qid": "es_tru_299", "answer": "True", "dev": false}
+{"qid": "es_mul_305", "answer": "B", "dev": false}
+{"qid": "es_fil_51", "answer": "micromass 602e ratio mass spectrometer", "dev": false}
+{"qid": "es_fil_466", "answer": "5", "dev": false}
+{"qid": "es_fil_592", "answer": "0.14444", "dev": false}
+{"qid": "es_fil_365", "answer": "water resources thesaurus", "dev": false}
+{"qid": "es_tru_330", "answer": "False", "dev": false}
+{"qid": "es_tru_57", "answer": "True", "dev": false}
+{"qid": "es_fil_81", "answer": "280", "dev": false}
+{"qid": "es_tru_311", "answer": "True", "dev": false}
+{"qid": "es_tru_86", "answer": "True", "dev": false}
+{"qid": "es_fil_154", "answer": "nox concentrations", "dev": false}
+{"qid": "es_fil_604", "answer": "ci/cs", "dev": false}
+{"qid": "es_mul_536", "answer": "B", "dev": false}
+{"qid": "es_tru_486", "answer": "True", "dev": false}
+{"qid": "es_mul_267", "answer": "C", "dev": false}
+{"qid": "es_fil_215", "answer": "12.5 km and 2.5 km", "dev": false}
+{"qid": "es_mul_683", "answer": "B", "dev": false}
+{"qid": "es_mul_7", "answer": "B", "dev": false}
+{"qid": "es_mul_90", "answer": "B", "dev": false}
+{"qid": "es_mul_566", "answer": "B", "dev": false}
+{"qid": "es_fil_495", "answer": "80", "dev": false}
+{"qid": "es_tru_481", "answer": "True", "dev": false}
+{"qid": "es_mul_189", "answer": "A", "dev": false}
+{"qid": "es_mul_104", "answer": "B", "dev": false}
+{"qid": "es_fil_649", "answer": "mixed layer depth, brunt–väisälä frequency, wind stress", "dev": false}
+{"qid": "es_fil_594", "answer": "108", "dev": false}
+{"qid": "es_tru_217", "answer": "True", "dev": false}
+{"qid": "es_mul_540", "answer": "C", "dev": false}
+{"qid": "es_tru_480", "answer": "False", "dev": false}
+{"qid": "es_fil_43", "answer": "r^0.5", "dev": false}
+{"qid": "es_mul_416", "answer": "B", "dev": false}
+{"qid": "es_mul_702", "answer": "B", "dev": false}
+{"qid": "es_fil_105", "answer": "1600", "dev": false}
+{"qid": "es_mul_431", "answer": "B", "dev": false}
+{"qid": "es_tru_420", "answer": "True", "dev": false}
+{"qid": "es_mul_577", "answer": "A", "dev": false}
+{"qid": "es_mul_557", "answer": "B", "dev": false}
+{"qid": "es_mul_318", "answer": "B", "dev": false}
+{"qid": "es_fil_647", "answer": "398.5", "dev": false}
+{"qid": "es_fil_156", "answer": "2.27", "dev": false}
+{"qid": "es_mul_219", "answer": "B", "dev": false}
+{"qid": "es_mul_236", "answer": "B", "dev": false}
+{"qid": "es_mul_541", "answer": "B", "dev": false}
+{"qid": "es_mul_275", "answer": "C", "dev": false}
+{"qid": "es_mul_212", "answer": "B", "dev": false}
+{"qid": "es_tru_540", "answer": "True", "dev": false}
+{"qid": "es_mul_613", "answer": "B", "dev": false}

@@ -4,7 +4,6 @@
  * terminal. Component.render(width) is pure, so we assert on the ANSI output.
  * Exit code 0 = all checks pass.
  */
-import chalk from "chalk";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { applyEvent, initialSnapshot, parseCommand, fmtTokens, fmtDur, type RsiEvent } from "./events.js";
 import { HeaderPanel, HintBar, darkTheme, eventToLogLines, helpText } from "./components.js";

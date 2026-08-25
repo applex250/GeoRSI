@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import chalk from "chalk";
 
+import { makePiMock } from "./pi-mock.js";
 let passed = 0;
 let failed = 0;
 const check = (n: string, c: boolean, d = ""): void => {
@@ -52,13 +53,10 @@ disp.liveExpanded = false;
 // --- /research think handler (expansion parse from stream.log) ---------------
 const entries: { lines: string[] }[] = [];
 const notifications: string[] = [];
-const pi: any = {
-	registerCommand: () => {},
-	registerEntryRenderer: () => {},
+const { pi, cmds } = makePiMock({
 	appendEntry: (_t: string, data: any) => entries.push({ lines: data.lines ?? [] }),
-};
-const cmds: Record<string, any> = {};
-pi.registerCommand = (n: string, d: any) => { cmds[n] = d; };
+	captureNotifications: notifications,
+});
 (await import("../extensions/georsi.js")).default(pi);
 const handler = cmds["research"].handler;
 const ctx = { ui: { notify: (m: string) => notifications.push(m), setWidget: () => {} } };

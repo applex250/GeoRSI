@@ -1,0 +1,100 @@
+{"qid": "k2_np_f66", "answer": "Crack type, central type", "dev": true}
+{"qid": "k2_ap_1019", "answer": "A", "dev": true}
+{"qid": "k2_np_c132", "answer": "C", "dev": true}
+{"qid": "k2_ap_621", "answer": "E", "dev": true}
+{"qid": "k2_ap_598", "answer": "D", "dev": true}
+{"qid": "k2_ap_320", "answer": "E", "dev": true}
+{"qid": "k2_ap_753", "answer": "E", "dev": true}
+{"qid": "k2_ap_1384", "answer": "D", "dev": true}
+{"qid": "k2_ap_977", "answer": "A", "dev": true}
+{"qid": "k2_np_c117", "answer": "B", "dev": true}
+{"qid": "k2_np_t72", "answer": "True", "dev": true}
+{"qid": "k2_np_t5", "answer": "True", "dev": true}
+{"qid": "k2_ap_948", "answer": "C", "dev": true}
+{"qid": "k2_ap_1073", "answer": "D", "dev": true}
+{"qid": "k2_ap_18", "answer": "E", "dev": true}
+{"qid": "k2_ap_1222", "answer": "B", "dev": true}
+{"qid": "k2_np_f62", "answer": "Endoclast, bioclastic, oolitic, pellet, agglomerate", "dev": true}
+{"qid": "k2_np_f139", "answer": "Regional metamorphism, dynamic metamorphism, contact metamorphism", "dev": true}
+{"qid": "k2_ap_213", "answer": "B", "dev": true}
+{"qid": "k2_np_c38", "answer": "A", "dev": true}
+{"qid": "k2_ap_1267", "answer": "E", "dev": false}
+{"qid": "k2_ap_366", "answer": "A", "dev": false}
+{"qid": "k2_np_c105", "answer": "D", "dev": false}
+{"qid": "k2_ap_297", "answer": "C", "dev": false}
+{"qid": "k2_ap_712", "answer": "D", "dev": false}
+{"qid": "k2_ap_1390", "answer": "A", "dev": false}
+{"qid": "k2_ap_1053", "answer": "B", "dev": false}
+{"qid": "k2_ap_428", "answer": "B", "dev": false}
+{"qid": "k2_ap_342", "answer": "B", "dev": false}
+{"qid": "k2_ap_1168", "answer": "A", "dev": false}
+{"qid": "k2_ap_241", "answer": "D", "dev": false}
+{"qid": "k2_ap_695", "answer": "B", "dev": false}
+{"qid": "k2_ap_911", "answer": "B", "dev": false}
+{"qid": "k2_ap_636", "answer": "C", "dev": false}
+{"qid": "k2_np_f23", "answer": "Inclination, strike and dip.", "dev": false}
+{"qid": "k2_ap_371", "answer": "E", "dev": false}
+{"qid": "k2_ap_286", "answer": "B", "dev": false}
+{"qid": "k2_ap_1011", "answer": "A", "dev": false}
+{"qid": "k2_np_f44", "answer": "Rolling handling, jumping handling, suspended handling", "dev": false}
+{"qid": "k2_ap_550", "answer": "D", "dev": false}
+{"qid": "k2_ap_773", "answer": "A", "dev": false}
+{"qid": "k2_ap_1334", "answer": "B", "dev": false}
+{"qid": "k2_ap_296", "answer": "B", "dev": false}
+{"qid": "k2_ap_153", "answer": "C", "dev": false}
+{"qid": "k2_np_c143", "answer": "A", "dev": false}
+{"qid": "k2_ap_1291", "answer": "A", "dev": false}
+{"qid": "k2_ap_1233", "answer": "B", "dev": false}
+{"qid": "k2_ap_884", "answer": "D", "dev": false}
+{"qid": "k2_np_c9", "answer": "B", "dev": false}
+{"qid": "k2_ap_1332", "answer": "A", "dev": false}
+{"qid": "k2_ap_808", "answer": "E", "dev": false}
+{"qid": "k2_ap_151", "answer": "A", "dev": false}
+{"qid": "k2_ap_253", "answer": "C", "dev": false}
+{"qid": "k2_np_f7", "answer": "Coastal zone", "dev": false}
+{"qid": "k2_np_c140", "answer": "B", "dev": false}
+{"qid": "k2_ap_878", "answer": "E", "dev": false}
+{"qid": "k2_np_c45", "answer": "B", "dev": false}
+{"qid": "k2_ap_176", "answer": "B", "dev": false}
+{"qid": "k2_ap_1174", "answer": "A", "dev": false}
+{"qid": "k2_ap_717", "answer": "A", "dev": false}
+{"qid": "k2_ap_399", "answer": "D", "dev": false}
+{"qid": "k2_ap_349", "answer": "E", "dev": false}
+{"qid": "k2_ap_265", "answer": "D", "dev": false}
+{"qid": "k2_ap_1223", "answer": "A", "dev": false}
+{"qid": "k2_np_f113", "answer": "Ultrabasic rock SiO265%", "dev": false}
+{"qid": "k2_ap_1014", "answer": "B", "dev": false}
+{"qid": "k2_ap_730", "answer": "B", "dev": false}
+{"qid": "k2_ap_384", "answer": "D", "dev": false}
+{"qid": "k2_ap_962", "answer": "B", "dev": false}
+{"qid": "k2_ap_862", "answer": "A", "dev": false}
+{"qid": "k2_np_t22", "answer": "False", "dev": false}
+{"qid": "k2_ap_321", "answer": "C", "dev": false}
+{"qid": "k2_ap_400", "answer": "C", "dev": false}
+{"qid": "k2_ap_401", "answer": "A", "dev": false}
+{"qid": "k2_np_f137", "answer": "(endoclastic, bioclastic, oolitic, agglomerate)", "dev": false}
+{"qid": "k2_ap_1325", "answer": "A", "dev": false}
+{"qid": "k2_np_t84", "answer": "True", "dev": false}
+{"qid": "k2_np_t59", "answer": "False", "dev": false}
+{"qid": "k2_ap_1002", "answer": "E", "dev": false}
+{"qid": "k2_ap_214", "answer": "D", "dev": false}
+{"qid": "k2_ap_827", "answer": "C", "dev": false}
+{"qid": "k2_ap_357", "answer": "A", "dev": false}
+{"qid": "k2_ap_1160", "answer": "C", "dev": false}
+{"qid": "k2_ap_477", "answer": "E", "dev": false}
+{"qid": "k2_ap_693", "answer": "B", "dev": false}
+{"qid": "k2_ap_978", "answer": "B", "dev": false}
+{"qid": "k2_np_t42", "answer": "True", "dev": false}
+{"qid": "k2_ap_700", "answer": "A", "dev": false}
+{"qid": "k2_ap_869", "answer": "D", "dev": false}
+{"qid": "k2_ap_729", "answer": "E", "dev": false}
+{"qid": "k2_np_f58", "answer": "Conglomerate, sandstone, siltstone, mudstone", "dev": false}
+{"qid": "k2_ap_1191", "answer": "B", "dev": false}
+{"qid": "k2_ap_352", "answer": "E", "dev": false}
+{"qid": "k2_ap_1366", "answer": "A", "dev": false}
+{"qid": "k2_ap_728", "answer": "A", "dev": false}
+{"qid": "k2_ap_545", "answer": "A", "dev": false}
+{"qid": "k2_ap_560", "answer": "A", "dev": false}
+{"qid": "k2_ap_136", "answer": "D", "dev": false}
+{"qid": "k2_ap_1139", "answer": "E", "dev": false}
+{"qid": "k2_np_f5", "answer": "devonian", "dev": false}

@@ -6,7 +6,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { TuiAltScreen, ProcessTerminal, VStack, ScrollView, Container, Input, Text, matchesKey } from "@earendil-works/pi-tui";
+import { TuiAltScreen, ProcessTerminal, VStack, ScrollView, Container, Input, matchesKey } from "@earendil-works/pi-tui";
 import chalk from "chalk";
 import { HeaderPanel, HintBar, LogLine, darkTheme, eventToLogLines } from "./components.js";
 import { applyEvent, initialSnapshot, type RsiEvent, type RunSnapshot } from "./events.js";

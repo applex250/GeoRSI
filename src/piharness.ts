@@ -20,6 +20,7 @@ import type { Model } from "@earendil-works/pi-ai";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
+import { resolveThinking, type ThinkingLevel } from "./models.js";
 
 export interface HarnessOpts {
 	model: Model<any>;
@@ -79,6 +80,8 @@ export class PiHarness {
 	readonly opts: HarnessOpts;
 	private lastEventTs = Date.now();
 	private disposed = false;
+	/** session stats are cumulative; only the per-prompt delta is new usage */
+	private lastSessionTokens = 0;
 
 	constructor(opts: HarnessOpts) {
 		this.opts = opts;
@@ -86,6 +89,33 @@ export class PiHarness {
 
 	async init(): Promise<void> {
 		mkdirSync(this.opts.cwd, { recursive: true });
+		// per-model compatibility (config/model-profiles.json): clamp the
+		// requested thinking level to what THIS model accepts before the
+		// session is built — e.g. ox-alpha-free rejects "high", muse must
+		// carry no reasoning parameters at all
+		const modelId = (this.opts.model as { id?: string }).id ?? "";
+		let thinkingLevel: string = this.opts.thinkingLevel;
+		try {
+			const resolved = resolveThinking(modelId, thinkingLevel as ThinkingLevel);
+			if (resolved.clamped || resolved.note) {
+				console.error(`[models] ${modelId}: ${resolved.note}`);
+			}
+			thinkingLevel = resolved.level;
+			// fold extended levels into the four pi-session levels.
+			// none/minimal go to LOW, not off: probed 2026-08-25, no supported
+			// gateway model accepts a literal "off"/none reasoning param
+			// (hy3 invalid_request, dsv4f 400), and dropping thinking entirely
+			// measurably breaks quantitative accuracy on mimo/dsv4f
+			const fold: Record<string, "off" | "low" | "medium" | "high"> = {
+				minimal: "low",
+				none: "low",
+				xhigh: "high",
+				max: "high",
+			};
+			thinkingLevel = fold[thinkingLevel] ?? thinkingLevel;
+		} catch {
+			/* model without a profile: pass the request through untouched */
+		}
 		// Fully isolated resource loading: our system prompt only, no ambient
 		// .pi context files, no skills discovery side effects.
 		const agentDir = join(this.opts.cwd, ".pi-agent");
@@ -102,7 +132,7 @@ export class PiHarness {
 			// without an explicit modelRuntime pi builds a default one that does
 			// not know our gateway provider -> "No API key found"
 			modelRuntime: currentModelRuntime(),
-			thinkingLevel: this.opts.thinkingLevel,
+			thinkingLevel: thinkingLevel as "off" | "low" | "medium" | "high",
 			// the gateway throws bursty transient "finish_reason: network_error";
 			// pi's default 3 retries can be exhausted inside one bad minute
 			settingsManager: SettingsManager.inMemory({
@@ -188,7 +218,9 @@ export class PiHarness {
 		let tokens = 0;
 		try {
 			const stats = this.session.getSessionStats();
-			tokens = stats?.tokens?.total ?? 0;
+			const total = stats?.tokens?.total ?? 0;
+			tokens = Math.max(0, total - this.lastSessionTokens);
+			this.lastSessionTokens = total;
 		} catch {
 			/* stats are best-effort */
 		}

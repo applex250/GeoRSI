@@ -1,0 +1,100 @@
+{"qid": "es_fil_228", "answer": "higher stress concentration, lateral compression", "dev": true}
+{"qid": "es_tru_437", "answer": "True", "dev": true}
+{"qid": "es_mul_176", "answer": "C", "dev": true}
+{"qid": "es_tru_444", "answer": "True", "dev": true}
+{"qid": "es_fil_569", "answer": "4", "dev": true}
+{"qid": "es_tru_460", "answer": "True", "dev": true}
+{"qid": "es_fil_384", "answer": "0.09945", "dev": true}
+{"qid": "es_fil_664", "answer": "tower", "dev": true}
+{"qid": "es_tru_131", "answer": "True", "dev": true}
+{"qid": "es_mul_626", "answer": "C", "dev": true}
+{"qid": "es_tru_350", "answer": "True", "dev": true}
+{"qid": "es_tru_488", "answer": "True", "dev": true}
+{"qid": "es_fil_552", "answer": "boxiness", "dev": true}
+{"qid": "es_tru_416", "answer": "False", "dev": true}
+{"qid": "es_mul_278", "answer": "D", "dev": true}
+{"qid": "es_mul_83", "answer": "A", "dev": true}
+{"qid": "es_tru_254", "answer": "False", "dev": true}
+{"qid": "es_tru_507", "answer": "True", "dev": true}
+{"qid": "es_mul_159", "answer": "C", "dev": true}
+{"qid": "es_mul_640", "answer": "A", "dev": true}
+{"qid": "es_mul_86", "answer": "A", "dev": false}
+{"qid": "es_fil_651", "answer": "albedo", "dev": false}
+{"qid": "es_mul_560", "answer": "B", "dev": false}
+{"qid": "es_mul_378", "answer": "B", "dev": false}
+{"qid": "es_tru_35", "answer": "True", "dev": false}
+{"qid": "es_mul_349", "answer": "B", "dev": false}
+{"qid": "es_fil_502", "answer": "decrease", "dev": false}
+{"qid": "es_mul_708", "answer": "B", "dev": false}
+{"qid": "es_mul_385", "answer": "D", "dev": false}
+{"qid": "es_mul_594", "answer": "C", "dev": false}
+{"qid": "es_mul_576", "answer": "B", "dev": false}
+{"qid": "es_mul_813", "answer": "A", "dev": false}
+{"qid": "es_fil_297", "answer": "power law", "dev": false}
+{"qid": "es_tru_203", "answer": "True", "dev": false}
+{"qid": "es_mul_410", "answer": "C", "dev": false}
+{"qid": "es_fil_337", "answer": "80,286, 60,240, 20,046", "dev": false}
+{"qid": "es_mul_185", "answer": "A", "dev": false}
+{"qid": "es_fil_627", "answer": "urban expansion", "dev": false}
+{"qid": "es_mul_359", "answer": "D", "dev": false}
+{"qid": "es_tru_232", "answer": "True", "dev": false}
+{"qid": "es_tru_125", "answer": "True", "dev": false}
+{"qid": "es_mul_775", "answer": "B", "dev": false}
+{"qid": "es_fil_362", "answer": "0.284", "dev": false}
+{"qid": "es_tru_76", "answer": "False", "dev": false}
+{"qid": "es_fil_57", "answer": "75", "dev": false}
+{"qid": "es_mul_730", "answer": "D", "dev": false}
+{"qid": "es_mul_439", "answer": "A", "dev": false}
+{"qid": "es_mul_770", "answer": "D", "dev": false}
+{"qid": "es_mul_285", "answer": "B", "dev": false}
+{"qid": "es_fil_416", "answer": "15", "dev": false}
+{"qid": "es_mul_761", "answer": "A", "dev": false}
+{"qid": "es_tru_274", "answer": "True", "dev": false}
+{"qid": "es_fil_157", "answer": "aerial photography, lidar", "dev": false}
+{"qid": "es_fil_292", "answer": "400", "dev": false}
+{"qid": "es_mul_772", "answer": "B", "dev": false}
+{"qid": "es_tru_27", "answer": "True", "dev": false}
+{"qid": "es_fil_410", "answer": "7.47", "dev": false}
+{"qid": "es_fil_614", "answer": "wind-rose", "dev": false}
+{"qid": "es_tru_527", "answer": "True", "dev": false}
+{"qid": "es_tru_493", "answer": "True", "dev": false}
+{"qid": "es_mul_319", "answer": "A", "dev": false}
+{"qid": "es_tru_38", "answer": "True", "dev": false}
+{"qid": "es_fil_221", "answer": "sharp", "dev": false}
+{"qid": "es_fil_16", "answer": "10°n", "dev": false}
+{"qid": "es_fil_260", "answer": "ku", "dev": false}
+{"qid": "es_tru_159", "answer": "True", "dev": false}
+{"qid": "es_tru_473", "answer": "True", "dev": false}
+{"qid": "es_fil_442", "answer": "675", "dev": false}
+{"qid": "es_mul_61", "answer": "B", "dev": false}
+{"qid": "es_tru_270", "answer": "True", "dev": false}
+{"qid": "es_mul_655", "answer": "B", "dev": false}
+{"qid": "es_mul_381", "answer": "B", "dev": false}
+{"qid": "es_mul_98", "answer": "A", "dev": false}
+{"qid": "es_mul_442", "answer": "D", "dev": false}
+{"qid": "es_mul_95", "answer": "B", "dev": false}
+{"qid": "es_mul_87", "answer": "C", "dev": false}
+{"qid": "es_fil_255", "answer": "0.135", "dev": false}
+{"qid": "es_mul_68", "answer": "B", "dev": false}
+{"qid": "es_mul_485", "answer": "D", "dev": false}
+{"qid": "es_mul_156", "answer": "B", "dev": false}
+{"qid": "es_fil_691", "answer": "means, covariances", "dev": false}
+{"qid": "es_fil_164", "answer": "21", "dev": false}
+{"qid": "es_fil_582", "answer": "cross-track", "dev": false}
+{"qid": "es_fil_251", "answer": "e = e_s - α(t - t_r)", "dev": false}
+{"qid": "es_tru_322", "answer": "True", "dev": false}
+{"qid": "es_mul_97", "answer": "B", "dev": false}
+{"qid": "es_fil_245", "answer": "meridional, zonal", "dev": false}
+{"qid": "es_tru_518", "answer": "True", "dev": false}
+{"qid": "es_tru_438", "answer": "True", "dev": false}
+{"qid": "es_fil_138", "answer": "m2", "dev": false}
+{"qid": "es_fil_41", "answer": "substation, iec 61400-25, parts iec 61850-7, iec 61850-8, and iec 61850-9, ethernet with tcp/ip", "dev": false}
+{"qid": "es_tru_356", "answer": "True", "dev": false}
+{"qid": "es_mul_628", "answer": "B", "dev": false}
+{"qid": "es_fil_278", "answer": "15", "dev": false}
+{"qid": "es_mul_220", "answer": "B", "dev": false}
+{"qid": "es_mul_564", "answer": "D", "dev": false}
+{"qid": "es_fil_634", "answer": "15", "dev": false}
+{"qid": "es_fil_444", "answer": "increasing costs", "dev": false}
+{"qid": "es_mul_440", "answer": "C", "dev": false}
+{"qid": "es_tru_358", "answer": "True", "dev": false}

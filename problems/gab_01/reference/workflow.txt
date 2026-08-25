@@ -1,0 +1,7 @@
+1. Load dataset
+2. Interpolate(Temperature)
+3. Filter(Senior Population)
+4. Merge dataset
+5. Average interpolated data
+6. Highlight
+7. Visualization

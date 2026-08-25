@@ -1,0 +1,5 @@
+1.Load dataset
+2. Perform Optimized Hot Spot Analysis
+3. Create tessellation using hexagons
+4. Summarize the total number of features within each hexagon
+5. Visualization

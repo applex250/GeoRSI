@@ -1,0 +1,66 @@
+{
+  "suite": "stepgame",
+  "problems": [
+    {
+      "id": "stepgame_c001"
+    },
+    {
+      "id": "stepgame_c002"
+    },
+    {
+      "id": "stepgame_c003"
+    },
+    {
+      "id": "stepgame_c004"
+    },
+    {
+      "id": "stepgame_c005"
+    },
+    {
+      "id": "stepgame_c006"
+    },
+    {
+      "id": "stepgame_c007"
+    },
+    {
+      "id": "stepgame_c008"
+    },
+    {
+      "id": "stepgame_c009"
+    },
+    {
+      "id": "stepgame_c010"
+    },
+    {
+      "id": "stepgame_c011"
+    },
+    {
+      "id": "stepgame_c012"
+    },
+    {
+      "id": "stepgame_c013"
+    },
+    {
+      "id": "stepgame_c014"
+    },
+    {
+      "id": "stepgame_c015"
+    },
+    {
+      "id": "stepgame_c016"
+    },
+    {
+      "id": "stepgame_c017"
+    },
+    {
+      "id": "stepgame_c018"
+    },
+    {
+      "id": "stepgame_c019"
+    },
+    {
+      "id": "stepgame_c020",
+      "heldout": true
+    }
+  ]
+}

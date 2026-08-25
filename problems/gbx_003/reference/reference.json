@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_811107",
+ "task_text": "What is the total length of railways in Brazilian states with GDP per capita above national average?",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

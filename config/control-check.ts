@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RunController } from "../src/loopctl.js";
+import { makePiMock } from "./pi-mock.js";
 const GEORSI_RUNS = join(process.cwd(), "runs");
 
 let passed = 0;
@@ -54,13 +55,10 @@ rmSync(join(GEORSI_RUNS, prepName), { recursive: true, force: true });
 console.log("== extension commands (pause/feedback/status without run) ==");
 const notifications: string[] = [];
 const entries: { lines: string[] }[] = [];
-const pi: any = {
-	registerCommand: () => {},
-	registerEntryRenderer: () => {},
+const { pi, cmds } = makePiMock({
 	appendEntry: (_t: string, data: any) => entries.push({ lines: data.lines ?? [] }),
-};
-const cmds: Record<string, any> = {};
-pi.registerCommand = (n: string, d: any) => { cmds[n] = d; };
+	captureNotifications: notifications,
+});
 (await import("../extensions/georsi.js")).default(pi);
 const handler = cmds["research"].handler;
 const ctx = { ui: { notify: (m: string) => notifications.push(m), setWidget: () => {} } };

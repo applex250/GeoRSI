@@ -1,0 +1,79 @@
+{
+ "task_ID": "TASK_250309_135125_418513",
+ "task_text": "How many power stations in Africa are located within 10 km of major railways?",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Power stations in Africa",
+      "output_geodataframe_name": "power_stations"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Railways in Africa",
+      "output_geodataframe_name": "railways"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "create_buffer",
+     "arguments": {
+      "geodataframe_name": "railways",
+      "buffer_size": 10000,
+      "output_geodataframe_name": "railway_buffers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "select_features_by_spatial_relationship",
+     "arguments": {
+      "features_geodataframe_name": "power_stations",
+      "reference_geodataframe_name": "railway_buffers",
+      "spatial_predicates": [
+       "within"
+      ],
+      "output_geodataframe_name": "power_stations_near_railways"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "visualize_geographies",
+     "arguments": {
+      "geodataframe_names": [
+       "railways",
+       "power_stations_near_railways",
+       "power_stations"
+      ],
+      "layer_styles": [
+       {
+        "color": "gray",
+        "alpha": 0.6,
+        "linewidth": 1,
+        "label": "Railways"
+       },
+       {
+        "color": "red",
+        "alpha": 1,
+        "linewidth": 1,
+        "label": "Power Stations within 10km of Railways"
+       },
+       {
+        "color": "blue",
+        "alpha": 0.5,
+        "linewidth": 1,
+        "label": "Other Power Stations"
+       }
+      ],
+      "title": "Power Stations and Railways in Africa"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,100 @@
+{"qid": "es_tru_523", "answer": "True", "dev": true}
+{"qid": "es_fil_225", "answer": "kaω²sin(kx−ωt)", "dev": true}
+{"qid": "es_fil_706", "answer": "tidal interaction, kozai oscillations", "dev": true}
+{"qid": "es_fil_621", "answer": "0.47", "dev": true}
+{"qid": "es_mul_738", "answer": "B", "dev": true}
+{"qid": "es_mul_773", "answer": "B", "dev": true}
+{"qid": "es_fil_482", "answer": "310.7", "dev": true}
+{"qid": "es_fil_259", "answer": "image matching", "dev": true}
+{"qid": "es_fil_126", "answer": "kernel", "dev": true}
+{"qid": "es_mul_194", "answer": "B", "dev": true}
+{"qid": "es_mul_651", "answer": "B", "dev": true}
+{"qid": "es_fil_663", "answer": "interferometric synthetic aperture radar (insar)", "dev": true}
+{"qid": "es_fil_67", "answer": "5", "dev": true}
+{"qid": "es_mul_621", "answer": "B", "dev": true}
+{"qid": "es_tru_306", "answer": "True", "dev": true}
+{"qid": "es_tru_366", "answer": "True", "dev": true}
+{"qid": "es_mul_293", "answer": "B", "dev": true}
+{"qid": "es_tru_345", "answer": "True", "dev": true}
+{"qid": "es_mul_763", "answer": "B", "dev": true}
+{"qid": "es_mul_620", "answer": "C", "dev": true}
+{"qid": "es_fil_122", "answer": "woodbury", "dev": false}
+{"qid": "es_tru_156", "answer": "False", "dev": false}
+{"qid": "es_fil_646", "answer": "isemer-hasse (ih)", "dev": false}
+{"qid": "es_fil_320", "answer": "2400", "dev": false}
+{"qid": "es_fil_741", "answer": "thermal", "dev": false}
+{"qid": "es_mul_8", "answer": "D", "dev": false}
+{"qid": "es_mul_281", "answer": "B", "dev": false}
+{"qid": "es_fil_766", "answer": "zhejiang university", "dev": false}
+{"qid": "es_mul_674", "answer": "B", "dev": false}
+{"qid": "es_mul_22", "answer": "B", "dev": false}
+{"qid": "es_tru_426", "answer": "True", "dev": false}
+{"qid": "es_tru_526", "answer": "False", "dev": false}
+{"qid": "es_fil_321", "answer": "moisture content at liquid discontinuity", "dev": false}
+{"qid": "es_mul_588", "answer": "C", "dev": false}
+{"qid": "es_tru_70", "answer": "False", "dev": false}
+{"qid": "es_tru_164", "answer": "False", "dev": false}
+{"qid": "es_tru_410", "answer": "False", "dev": false}
+{"qid": "es_tru_344", "answer": "True", "dev": false}
+{"qid": "es_fil_509", "answer": "student's t-test and equivalent number procedure", "dev": false}
+{"qid": "es_tru_427", "answer": "True", "dev": false}
+{"qid": "es_mul_393", "answer": "A", "dev": false}
+{"qid": "es_tru_332", "answer": "True", "dev": false}
+{"qid": "es_mul_309", "answer": "A", "dev": false}
+{"qid": "es_tru_130", "answer": "False", "dev": false}
+{"qid": "es_mul_256", "answer": "B", "dev": false}
+{"qid": "es_mul_706", "answer": "C", "dev": false}
+{"qid": "es_tru_439", "answer": "True", "dev": false}
+{"qid": "es_fil_58", "answer": "baroclinic", "dev": false}
+{"qid": "es_fil_103", "answer": "2.75", "dev": false}
+{"qid": "es_tru_186", "answer": "False", "dev": false}
+{"qid": "es_fil_576", "answer": "hexagonal", "dev": false}
+{"qid": "es_mul_452", "answer": "B", "dev": false}
+{"qid": "es_tru_253", "answer": "True", "dev": false}
+{"qid": "es_fil_579", "answer": "vertisols", "dev": false}
+{"qid": "es_tru_214", "answer": "False", "dev": false}
+{"qid": "es_mul_693", "answer": "B", "dev": false}
+{"qid": "es_tru_91", "answer": "True", "dev": false}
+{"qid": "es_mul_476", "answer": "B", "dev": false}
+{"qid": "es_tru_5", "answer": "True", "dev": false}
+{"qid": "es_mul_9", "answer": "B", "dev": false}
+{"qid": "es_fil_563", "answer": "21410.4", "dev": false}
+{"qid": "es_fil_12", "answer": "layered", "dev": false}
+{"qid": "es_mul_470", "answer": "C", "dev": false}
+{"qid": "es_fil_166", "answer": "insar", "dev": false}
+{"qid": "es_fil_746", "answer": "δ and pdb", "dev": false}
+{"qid": "es_tru_398", "answer": "True", "dev": false}
+{"qid": "es_tru_247", "answer": "False", "dev": false}
+{"qid": "es_fil_222", "answer": "2%, 1%", "dev": false}
+{"qid": "es_fil_80", "answer": "gaseous pollutants and vegetation", "dev": false}
+{"qid": "es_fil_545", "answer": "very weak", "dev": false}
+{"qid": "es_mul_246", "answer": "B", "dev": false}
+{"qid": "es_mul_699", "answer": "B", "dev": false}
+{"qid": "es_mul_634", "answer": "B", "dev": false}
+{"qid": "es_fil_609", "answer": "radioactive substances", "dev": false}
+{"qid": "es_mul_624", "answer": "C", "dev": false}
+{"qid": "es_mul_80", "answer": "B", "dev": false}
+{"qid": "es_mul_179", "answer": "B", "dev": false}
+{"qid": "es_tru_346", "answer": "True", "dev": false}
+{"qid": "es_mul_184", "answer": "D", "dev": false}
+{"qid": "es_tru_148", "answer": "False", "dev": false}
+{"qid": "es_tru_475", "answer": "True", "dev": false}
+{"qid": "es_fil_284", "answer": "h(m(x))", "dev": false}
+{"qid": "es_mul_421", "answer": "C", "dev": false}
+{"qid": "es_fil_214", "answer": "35", "dev": false}
+{"qid": "es_mul_250", "answer": "B", "dev": false}
+{"qid": "es_fil_511", "answer": "global ocean temperature and salinity profiles, 1955–1988", "dev": false}
+{"qid": "es_mul_441", "answer": "B", "dev": false}
+{"qid": "es_fil_757", "answer": "shuwenn@lzu.edu.cn", "dev": false}
+{"qid": "es_tru_380", "answer": "True", "dev": false}
+{"qid": "es_mul_300", "answer": "C", "dev": false}
+{"qid": "es_mul_57", "answer": "A", "dev": false}
+{"qid": "es_mul_815", "answer": "C", "dev": false}
+{"qid": "es_fil_261", "answer": "1500", "dev": false}
+{"qid": "es_mul_47", "answer": "A", "dev": false}
+{"qid": "es_mul_29", "answer": "C", "dev": false}
+{"qid": "es_mul_306", "answer": "D", "dev": false}
+{"qid": "es_mul_710", "answer": "A", "dev": false}
+{"qid": "es_mul_170", "answer": "B", "dev": false}
+{"qid": "es_mul_454", "answer": "B", "dev": false}
+{"qid": "es_tru_449", "answer": "True", "dev": false}

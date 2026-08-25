@@ -1,6 +1,6 @@
 {
 	"name": "georsi",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"private": true,
 	"type": "module",
 	"description": "Self-evolving geoscience research RSI system on the pi agent harness",
@@ -14,7 +14,8 @@
 		"tui": "tsx src/run.ts tui",
 		"tuitest": "tsx src/tui/headless-check.ts && tsx src/tui/altscreen-check.ts && tsx config/think-check.ts && tsx config/control-check.ts",
 		"agent": "node node_modules/@earendil-works/pi-coding-agent/dist/cli.js -e extensions/georsi.ts",
-		"extcheck": "tsx src/tui/ext-check.ts"
+		"extcheck": "tsx src/tui/ext-check.ts",
+		"emitcheck": "tsx src/tui/emit-check.ts"
 	},
 	"dependencies": {
 		"@earendil-works/pi-agent-core": "0.84.2",

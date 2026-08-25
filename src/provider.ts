@@ -26,6 +26,7 @@ import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { SUPPORTED_MODELS, modelSpec, type Config } from "./config.js";
+import { getProfile } from "./models.js";
 
 export const TOKENS = { total: 0, calls: 0, failed: 0 };
 
@@ -52,6 +53,15 @@ export function loadLocalApiKey(root: string): string {
 	if (env) return env;
 	const p = join(root, "api_key_local.txt");
 	if (existsSync(p)) return readFileSync(p, "utf8").trim();
+	return "";
+}
+
+/** OpenRouter key (empty string when not configured). */
+export function loadOpenRouterApiKey(root: string): string {
+	const env = (process.env.RSILAB_OR_KEY ?? "").trim();
+	if (env) return env;
+	const p = join(root, "api_key_or.txt");
+	if (existsSync(p)) return readFileSync(p, "utf-8").trim();
 	return "";
 }
 
@@ -123,8 +133,17 @@ export async function preflightLocal(cfg: Config, modelId: string): Promise<void
 /** Protective per-request output cap (well under every model's advertised max). */
 const REQUEST_MAX_TOKENS = 16384;
 
+/** Whether this model tolerates reasoning parameters (profile-driven). */
+function reasoningParamSupported(id: string): boolean {
+	try {
+		return getProfile(id).reasoning.style !== "none";
+	} catch {
+		return true;
+	}
+}
+
 /** Build the provider/models description pi consumes (models.json schema). */
-function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string): object {
+function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApiKey: string): object {
 	const mk = (m: (typeof SUPPORTED_MODELS)[number]) => ({
 		id: m.id,
 		name: m.id,
@@ -134,9 +153,9 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string): obje
 		// on one giant dump (lesson from OpenRSI_self's laguna incident);
 		// true ceilings live in ModelSpec.maxOutput
 		maxTokens: REQUEST_MAX_TOKENS,
-		// muse (and only muse) must not request reasoning params: the gateway
-		// rejects reasoning.effort for it with a 400
-		reasoning: m.id !== "muse-spark-1.2-contributor",
+		// per-model capability from the probed profile registry (muse rejects
+		// any reasoning parameter with a 400; unknown ids keep legacy behavior)
+		reasoning: reasoningParamSupported(m.id),
 		input: ["text"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	});
@@ -150,6 +169,15 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string): obje
 			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "zen").map(mk),
 		},
 	};
+	if (orApiKey) {
+		providers.openrouter = {
+			name: "openrouter",
+			baseUrl: cfg.openrouter_base_url ?? "https://openrouter.ai/api/v1",
+			apiKey: orApiKey,
+			api: "openai-completions",
+			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "openrouter").map(mk),
+		};
+	}
 	if (localApiKey) {
 		providers.local = {
 			name: "campus local server",
@@ -180,10 +208,11 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	if (cached) return cached;
 	const apiKey = loadApiKey(root);
 	const localApiKey = loadLocalApiKey(root);
+	const orApiKey = loadOpenRouterApiKey(root);
 	const dir = join(root, "config");
 	mkdirSync(dir, { recursive: true });
 	const modelsPath = join(dir, "pi-models.json");
-	writeFileSync(modelsPath, JSON.stringify(buildModelsJson(cfg, apiKey, localApiKey), null, 2));
+	writeFileSync(modelsPath, JSON.stringify(buildModelsJson(cfg, apiKey, localApiKey, orApiKey), null, 2));
 
 	const selected = [cfg.inner_model, cfg.outer_model].filter((v, i, a) => a.indexOf(v) === i);
 	const specOf = (id: string) => modelSpec(id)!; // loadConfig already validated
@@ -217,12 +246,12 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	});
 
 	const resolve = (id: string): Model<any> => {
-		const provider = specOf(id).endpoint === "local" ? "local" : "zen";
+		const provider = specOf(id).endpoint === "local" ? "local" : specOf(id).endpoint === "openrouter" ? "openrouter" : "zen";
 		const m = modelRuntime.getModel(provider, id);
 		if (!m) {
 			throw new Error(
 				`model "${id}" not found on provider "${provider}" after composing pi-models.json` +
-					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : ""),
+					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : ""),
 			);
 		}
 		return m;

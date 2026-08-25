@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_nearest_amenity_4", "answer": "American Apparel and Promotions", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_11315", "answer": "Wells Fargo", "dev": true}
+{"qid": "mq_california_full_intersection_370", "answer": "Mustang Daily", "dev": true}
+{"qid": "mq_california_full_intersection_197", "answer": "Hertz Thrify", "dev": true}
+{"qid": "mq_california_full_adjacent_243", "answer": "Our Lady of Angels School", "dev": true}
+{"qid": "mq_california_full_amenities_141", "answer": "atm", "dev": true}
+{"qid": "mq_california_full_adjacent_95", "answer": "La Gran Terraza", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_43", "answer": "Lemonade Small World", "dev": true}
+{"qid": "mq_california_full_compare-closer_47", "answer": "Clear Creek Fire Station", "dev": true}
+{"qid": "mq_california_full_intersection_308", "answer": "Babi's Beer Emporium", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_325", "answer": "Operating Engineers Training Trust - Devore", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2013", "answer": "Declan’s Irish Pub", "dev": true}
+{"qid": "mq_california_full_direction_nearest_218", "answer": "76", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_180", "answer": "Cerritos Library book return", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 - S cor S2 T12N R1E SBM from 1-800-FLOWERS?", "dev": true}
+{"qid": "mq_california_full_amenities_51", "answer": "fuel", "dev": true}
+{"qid": "mq_california_full_amenities_around_141", "answer": "bank", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2047", "answer": "Stretch Bar & Grill; Nola pub", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_59", "answer": "Boat Drinks", "dev": true}
+{"qid": "mq_california_full_amenities_8", "answer": "fuel", "dev": true}
+{"qid": "mq_illinois_test_compare-closer_13", "answer": "Yen Yen", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Cummings from 18 Tee?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_90", "answer": "Depth Perceptions", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_363", "answer": "beaudevin", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1621", "answer": "Lazy Bird", "dev": false}
+{"qid": "mq_california_full_direction_nearest_115", "answer": "Coast Community College District Office", "dev": false}
+{"qid": "mq_california_full_intersection_178", "answer": "Brandywine", "dev": false}
+{"qid": "mq_california_full_amenities_around_235", "answer": "cafe; fast_food; parking_entrance; restaurant", "dev": false}
+{"qid": "mq_illinois_test_intersection_258", "answer": "Springfield Clinic at the Villas", "dev": false}
+{"qid": "mq_illinois_test_intersection_254", "answer": "Tail Command", "dev": false}
+{"qid": "mq_california_full_direction_nearest_112", "answer": "UPS Customer Center", "dev": false}
+{"qid": "mq_california_full_amenities_38", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 13th Tee from 11?", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & South Grand from 11th & Pine?", "dev": false}
+{"qid": "mq_california_full_intersection_106", "answer": "Catalina Express Long Beach Downtown Landing", "dev": false}
+{"qid": "mq_illinois_test_intersection_220", "answer": "Casey's", "dev": false}
+{"qid": "mq_california_full_adjacent_74", "answer": "Starbucks", "dev": false}
+{"qid": "mq_illinois_test_intersection_55", "answer": "Sangamon County Circuit Clerk", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_62", "answer": "EagleRider", "dev": false}
+{"qid": "mq_illinois_test_intersection_288", "answer": "Preferred Imaging Centers", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2364", "answer": "The Whistler; Welcome Back Lounge; The Native", "dev": false}
+{"qid": "mq_california_full_amenities_106", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_direction_nearest_124", "answer": "Fish District Eatery", "dev": false}
+{"qid": "mq_california_full_direction_nearest_92", "answer": "Blenders", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1770", "answer": "Inside Out Art Studio", "dev": false}
+{"qid": "mq_illinois_test_intersection_323", "answer": "St. Benedict's Abbey", "dev": false}
+{"qid": "mq_california_full_intersection_128", "answer": "Tiny Heartz Daycare LLC", "dev": false}
+{"qid": "mq_california_full_amenities_215", "answer": "school", "dev": false}
+{"qid": "mq_california_full_adjacent_149", "answer": "Peal Thai Noodle House; La Memela", "dev": false}
+{"qid": "mq_california_full_intersection_244", "answer": "Long Beach Fire Station 21", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2224", "answer": "Tiki Tiki at the Silver Palm", "dev": false}
+{"qid": "mq_illinois_test_intersection_352", "answer": "Envision Dance", "dev": false}
+{"qid": "mq_california_full_direction_nearest_245", "answer": "ChromeCart", "dev": false}
+{"qid": "mq_illinois_test_intersection_186", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_amenities_around_188", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 17th-Holt?", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_35", "answer": "Dove Day School;South Hills Church of Christ", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_110", "answer": "Compass Recovery", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2203", "answer": "The Berkshire Room; Broken Shaker Chicago", "dev": false}
+{"qid": "mq_california_full_direction_nearest_225", "answer": "Turkey Legs", "dev": false}

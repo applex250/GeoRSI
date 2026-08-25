@@ -1,0 +1,100 @@
+{"qid": "es_tru_317", "answer": "False", "dev": true}
+{"qid": "es_fil_309", "answer": "lidar data", "dev": true}
+{"qid": "es_fil_3", "answer": "8500", "dev": true}
+{"qid": "es_mul_16", "answer": "B", "dev": true}
+{"qid": "es_fil_650", "answer": "100", "dev": true}
+{"qid": "es_tru_521", "answer": "False", "dev": true}
+{"qid": "es_fil_587", "answer": "3.0", "dev": true}
+{"qid": "es_tru_434", "answer": "True", "dev": true}
+{"qid": "es_mul_619", "answer": "B", "dev": true}
+{"qid": "es_fil_76", "answer": "middle or lower oligocene", "dev": true}
+{"qid": "es_tru_294", "answer": "False", "dev": true}
+{"qid": "es_fil_343", "answer": "0.21, 0.33", "dev": true}
+{"qid": "es_fil_546", "answer": "metavolcanic, granite-gneiss-schist", "dev": true}
+{"qid": "es_fil_629", "answer": "105", "dev": true}
+{"qid": "es_mul_583", "answer": "A", "dev": true}
+{"qid": "es_mul_756", "answer": "B", "dev": true}
+{"qid": "es_mul_500", "answer": "A", "dev": true}
+{"qid": "es_fil_401", "answer": "1 and 2", "dev": true}
+{"qid": "es_mul_714", "answer": "B", "dev": true}
+{"qid": "es_fil_693", "answer": "800", "dev": true}
+{"qid": "es_fil_375", "answer": "thermal", "dev": false}
+{"qid": "es_tru_218", "answer": "True", "dev": false}
+{"qid": "es_mul_436", "answer": "B", "dev": false}
+{"qid": "es_tru_283", "answer": "True", "dev": false}
+{"qid": "es_mul_150", "answer": "B", "dev": false}
+{"qid": "es_mul_204", "answer": "B", "dev": false}
+{"qid": "es_tru_335", "answer": "True", "dev": false}
+{"qid": "es_tru_454", "answer": "True", "dev": false}
+{"qid": "es_fil_698", "answer": "0.5", "dev": false}
+{"qid": "es_mul_19", "answer": "B", "dev": false}
+{"qid": "es_mul_148", "answer": "B", "dev": false}
+{"qid": "es_fil_175", "answer": "200", "dev": false}
+{"qid": "es_fil_409", "answer": "advanced national seismic system catalog", "dev": false}
+{"qid": "es_tru_118", "answer": "False", "dev": false}
+{"qid": "es_mul_614", "answer": "D", "dev": false}
+{"qid": "es_tru_503", "answer": "True", "dev": false}
+{"qid": "es_fil_549", "answer": "empirical orthogonal decomposition", "dev": false}
+{"qid": "es_mul_268", "answer": "C", "dev": false}
+{"qid": "es_mul_810", "answer": "B", "dev": false}
+{"qid": "es_fil_438", "answer": "2°c", "dev": false}
+{"qid": "es_mul_488", "answer": "A", "dev": false}
+{"qid": "es_mul_643", "answer": "A", "dev": false}
+{"qid": "es_fil_102", "answer": "variable", "dev": false}
+{"qid": "es_fil_7", "answer": "unit upstream area", "dev": false}
+{"qid": "es_fil_739", "answer": "0.13, 0.74", "dev": false}
+{"qid": "es_mul_534", "answer": "C", "dev": false}
+{"qid": "es_mul_647", "answer": "D", "dev": false}
+{"qid": "es_tru_252", "answer": "True", "dev": false}
+{"qid": "es_tru_339", "answer": "False", "dev": false}
+{"qid": "es_fil_674", "answer": "pc_align", "dev": false}
+{"qid": "es_tru_528", "answer": "True", "dev": false}
+{"qid": "es_fil_710", "answer": "20", "dev": false}
+{"qid": "es_mul_167", "answer": "D", "dev": false}
+{"qid": "es_tru_450", "answer": "True", "dev": false}
+{"qid": "es_mul_81", "answer": "C", "dev": false}
+{"qid": "es_tru_399", "answer": "True", "dev": false}
+{"qid": "es_fil_721", "answer": "subglacial tunnel, thrust planes", "dev": false}
+{"qid": "es_mul_504", "answer": "C", "dev": false}
+{"qid": "es_tru_348", "answer": "False", "dev": false}
+{"qid": "es_mul_245", "answer": "A", "dev": false}
+{"qid": "es_tru_8", "answer": "True", "dev": false}
+{"qid": "es_mul_481", "answer": "B", "dev": false}
+{"qid": "es_fil_18", "answer": "weather research and forecasting (wrf)", "dev": false}
+{"qid": "es_mul_139", "answer": "D", "dev": false}
+{"qid": "es_tru_400", "answer": "False", "dev": false}
+{"qid": "es_mul_140", "answer": "B", "dev": false}
+{"qid": "es_mul_380", "answer": "C", "dev": false}
+{"qid": "es_fil_379", "answer": "spd", "dev": false}
+{"qid": "es_mul_164", "answer": "D", "dev": false}
+{"qid": "es_tru_222", "answer": "True", "dev": false}
+{"qid": "es_mul_116", "answer": "A", "dev": false}
+{"qid": "es_fil_728", "answer": "80000", "dev": false}
+{"qid": "es_tru_269", "answer": "True", "dev": false}
+{"qid": "es_fil_382", "answer": "peaks-over-threshold (pot)", "dev": false}
+{"qid": "es_tru_211", "answer": "True", "dev": false}
+{"qid": "es_tru_158", "answer": "True", "dev": false}
+{"qid": "es_tru_378", "answer": "True", "dev": false}
+{"qid": "es_fil_767", "answer": "four", "dev": false}
+{"qid": "es_mul_117", "answer": "C", "dev": false}
+{"qid": "es_mul_642", "answer": "B", "dev": false}
+{"qid": "es_fil_167", "answer": "leaf area index (lai)", "dev": false}
+{"qid": "es_fil_485", "answer": "40", "dev": false}
+{"qid": "es_tru_292", "answer": "True", "dev": false}
+{"qid": "es_fil_142", "answer": "θ", "dev": false}
+{"qid": "es_tru_368", "answer": "True", "dev": false}
+{"qid": "es_mul_119", "answer": "B", "dev": false}
+{"qid": "es_mul_445", "answer": "B", "dev": false}
+{"qid": "es_mul_607", "answer": "B", "dev": false}
+{"qid": "es_mul_388", "answer": "D", "dev": false}
+{"qid": "es_mul_317", "answer": "B", "dev": false}
+{"qid": "es_tru_178", "answer": "True", "dev": false}
+{"qid": "es_fil_107", "answer": "33", "dev": false}
+{"qid": "es_tru_537", "answer": "True", "dev": false}
+{"qid": "es_fil_716", "answer": "greenland", "dev": false}
+{"qid": "es_fil_240", "answer": "20", "dev": false}
+{"qid": "es_fil_132", "answer": "nap", "dev": false}
+{"qid": "es_fil_62", "answer": "0.870", "dev": false}
+{"qid": "es_fil_560", "answer": "increases", "dev": false}
+{"qid": "es_mul_584", "answer": "B", "dev": false}
+{"qid": "es_tru_113", "answer": "True", "dev": false}

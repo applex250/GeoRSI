@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_intersection_264", "answer": "Skyway cafe", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_146", "answer": "Stanley", "dev": true}
+{"qid": "mq_illinois_test_intersection_386", "answer": "Rieke Interiors", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_272", "answer": "Riverside University Health System - Arlington Mental Health Facility", "dev": true}
+{"qid": "mq_california_full_amenities_44", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_adjacent_223", "answer": "Rosa y José", "dev": true}
+{"qid": "mq_california_full_intersection_146", "answer": "West Coast Surrogacy", "dev": true}
+{"qid": "mq_california_full_intersection_346", "answer": "Brandywine", "dev": true}
+{"qid": "mq_california_full_adjacent_5", "answer": "Gor Gai Thai Kitchen", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_250", "answer": "Collab&Play", "dev": true}
+{"qid": "mq_california_full_intersection_109", "answer": "Disneyland Resort Casting Center", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_12489", "answer": "Park & Rec", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 210-084 from 2218 Bunker Ave?", "dev": true}
+{"qid": "mq_illinois_test_amenities_4", "answer": "parking", "dev": true}
+{"qid": "mq_illinois_test_intersection_333", "answer": "Lincoln Elementary School", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6060", "answer": "Citibank", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_2150", "answer": "South Central Bank", "dev": true}
+{"qid": "mq_california_full_adjacent_151", "answer": "Joel Bickler", "dev": true}
+{"qid": "mq_california_full_intersection_94", "answer": "Slo City Midwives", "dev": true}
+{"qid": "mq_illinois_test_adjacent_42", "answer": "Weber Medical Center", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_132", "answer": "Hillcrest Center for the Arts", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 106th Street & Mackinaw from 1280 Central Park?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Tustin from 15?", "dev": false}
+{"qid": "mq_california_full_amenities_around_184", "answer": "bbq; cafe; fast_food; fountain; ice_cream; parking_entrance; restaurant; school", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9762", "answer": "Ginger’s", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120th & San Pedro from 14d?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Pomona from 1?", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_15", "answer": "Schiller Park Fire Department", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14th Tee from 13th Tee?", "dev": false}
+{"qid": "mq_california_full_intersection_379", "answer": "Echo Park & Park", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6670", "answer": "Side Bar", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_308", "answer": "Santa Baby Bar", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_2434", "answer": "Cheeser Financial", "dev": false}
+{"qid": "mq_california_full_amenities_19", "answer": "ferry_terminal", "dev": false}
+{"qid": "mq_illinois_test_intersection_298", "answer": "Deo Gratias Food Market", "dev": false}
+{"qid": "mq_illinois_test_compare-closer_1", "answer": "Midewin National Tallgrass Prairie @ South Chicago Road", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_276", "answer": "Calico High School", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 11th & Kansas from 100th Street & Calhoun?", "dev": false}
+{"qid": "mq_california_full_amenities_around_243", "answer": "restaurant", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1990", "answer": "BMO", "dev": false}
+{"qid": "mq_california_full_direction_nearest_58", "answer": "Creative Arts Group", "dev": false}
+{"qid": "mq_california_full_adjacent_85", "answer": "The Original Pancake House; Pacific Pizza", "dev": false}
+{"qid": "mq_illinois_test_intersection_206", "answer": "Vigo", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6849", "answer": "Mother's Tavern", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1753", "answer": "Halligan Bar", "dev": false}
+{"qid": "mq_california_full_compare-closer_51", "answer": "Popeyes", "dev": false}
+{"qid": "mq_illinois_test_intersection_101", "answer": "Wauconda Currency Exchange", "dev": false}
+{"qid": "mq_california_full_intersection_223", "answer": "Collab&Play", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 119th Street & Princeton from 103rd Street & Oakley?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4212", "answer": "The Tonga Hut", "dev": false}
+{"qid": "mq_california_full_intersection_247", "answer": "Long Beach Fire Station 21", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_120", "answer": "Savers Donation Area", "dev": false}
+{"qid": "mq_illinois_test_adjacent_16", "answer": "Corner Bakery; Starbucks", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_157", "answer": "Chevron", "dev": false}
+{"qid": "mq_illinois_test_intersection_41", "answer": "Southern Illinois University HR Department", "dev": false}
+{"qid": "mq_illinois_test_intersection_358", "answer": "Deo Gratias Food Market", "dev": false}
+{"qid": "mq_california_full_direction_nearest_200", "answer": "LA Community Fridge East Palmdale", "dev": false}
+{"qid": "mq_california_full_intersection_373", "answer": "7-Eleven", "dev": false}
+{"qid": "mq_california_full_amenities_around_35", "answer": "atm; drinking_water; vending_machine", "dev": false}
+{"qid": "mq_california_full_intersection_252", "answer": "Nix / Payday Today Check Cashing", "dev": false}

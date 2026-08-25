@@ -1,0 +1,60 @@
+{"qid": "mq_illinois_test_amenities-around-specific_1992", "answer": "Vines on Clark", "dev": true}
+{"qid": "mq_california_full_compare-closer_1", "answer": "Yoshinoya", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_46", "answer": "Julia's Banquet Center", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17th-Pomona from 18th Street Cafe?", "dev": true}
+{"qid": "mq_illinois_test_intersection_114", "answer": "DPS Mart", "dev": true}
+{"qid": "mq_california_full_direction_nearest_30", "answer": "Ticketing | Check In", "dev": true}
+{"qid": "mq_illinois_test_intersection_38", "answer": "Kampsville Ferry", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 173 from 17th-Cabrillo Park?", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_854", "answer": "Social and Public Art Resource Center", "dev": true}
+{"qid": "mq_california_full_adjacent_108", "answer": "Little Caesars", "dev": true}
+{"qid": "mq_california_full_amenities_around_69", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_49", "answer": "Clothing Drop Box", "dev": true}
+{"qid": "mq_illinois_test_intersection_53", "answer": "Midwest Five Star Driving School", "dev": true}
+{"qid": "mq_california_full_amenities_around_189", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_922", "answer": "Bank of America", "dev": true}
+{"qid": "mq_california_full_amenities_around_13", "answer": "cafe; family_planning; psychic; studio", "dev": true}
+{"qid": "mq_california_full_intersection_68", "answer": "Cerritos Library book return", "dev": true}
+{"qid": "mq_california_full_intersection_71", "answer": "Bikes and Brew", "dev": true}
+{"qid": "mq_california_full_amenities_9", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_adjacent_31", "answer": "Sweetfin", "dev": true}
+{"qid": "mq_california_full_intersection_395", "answer": "Nob Hill", "dev": false}
+{"qid": "mq_california_full_adjacent_53", "answer": "Calvary Evangelical Lutheran Church", "dev": false}
+{"qid": "mq_illinois_test_intersection_203", "answer": "Preferred Imaging Centers", "dev": false}
+{"qid": "mq_california_full_adjacent_226", "answer": "Plateia", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5726", "answer": "Bull's Tavern; Creeky Tiki", "dev": false}
+{"qid": "mq_illinois_test_intersection_316", "answer": "Vigo", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_24", "answer": "Remington Hot Springs", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_27", "answer": "Coinstar", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1201", "answer": "Park & Rec", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2387", "answer": "Redwing Bar and Grill", "dev": false}
+{"qid": "mq_california_full_intersection_212", "answer": "Gould Mesa Trail Camp", "dev": false}
+{"qid": "mq_california_full_amenities_around_93", "answer": "cafe; restaurant", "dev": false}
+{"qid": "mq_california_full_adjacent_6", "answer": "Scout Coffee Co.", "dev": false}
+{"qid": "mq_california_full_direction_nearest_175", "answer": "Goodwill", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_2", "answer": "The Church of Jesus Christ of Latter-day Saints", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2778", "answer": "The South Park Abbey", "dev": false}
+{"qid": "mq_california_full_intersection_39", "answer": "Nix / Payday Today Check Cashing", "dev": false}
+{"qid": "mq_california_full_amenities_around_198", "answer": "bank; cafe; fast_food; parking_entrance; restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_3", "answer": "dentist; dojo; restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_119", "answer": "Distance Education Center", "dev": false}
+{"qid": "mq_illinois_test_intersection_212", "answer": "Jimmy John's", "dev": false}
+{"qid": "mq_illinois_test_intersection_389", "answer": "Starbucks", "dev": false}
+{"qid": "mq_illinois_test_intersection_48", "answer": "Scully Park Fountain", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_41", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_intersection_21", "answer": "The Villa", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_71", "answer": "McCabe's", "dev": false}
+{"qid": "mq_california_full_adjacent_141", "answer": "Gigo's Cafe & Deli", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_421", "answer": "Welcome Back Lounge; The Native", "dev": false}
+{"qid": "mq_california_full_direction_nearest_111", "answer": "Menchie's", "dev": false}
+{"qid": "mq_illinois_test_adjacent_15", "answer": "Starbucks", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_724", "answer": "Schools First Credit Union", "dev": false}
+{"qid": "mq_california_full_amenities_around_24", "answer": "place_of_worship; school", "dev": false}
+{"qid": "mq_california_full_amenities_around_209", "answer": "clinic; place_of_worship", "dev": false}
+{"qid": "mq_california_full_intersection_65", "answer": "The Villa", "dev": false}
+{"qid": "mq_california_full_adjacent_104", "answer": "KFC", "dev": false}
+{"qid": "mq_california_full_adjacent_44", "answer": "The Auld Fella", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_263", "answer": "Goodwill", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_30", "answer": "fast_food; restaurant", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 from 22?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_10221", "answer": "Bluefoot", "dev": false}

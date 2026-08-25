@@ -1,15 +1,11 @@
 /** Verify: research streaming goes ONLY to the bottom panel, zero transcript entries. */
+import { makePiMock } from "./pi-mock.js";
 const entries: { type: string; lines: string[] }[] = [];
 const widgetCalls: { content?: string[] }[] = [];
 const notifications: string[] = [];
-const pi: any = {
-	registerCommand: () => {},
-	registerEntryRenderer: () => {},
+const { pi, cmds } = makePiMock({
 	appendEntry: (t: string, data: any) => entries.push({ type: t, lines: data.lines ?? [] }),
-	on: () => {},
-};
-const cmds: Record<string, any> = {};
-pi.registerCommand = (n: string, d: any) => { cmds[n] = d; };
+});
 (await import("../extensions/georsi.js")).default(pi);
 const handler = cmds["research"].handler;
 const ctx = {

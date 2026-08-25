@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_nearest_amenity_15", "answer": "Turkey Legs", "dev": true}
+{"qid": "mq_california_full_amenities_195", "answer": "school", "dev": true}
+{"qid": "mq_illinois_test_compare-closer_16", "answer": "Navy Pier IMAX Theatre", "dev": true}
+{"qid": "mq_illinois_test_intersection_40", "answer": "Kampsville Ferry", "dev": true}
+{"qid": "mq_illinois_test_intersection_136", "answer": "Progressive Kenpo Karate", "dev": true}
+{"qid": "mq_california_full_compare-closer_37", "answer": "El Pollo Loco", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_12", "answer": "Dove Day School;South Hills Church of Christ", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6071", "answer": "Bar Pink", "dev": true}
+{"qid": "mq_california_full_intersection_363", "answer": "Gould Mesa Trail Camp", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14th & Santa Monica from 1190?", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_3394", "answer": "Cheswick’s West; Tony’s Newport Cafe; Sunshine Company", "dev": true}
+{"qid": "mq_california_full_direction_nearest_188", "answer": "Xai Verandah Lounge and hookah", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_5648", "answer": "Citibank", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_8504", "answer": "The Tonga Hut; Desert Fox Bar", "dev": true}
+{"qid": "mq_california_full_amenities_around_50", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_2581", "answer": "City National Bank", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_365", "answer": "Commons Club", "dev": true}
+{"qid": "mq_california_full_intersection_272", "answer": "iRepair", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1513", "answer": "Allpoint", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Soto from #156?", "dev": true}
+{"qid": "mq_california_full_amenities_around_245", "answer": "cafe; fast_food; ice_cream; restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_241", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_intersection_185", "answer": "Drop off for Morton Public Library", "dev": false}
+{"qid": "mq_california_full_compare-closer_70", "answer": "Annunciation School", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_239", "answer": "BW Spa", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_21", "answer": "The Anteatery", "dev": false}
+{"qid": "mq_california_full_intersection_230", "answer": "ACE Dental", "dev": false}
+{"qid": "mq_california_full_compare-closer_71", "answer": "Apperson Elementary School", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_49", "answer": "Kumon", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5131", "answer": "The Shout! House", "dev": false}
+{"qid": "mq_california_full_amenities_around_208", "answer": "dojo", "dev": false}
+{"qid": "mq_california_full_intersection_354", "answer": "West LA Academy of Dance", "dev": false}
+{"qid": "mq_california_full_intersection_50", "answer": "Brandywine", "dev": false}
+{"qid": "mq_california_full_amenities_around_161", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_intersection_246", "answer": "Champlain Ave & 131st St", "dev": false}
+{"qid": "mq_california_full_adjacent_162", "answer": "Phở 99; Costa Delmar", "dev": false}
+{"qid": "mq_california_full_direction_nearest_25", "answer": "Calvary Chapel Children's Church", "dev": false}
+{"qid": "mq_california_full_intersection_43", "answer": "Imperial County Courthouse;Imperial County Law Library", "dev": false}
+{"qid": "mq_california_full_direction_nearest_161", "answer": "KKJZ 88.1 campus radio", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_48", "answer": "Kid's Castle Learning Center III", "dev": false}
+{"qid": "mq_california_full_intersection_245", "answer": "Campfire Center", "dev": false}
+{"qid": "mq_california_full_adjacent_217", "answer": "Dave's Hot Chicken", "dev": false}
+{"qid": "mq_california_full_amenities_170", "answer": "prison", "dev": false}
+{"qid": "mq_illinois_test_intersection_25", "answer": "Turner-Eighner Funeral Home and Crematory", "dev": false}
+{"qid": "mq_california_full_intersection_192", "answer": "Cinemark", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 from 1st & Vignes?", "dev": false}
+{"qid": "mq_illinois_test_intersection_213", "answer": "St. Benedict's Abbey", "dev": false}
+{"qid": "mq_illinois_test_intersection_299", "answer": "Tail Command", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5565", "answer": "Torrey Pines Bank", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_387", "answer": "Guest Services", "dev": false}
+{"qid": "mq_california_full_adjacent_43", "answer": "Wells Fargo; Wachovia Bank", "dev": false}
+{"qid": "mq_california_full_amenities_105", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_intersection_329", "answer": "Blue Jay Services Inc.", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_354", "answer": "Island Packers", "dev": false}
+{"qid": "mq_california_full_amenities_131", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12th Tee from 17 Tee?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1155", "answer": "North End; Bobby Love's", "dev": false}
+{"qid": "mq_california_full_amenities_104", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_direction_nearest_129", "answer": "iRepair", "dev": false}
+{"qid": "mq_california_full_amenities_155", "answer": "fire_station", "dev": false}

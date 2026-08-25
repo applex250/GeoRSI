@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_adjacent_115", "answer": "WaBa Grill", "dev": true}
+{"qid": "mq_illinois_test_intersection_100", "answer": "Casey's", "dev": true}
+{"qid": "mq_california_full_intersection_334", "answer": "San Pedro County Courts Building", "dev": true}
+{"qid": "mq_california_full_amenities_around_66", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_intersection_129", "answer": "Progressive Kenpo Karate", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1739 Public House from 18th & Figueroa?", "dev": true}
+{"qid": "mq_california_full_amenities_231", "answer": "school", "dev": true}
+{"qid": "mq_california_full_intersection_352", "answer": "Locker Rooms", "dev": true}
+{"qid": "mq_california_full_intersection_189", "answer": "Claremont Chefs Academy", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_287", "answer": "McCabe's", "dev": true}
+{"qid": "mq_illinois_test_amenities_around_4", "answer": "No amenities found", "dev": true}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 119th Street & Division from 103rd Street & Prospect WB?", "dev": true}
+{"qid": "mq_california_full_amenities_around_139", "answer": "No amenities found", "dev": true}
+{"qid": "mq_california_full_intersection_169", "answer": "Academy of Motion Picture Arts and Sciences Film Archive", "dev": true}
+{"qid": "mq_illinois_test_adjacent_5", "answer": "Peet's Coffee", "dev": true}
+{"qid": "mq_california_full_adjacent_137", "answer": "Delhi Kitchen", "dev": true}
+{"qid": "mq_california_full_adjacent_225", "answer": "Pressed Juicery", "dev": true}
+{"qid": "mq_california_full_adjacent_227", "answer": "Et Voilà; Ribline", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_6879", "answer": "Modern Times: North Park Flavordome", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_578", "answer": "The Aviary", "dev": true}
+{"qid": "mq_california_full_adjacent_121", "answer": "Point of Contact Ministries", "dev": false}
+{"qid": "mq_illinois_test_intersection_226", "answer": "Wauconda Currency Exchange", "dev": false}
+{"qid": "mq_california_full_compare-closer_2", "answer": "Royal Falconer", "dev": false}
+{"qid": "mq_california_full_intersection_276", "answer": "Daryl D. Smith Clock Tower", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_22", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 10A from 1st Tee?", "dev": false}
+{"qid": "mq_california_full_amenities_around_2", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities_97", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 post hedgehog cactus from 173?", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1645", "answer": "Chase", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_6416", "answer": "19", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 12 Tee from 2041 Newton Ave?", "dev": false}
+{"qid": "mq_california_full_adjacent_12", "answer": "First Christian Church", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_101", "answer": "Slo City Midwives", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_4497", "answer": "Gold Room", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st - Magnolia from 10th St W & Ave J?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11335", "answer": "broken shaker", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1504", "answer": "The Globe Pub", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_7715", "answer": "Bank of America", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_324", "answer": "State Bank of India", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_33", "answer": "Laughlin Cemetery", "dev": false}
+{"qid": "mq_california_full_amenities_161", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_direction_nearest_235", "answer": "Chevron", "dev": false}
+{"qid": "mq_california_full_compare-closer_7", "answer": "Lot D", "dev": false}
+{"qid": "mq_california_full_intersection_296", "answer": "Canyon View Ranch", "dev": false}
+{"qid": "mq_illinois_test_amenities_34", "answer": "pharmacy", "dev": false}
+{"qid": "mq_california_full_direction_nearest_101", "answer": "USPS", "dev": false}
+{"qid": "mq_california_full_amenities_115", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_184", "answer": "Aerocademy", "dev": false}
+{"qid": "mq_california_full_intersection_52", "answer": "Goodwill", "dev": false}
+{"qid": "mq_california_full_amenities_70", "answer": "fire_station", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_10425", "answer": "Taste and Thirst", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_39", "answer": "St. Benedict's Abbey", "dev": false}
+{"qid": "mq_california_full_compare-closer_11", "answer": "CVS Pharmacy", "dev": false}
+{"qid": "mq_illinois_test_intersection_198", "answer": "Brew Camp", "dev": false}
+{"qid": "mq_california_full_intersection_314", "answer": "Feet For Life", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_208", "answer": "Chevron", "dev": false}
+{"qid": "mq_california_full_intersection_9", "answer": "Caique Jiu Jitsu", "dev": false}
+{"qid": "mq_illinois_test_intersection_380", "answer": "Bike Repair Station", "dev": false}
+{"qid": "mq_california_full_intersection_307", "answer": "Long Beach Transit Gallery", "dev": false}

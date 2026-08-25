@@ -1,0 +1,2 @@
+Find gap for Toronto fire station service coverage.
+Your task is analyzing Toronto fire stations and their service coverage. The goal is visualize the current fire station coverage in Etobicoke by buffering to identify coverage gaps. Save the figure as "pred_results/Fire_Service_Analysis.png".

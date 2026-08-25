@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_amenities_153", "answer": "restaurant", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_65", "answer": "Hillcrest Center for the Arts", "dev": true}
+{"qid": "mq_illinois_test_intersection_56", "answer": "MoneyGram", "dev": true}
+{"qid": "mq_california_full_direction_nearest_95", "answer": "Western Union", "dev": true}
+{"qid": "mq_california_full_amenities_250", "answer": "school", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_246", "answer": "Locker Rooms", "dev": true}
+{"qid": "mq_illinois_test_intersection_209", "answer": "Springfield Clinic at the Villas", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 16? from 20th & D Book Pantry?", "dev": true}
+{"qid": "mq_california_full_adjacent_129", "answer": "Navy Federal Credit Union", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_1752", "answer": "11", "dev": true}
+{"qid": "mq_california_full_amenities_213", "answer": "school", "dev": true}
+{"qid": "mq_california_full_adjacent_242", "answer": "Ten Ren's Tea Time", "dev": true}
+{"qid": "mq_illinois_test_compare-closer_8", "answer": "Lincoln Park Postal Store", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_2215", "answer": "Fairweather Rooftop Bar", "dev": true}
+{"qid": "mq_california_full_adjacent_30", "answer": "The Good Lion", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_28", "answer": "Crash Investigation Site", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1769", "answer": "Parlay; Enolo Wine Cafe", "dev": true}
+{"qid": "mq_california_full_amenities_218", "answer": "school", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_223", "answer": "Olyve's", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1754", "answer": "Jumpin Joe's", "dev": true}
+{"qid": "mq_california_full_adjacent_87", "answer": "TBLA Catering & Cafe", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 11 from 18-8 Men Salon?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_980", "answer": "Dumonts", "dev": false}
+{"qid": "mq_california_full_amenities_196", "answer": "school", "dev": false}
+{"qid": "mq_california_full_compare-closer_41", "answer": "Chase", "dev": false}
+{"qid": "mq_california_full_amenities_around_21", "answer": "townhall", "dev": false}
+{"qid": "mq_california_full_intersection_303", "answer": "Road One Towing", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_266", "answer": "Compass Recovery", "dev": false}
+{"qid": "mq_california_full_intersection_248", "answer": "Computer Lab", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 18 - SW cor SE 1/4 NW 1/4 S3 T32S R47E MDM from 2222 Pharmacy?", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_32", "answer": "Elks Lodge", "dev": false}
+{"qid": "mq_illinois_test_intersection_67", "answer": "Illinois Conference Center", "dev": false}
+{"qid": "mq_california_full_intersection_88", "answer": "MCASD Sherwood Auditorium", "dev": false}
+{"qid": "mq_california_full_direction_nearest_231", "answer": "Dana Wharf", "dev": false}
+{"qid": "mq_california_full_amenities_99", "answer": "cafe", "dev": false}
+{"qid": "mq_illinois_test_intersection_141", "answer": "Enterprise", "dev": false}
+{"qid": "mq_illinois_test_adjacent_13", "answer": "Jacquelines's", "dev": false}
+{"qid": "mq_california_full_amenities_143", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_187", "answer": "Liquor Beer Wine Grocery", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_8", "answer": "fast_food; ice_cream", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_342", "answer": "Guest Services", "dev": false}
+{"qid": "mq_california_full_direction_nearest_40", "answer": "Mission Trails Regional Park Headquarters", "dev": false}
+{"qid": "mq_california_full_amenities_around_202", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_51", "answer": "Mission Control Arcade Bar", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_1", "answer": "Newport Beach Elks Lodge", "dev": false}
+{"qid": "mq_illinois_test_intersection_18", "answer": "Alleycat Comics", "dev": false}
+{"qid": "mq_california_full_amenities_around_51", "answer": "cafe; drinking_water; fast_food; food_court; ice_cream; restaurant", "dev": false}
+{"qid": "mq_california_full_amenities_around_41", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_370", "answer": "Calvary Chapel Children's Church", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1930", "answer": "Mason Memorial Bench; Sikand Memorial Bench; Chien Memorial Bench", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_68", "answer": "Newport Beach Boat Rental", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_5521", "answer": "The South Park Abbey", "dev": false}
+{"qid": "mq_illinois_test_intersection_391", "answer": "One Eleven Food Hall", "dev": false}
+{"qid": "mq_illinois_test_intersection_335", "answer": "Mitsuwa Food Court", "dev": false}
+{"qid": "mq_california_full_compare-closer_12", "answer": "Chevron", "dev": false}
+{"qid": "mq_california_full_adjacent_238", "answer": "Rabano; Best Donuts", "dev": false}
+{"qid": "mq_california_full_compare-closer_6", "answer": "Balboa Island Ferry", "dev": false}
+{"qid": "mq_california_full_direction_nearest_214", "answer": "Ticketing | Check In", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 17 from 1st-Tustin?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11384", "answer": "Uptown Tavern", "dev": false}

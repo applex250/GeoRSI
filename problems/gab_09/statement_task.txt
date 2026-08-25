@@ -1,0 +1,2 @@
+Find the deforestation rate for Rond么nia
+Your task is finding the deforestation rate for Brazilian state of Rond么nia. The goal is calculating the deforestation area percentage in the Rond么nia within the buffer zone of 5.5km around road layers. Save the percentage result in a CSV file named "pred_results/deforestation_rate.csv" with a column title percentage_deforestation.

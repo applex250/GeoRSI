@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_direction_nearest_7", "answer": "Deep Creek Hot Springs", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_36", "answer": "Endres Tavern", "dev": true}
+{"qid": "mq_california_full_amenities_around_101", "answer": "cafe; fast_food", "dev": true}
+{"qid": "mq_california_full_amenities_around_53", "answer": "cafe; library", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_8", "answer": "Freeburg Public Library", "dev": true}
+{"qid": "mq_illinois_test_intersection_368", "answer": "Arley D. Cathey Dinning Commons", "dev": true}
+{"qid": "mq_illinois_test_adjacent_44", "answer": "Goldie’s Pub", "dev": true}
+{"qid": "mq_california_full_intersection_45", "answer": "Law Office of Raymond Perez", "dev": true}
+{"qid": "mq_california_full_direction_nearest_26", "answer": "Sisters Disciples of the Divine Master", "dev": true}
+{"qid": "mq_california_full_direction_nearest_82", "answer": "Warner Brothers Studio Cafeteria", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_30", "answer": "Dunkin';Baskin-Robbins", "dev": true}
+{"qid": "mq_illinois_test_intersection_377", "answer": "Sherman Car Wash", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_199", "answer": "Kernville Cowork", "dev": true}
+{"qid": "mq_california_full_amenities_158", "answer": "place_of_worship", "dev": true}
+{"qid": "mq_california_full_amenities-around-specific_3895", "answer": "Navy Federal", "dev": true}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 13 - SW cor S2 T12N R1E SBM from 11 Basket?", "dev": true}
+{"qid": "mq_illinois_test_intersection_28", "answer": "Sherman Car Wash", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_810", "answer": "Citibank", "dev": true}
+{"qid": "mq_illinois_test_intersection_30", "answer": "Tesla Supercharger", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_139", "answer": "Max Karaoke", "dev": true}
+{"qid": "mq_california_full_direction_nearest_163", "answer": "Arco", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9657", "answer": "Califronia Tap Room; True North", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_11237", "answer": "Pacific Western Bank", "dev": false}
+{"qid": "mq_california_full_direction_nearest_83", "answer": "Sprachcaffe Language Plus", "dev": false}
+{"qid": "mq_california_full_adjacent_62", "answer": "Baja Betty's", "dev": false}
+{"qid": "mq_illinois_test_intersection_95", "answer": "Starbucks", "dev": false}
+{"qid": "mq_california_full_intersection_353", "answer": "Vineyard Car Wash", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_310", "answer": "Laguna Hills Mobile Home Estates", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2826", "answer": "1901", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9085", "answer": "11", "dev": false}
+{"qid": "mq_california_full_amenities_around_227", "answer": "kindergarten; social_facility", "dev": false}
+{"qid": "mq_california_full_amenities_102", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_amenities_100", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_intersection_98", "answer": "Art Zone", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_715", "answer": "Madison Tavern; Rail Club", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_75", "answer": "MONTCLAIR", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st Street & Hill Street from 2?", "dev": false}
+{"qid": "mq_illinois_test_intersection_321", "answer": "Boat Drinks", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 120th & Slater from 1?", "dev": false}
+{"qid": "mq_california_full_amenities_around_168", "answer": "restaurant", "dev": false}
+{"qid": "mq_california_full_intersection_273", "answer": "Pasadena Humane Society", "dev": false}
+{"qid": "mq_illinois_test_adjacent_23", "answer": "Zellij Fountain", "dev": false}
+{"qid": "mq_california_full_adjacent_32", "answer": "The Naked Fish; Next Door Bistro; F. McLintocks Saloon", "dev": false}
+{"qid": "mq_california_full_direction_nearest_5", "answer": "The UPS Store", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 from 17th-Orange?", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9660", "answer": "Tropicana Bar", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_96", "answer": "Parlay", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_4", "answer": "Elk Grove Cinema", "dev": false}
+{"qid": "mq_california_full_adjacent_216", "answer": "India Sweets & Spices", "dev": false}
+{"qid": "mq_illinois_test_intersection_369", "answer": "Vigo", "dev": false}
+{"qid": "mq_illinois_test_intersection_337", "answer": "Rotary Sundial", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 100 Years Seal Beach from 10 Speed Coffee?", "dev": false}
+{"qid": "mq_california_full_amenities_65", "answer": "fuel", "dev": false}
+{"qid": "mq_illinois_test_adjacent_35", "answer": "BP", "dev": false}
+{"qid": "mq_california_full_adjacent_47", "answer": "Chantilly’s Ice Cream", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_1926", "answer": "Slippery Slope; The Heavy Feather", "dev": false}
+{"qid": "mq_illinois_test_intersection_210", "answer": "Rieke Interiors", "dev": false}
+{"qid": "mq_california_full_intersection_111", "answer": "Nob Hill", "dev": false}
+{"qid": "mq_california_full_amenities_121", "answer": "fast_food", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 15 from 14th & Wilshire?", "dev": false}

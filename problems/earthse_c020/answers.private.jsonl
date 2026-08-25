@@ -1,0 +1,100 @@
+{"qid": "es_tru_386", "answer": "True", "dev": true}
+{"qid": "es_mul_43", "answer": "B", "dev": true}
+{"qid": "es_mul_692", "answer": "C", "dev": true}
+{"qid": "es_fil_697", "answer": "fuzzy", "dev": true}
+{"qid": "es_mul_460", "answer": "B", "dev": true}
+{"qid": "es_mul_507", "answer": "B", "dev": true}
+{"qid": "es_mul_247", "answer": "A", "dev": true}
+{"qid": "es_tru_106", "answer": "True", "dev": true}
+{"qid": "es_tru_241", "answer": "False", "dev": true}
+{"qid": "es_fil_478", "answer": "19", "dev": true}
+{"qid": "es_tru_79", "answer": "True", "dev": true}
+{"qid": "es_mul_764", "answer": "B", "dev": true}
+{"qid": "es_tru_512", "answer": "True", "dev": true}
+{"qid": "es_fil_11", "answer": "sitka, cordova", "dev": true}
+{"qid": "es_fil_673", "answer": "meteorological variables, daily precipitation", "dev": true}
+{"qid": "es_mul_638", "answer": "B", "dev": true}
+{"qid": "es_fil_96", "answer": "water", "dev": true}
+{"qid": "es_mul_411", "answer": "B", "dev": true}
+{"qid": "es_fil_48", "answer": "200", "dev": true}
+{"qid": "es_fil_714", "answer": "glimsview erdas arc/gis", "dev": true}
+{"qid": "es_fil_182", "answer": "40", "dev": false}
+{"qid": "es_fil_603", "answer": "0.002", "dev": false}
+{"qid": "es_fil_591", "answer": "2 hours, 1 hour", "dev": false}
+{"qid": "es_mul_433", "answer": "A", "dev": false}
+{"qid": "es_tru_48", "answer": "False", "dev": false}
+{"qid": "es_tru_424", "answer": "False", "dev": false}
+{"qid": "es_fil_422", "answer": "soil thickness", "dev": false}
+{"qid": "es_tru_262", "answer": "True", "dev": false}
+{"qid": "es_mul_542", "answer": "B", "dev": false}
+{"qid": "es_mul_338", "answer": "A", "dev": false}
+{"qid": "es_tru_307", "answer": "True", "dev": false}
+{"qid": "es_tru_155", "answer": "True", "dev": false}
+{"qid": "es_tru_533", "answer": "True", "dev": false}
+{"qid": "es_mul_262", "answer": "A", "dev": false}
+{"qid": "es_mul_257", "answer": "A", "dev": false}
+{"qid": "es_fil_204", "answer": "2014.02", "dev": false}
+{"qid": "es_tru_272", "answer": "True", "dev": false}
+{"qid": "es_fil_193", "answer": "froude number", "dev": false}
+{"qid": "es_mul_141", "answer": "C", "dev": false}
+{"qid": "es_fil_307", "answer": "obukhov length scale", "dev": false}
+{"qid": "es_tru_177", "answer": "False", "dev": false}
+{"qid": "es_fil_134", "answer": "0.60", "dev": false}
+{"qid": "es_mul_175", "answer": "B", "dev": false}
+{"qid": "es_mul_161", "answer": "B", "dev": false}
+{"qid": "es_fil_575", "answer": "drained", "dev": false}
+{"qid": "es_tru_343", "answer": "True", "dev": false}
+{"qid": "es_fil_434", "answer": "glass-rich", "dev": false}
+{"qid": "es_mul_493", "answer": "B", "dev": false}
+{"qid": "es_mul_118", "answer": "B", "dev": false}
+{"qid": "es_mul_490", "answer": "C", "dev": false}
+{"qid": "es_mul_629", "answer": "A", "dev": false}
+{"qid": "es_fil_288", "answer": "agency", "dev": false}
+{"qid": "es_fil_339", "answer": "poor weather", "dev": false}
+{"qid": "es_fil_435", "answer": "sciamachy", "dev": false}
+{"qid": "es_mul_743", "answer": "A", "dev": false}
+{"qid": "es_fil_538", "answer": "ape density", "dev": false}
+{"qid": "es_fil_699", "answer": "transmission constant", "dev": false}
+{"qid": "es_mul_39", "answer": "B", "dev": false}
+{"qid": "es_tru_182", "answer": "True", "dev": false}
+{"qid": "es_mul_663", "answer": "B", "dev": false}
+{"qid": "es_tru_408", "answer": "True", "dev": false}
+{"qid": "es_mul_1", "answer": "B", "dev": false}
+{"qid": "es_fil_731", "answer": "244, 244, 561, 561", "dev": false}
+{"qid": "es_tru_268", "answer": "True", "dev": false}
+{"qid": "es_fil_525", "answer": "20250", "dev": false}
+{"qid": "es_fil_230", "answer": "1.52", "dev": false}
+{"qid": "es_fil_588", "answer": "292", "dev": false}
+{"qid": "es_tru_286", "answer": "True", "dev": false}
+{"qid": "es_mul_330", "answer": "B", "dev": false}
+{"qid": "es_fil_197", "answer": "2d problem", "dev": false}
+{"qid": "es_mul_765", "answer": "B", "dev": false}
+{"qid": "es_fil_662", "answer": "64 to 70, greater, less", "dev": false}
+{"qid": "es_mul_407", "answer": "A", "dev": false}
+{"qid": "es_tru_429", "answer": "True", "dev": false}
+{"qid": "es_fil_618", "answer": "1.586", "dev": false}
+{"qid": "es_tru_490", "answer": "True", "dev": false}
+{"qid": "es_fil_359", "answer": "2.6", "dev": false}
+{"qid": "es_mul_611", "answer": "C", "dev": false}
+{"qid": "es_tru_462", "answer": "False", "dev": false}
+{"qid": "es_fil_418", "answer": "oxidation", "dev": false}
+{"qid": "es_mul_217", "answer": "A", "dev": false}
+{"qid": "es_fil_505", "answer": "390", "dev": false}
+{"qid": "es_tru_221", "answer": "True", "dev": false}
+{"qid": "es_mul_365", "answer": "B", "dev": false}
+{"qid": "es_fil_196", "answer": "vegetation fraction", "dev": false}
+{"qid": "es_tru_207", "answer": "True", "dev": false}
+{"qid": "es_mul_539", "answer": "D", "dev": false}
+{"qid": "es_fil_109", "answer": "onset, pace", "dev": false}
+{"qid": "es_fil_429", "answer": "0.03125", "dev": false}
+{"qid": "es_fil_114", "answer": "coriolis, radial", "dev": false}
+{"qid": "es_fil_589", "answer": "38", "dev": false}
+{"qid": "es_mul_6", "answer": "A", "dev": false}
+{"qid": "es_tru_111", "answer": "False", "dev": false}
+{"qid": "es_mul_323", "answer": "D", "dev": false}
+{"qid": "es_tru_72", "answer": "True", "dev": false}
+{"qid": "es_mul_601", "answer": "A", "dev": false}
+{"qid": "es_mul_228", "answer": "D", "dev": false}
+{"qid": "es_mul_696", "answer": "B", "dev": false}
+{"qid": "es_tru_494", "answer": "True", "dev": false}
+{"qid": "es_fil_210", "answer": "physiographic development, ravines, valley", "dev": false}

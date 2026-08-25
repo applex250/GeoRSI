@@ -1,0 +1,100 @@
+{"qid": "es_mul_465", "answer": "B", "dev": true}
+{"qid": "es_mul_606", "answer": "A", "dev": true}
+{"qid": "es_mul_397", "answer": "B", "dev": true}
+{"qid": "es_mul_205", "answer": "B", "dev": true}
+{"qid": "es_mul_579", "answer": "B", "dev": true}
+{"qid": "es_tru_256", "answer": "True", "dev": true}
+{"qid": "es_fil_308", "answer": "0.05", "dev": true}
+{"qid": "es_tru_173", "answer": "True", "dev": true}
+{"qid": "es_mul_443", "answer": "B", "dev": true}
+{"qid": "es_fil_678", "answer": "compressed air", "dev": true}
+{"qid": "es_fil_738", "answer": "radiometric mineral ages, microstructures", "dev": true}
+{"qid": "es_tru_279", "answer": "True", "dev": true}
+{"qid": "es_mul_244", "answer": "B", "dev": true}
+{"qid": "es_mul_646", "answer": "C", "dev": true}
+{"qid": "es_mul_394", "answer": "B", "dev": true}
+{"qid": "es_tru_484", "answer": "True", "dev": true}
+{"qid": "es_mul_472", "answer": "B", "dev": true}
+{"qid": "es_fil_313", "answer": "july 14", "dev": true}
+{"qid": "es_tru_413", "answer": "True", "dev": true}
+{"qid": "es_mul_554", "answer": "C", "dev": true}
+{"qid": "es_fil_628", "answer": "isothermal, surface", "dev": false}
+{"qid": "es_fil_273", "answer": "419", "dev": false}
+{"qid": "es_fil_46", "answer": "0.317", "dev": false}
+{"qid": "es_fil_461", "answer": "0.42", "dev": false}
+{"qid": "es_tru_53", "answer": "False", "dev": false}
+{"qid": "es_mul_704", "answer": "C", "dev": false}
+{"qid": "es_fil_86", "answer": "70, 56", "dev": false}
+{"qid": "es_fil_327", "answer": "depth bias", "dev": false}
+{"qid": "es_fil_548", "answer": "potential vorticity", "dev": false}
+{"qid": "es_tru_506", "answer": "False", "dev": false}
+{"qid": "es_tru_373", "answer": "True", "dev": false}
+{"qid": "es_mul_627", "answer": "D", "dev": false}
+{"qid": "es_mul_498", "answer": "C", "dev": false}
+{"qid": "es_fil_489", "answer": "61 ± 4", "dev": false}
+{"qid": "es_mul_453", "answer": "C", "dev": false}
+{"qid": "es_mul_602", "answer": "C", "dev": false}
+{"qid": "es_mul_190", "answer": "A", "dev": false}
+{"qid": "es_mul_35", "answer": "B", "dev": false}
+{"qid": "es_tru_99", "answer": "True", "dev": false}
+{"qid": "es_tru_187", "answer": "True", "dev": false}
+{"qid": "es_tru_157", "answer": "True", "dev": false}
+{"qid": "es_mul_492", "answer": "B", "dev": false}
+{"qid": "es_tru_319", "answer": "True", "dev": false}
+{"qid": "es_fil_314", "answer": "low and mid latitude ocean and land", "dev": false}
+{"qid": "es_fil_277", "answer": "200 meters per second", "dev": false}
+{"qid": "es_mul_494", "answer": "B", "dev": false}
+{"qid": "es_fil_578", "answer": "temperature and relative humidity", "dev": false}
+{"qid": "es_mul_391", "answer": "C", "dev": false}
+{"qid": "es_tru_240", "answer": "False", "dev": false}
+{"qid": "es_mul_20", "answer": "A", "dev": false}
+{"qid": "es_fil_648", "answer": "0.355", "dev": false}
+{"qid": "es_mul_565", "answer": "D", "dev": false}
+{"qid": "es_fil_652", "answer": "200", "dev": false}
+{"qid": "es_mul_572", "answer": "A", "dev": false}
+{"qid": "es_mul_697", "answer": "D", "dev": false}
+{"qid": "es_mul_529", "answer": "C", "dev": false}
+{"qid": "es_mul_726", "answer": "B", "dev": false}
+{"qid": "es_mul_434", "answer": "A", "dev": false}
+{"qid": "es_tru_180", "answer": "True", "dev": false}
+{"qid": "es_tru_544", "answer": "True", "dev": false}
+{"qid": "es_mul_665", "answer": "A", "dev": false}
+{"qid": "es_fil_108", "answer": "11.5", "dev": false}
+{"qid": "es_mul_58", "answer": "A", "dev": false}
+{"qid": "es_fil_17", "answer": "wet, dry", "dev": false}
+{"qid": "es_tru_535", "answer": "True", "dev": false}
+{"qid": "es_tru_431", "answer": "True", "dev": false}
+{"qid": "es_tru_349", "answer": "True", "dev": false}
+{"qid": "es_fil_88", "answer": "0.3", "dev": false}
+{"qid": "es_fil_735", "answer": "small, very thin", "dev": false}
+{"qid": "es_tru_105", "answer": "True", "dev": false}
+{"qid": "es_fil_227", "answer": "live", "dev": false}
+{"qid": "es_fil_732", "answer": "semi-volatile polycyclic aromatic hydrocarbons", "dev": false}
+{"qid": "es_mul_502", "answer": "D", "dev": false}
+{"qid": "es_mul_660", "answer": "A", "dev": false}
+{"qid": "es_mul_549", "answer": "B", "dev": false}
+{"qid": "es_tru_395", "answer": "True", "dev": false}
+{"qid": "es_fil_21", "answer": "0.4", "dev": false}
+{"qid": "es_tru_508", "answer": "True", "dev": false}
+{"qid": "es_tru_172", "answer": "True", "dev": false}
+{"qid": "es_fil_28", "answer": "48", "dev": false}
+{"qid": "es_tru_443", "answer": "True", "dev": false}
+{"qid": "es_mul_553", "answer": "D", "dev": false}
+{"qid": "es_tru_250", "answer": "True", "dev": false}
+{"qid": "es_fil_98", "answer": "0.5", "dev": false}
+{"qid": "es_tru_73", "answer": "True", "dev": false}
+{"qid": "es_fil_607", "answer": "5.1", "dev": false}
+{"qid": "es_tru_123", "answer": "True", "dev": false}
+{"qid": "es_fil_672", "answer": "two-thirds", "dev": false}
+{"qid": "es_tru_69", "answer": "True", "dev": false}
+{"qid": "es_mul_216", "answer": "D", "dev": false}
+{"qid": "es_fil_765", "answer": "the lack of thorough bibliographic references", "dev": false}
+{"qid": "es_fil_40", "answer": "1.95", "dev": false}
+{"qid": "es_mul_25", "answer": "C", "dev": false}
+{"qid": "es_mul_698", "answer": "C", "dev": false}
+{"qid": "es_fil_357", "answer": "2°", "dev": false}
+{"qid": "es_fil_574", "answer": "backward", "dev": false}
+{"qid": "es_mul_758", "answer": "B", "dev": false}
+{"qid": "es_fil_637", "answer": "0.60 to 0.72", "dev": false}
+{"qid": "es_tru_273", "answer": "True", "dev": false}
+{"qid": "es_mul_711", "answer": "C", "dev": false}

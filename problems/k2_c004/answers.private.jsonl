@@ -1,0 +1,100 @@
+{"qid": "k2_ap_1096", "answer": "D", "dev": true}
+{"qid": "k2_np_c19", "answer": "C", "dev": true}
+{"qid": "k2_ap_115", "answer": "A", "dev": true}
+{"qid": "k2_np_c36", "answer": "C", "dev": true}
+{"qid": "k2_ap_1331", "answer": "B", "dev": true}
+{"qid": "k2_ap_361", "answer": "B", "dev": true}
+{"qid": "k2_np_c18", "answer": "C", "dev": true}
+{"qid": "k2_ap_791", "answer": "B", "dev": true}
+{"qid": "k2_ap_708", "answer": "B", "dev": true}
+{"qid": "k2_np_f56", "answer": "Laminated structure, wormhole, wormhole", "dev": true}
+{"qid": "k2_np_f26", "answer": "Magnetic field strength", "dev": true}
+{"qid": "k2_ap_626", "answer": "C", "dev": true}
+{"qid": "k2_ap_1345", "answer": "D", "dev": true}
+{"qid": "k2_np_c32", "answer": "D", "dev": true}
+{"qid": "k2_ap_259", "answer": "E", "dev": true}
+{"qid": "k2_ap_801", "answer": "E", "dev": true}
+{"qid": "k2_ap_53", "answer": "E", "dev": true}
+{"qid": "k2_ap_180", "answer": "C", "dev": true}
+{"qid": "k2_ap_159", "answer": "C", "dev": true}
+{"qid": "k2_ap_307", "answer": "C", "dev": true}
+{"qid": "k2_ap_881", "answer": "B", "dev": false}
+{"qid": "k2_np_c55", "answer": "C", "dev": false}
+{"qid": "k2_ap_914", "answer": "D", "dev": false}
+{"qid": "k2_ap_181", "answer": "D", "dev": false}
+{"qid": "k2_ap_1364", "answer": "B", "dev": false}
+{"qid": "k2_ap_478", "answer": "C", "dev": false}
+{"qid": "k2_np_f118", "answer": "Debris flow deposit, braided channel deposit, overflow deposit, sieve deposit", "dev": false}
+{"qid": "k2_np_t13", "answer": "True", "dev": false}
+{"qid": "k2_np_t98", "answer": "False", "dev": false}
+{"qid": "k2_np_c69", "answer": "B", "dev": false}
+{"qid": "k2_np_c129", "answer": "B", "dev": false}
+{"qid": "k2_ap_820", "answer": "D", "dev": false}
+{"qid": "k2_np_f102", "answer": "Regional metamorphism, dynamic metamorphism, contact metamorphism", "dev": false}
+{"qid": "k2_np_t76", "answer": "True", "dev": false}
+{"qid": "k2_ap_49", "answer": "A", "dev": false}
+{"qid": "k2_np_t124", "answer": "False", "dev": false}
+{"qid": "k2_np_t7", "answer": "False", "dev": false}
+{"qid": "k2_np_t16", "answer": "False", "dev": false}
+{"qid": "k2_ap_474", "answer": "D", "dev": false}
+{"qid": "k2_np_t0", "answer": "False", "dev": false}
+{"qid": "k2_ap_1360", "answer": "C", "dev": false}
+{"qid": "k2_ap_1317", "answer": "A", "dev": false}
+{"qid": "k2_ap_1253", "answer": "B", "dev": false}
+{"qid": "k2_np_t112", "answer": "False", "dev": false}
+{"qid": "k2_ap_709", "answer": "E", "dev": false}
+{"qid": "k2_ap_1258", "answer": "D", "dev": false}
+{"qid": "k2_ap_713", "answer": "A", "dev": false}
+{"qid": "k2_ap_1262", "answer": "C", "dev": false}
+{"qid": "k2_ap_1336", "answer": "E", "dev": false}
+{"qid": "k2_ap_761", "answer": "B", "dev": false}
+{"qid": "k2_np_f73", "answer": "Troposphere, stratosphere, mesosphere, warm layer, escape layer", "dev": false}
+{"qid": "k2_ap_594", "answer": "E", "dev": false}
+{"qid": "k2_ap_1257", "answer": "A", "dev": false}
+{"qid": "k2_ap_211", "answer": "C", "dev": false}
+{"qid": "k2_ap_750", "answer": "C", "dev": false}
+{"qid": "k2_ap_547", "answer": "B", "dev": false}
+{"qid": "k2_ap_1341", "answer": "B", "dev": false}
+{"qid": "k2_ap_1297", "answer": "C", "dev": false}
+{"qid": "k2_ap_759", "answer": "D", "dev": false}
+{"qid": "k2_np_f55", "answer": "Fine layer, layer system and layer system group", "dev": false}
+{"qid": "k2_np_f141", "answer": "Physical weathering, chemical weathering, biological weathering", "dev": false}
+{"qid": "k2_np_c141", "answer": "A", "dev": false}
+{"qid": "k2_ap_359", "answer": "B", "dev": false}
+{"qid": "k2_ap_961", "answer": "C", "dev": false}
+{"qid": "k2_ap_220", "answer": "A", "dev": false}
+{"qid": "k2_ap_527", "answer": "D", "dev": false}
+{"qid": "k2_ap_792", "answer": "E", "dev": false}
+{"qid": "k2_ap_528", "answer": "D", "dev": false}
+{"qid": "k2_np_c46", "answer": "D", "dev": false}
+{"qid": "k2_ap_671", "answer": "D", "dev": false}
+{"qid": "k2_ap_573", "answer": "C", "dev": false}
+{"qid": "k2_ap_731", "answer": "A", "dev": false}
+{"qid": "k2_ap_166", "answer": "B", "dev": false}
+{"qid": "k2_ap_387", "answer": "E", "dev": false}
+{"qid": "k2_ap_987", "answer": "C", "dev": false}
+{"qid": "k2_ap_983", "answer": "A", "dev": false}
+{"qid": "k2_ap_662", "answer": "B", "dev": false}
+{"qid": "k2_ap_319", "answer": "A", "dev": false}
+{"qid": "k2_np_c15", "answer": "C", "dev": false}
+{"qid": "k2_ap_1219", "answer": "C", "dev": false}
+{"qid": "k2_np_f107", "answer": "Moho surface, Gutenberg surface, crust, mantle, core", "dev": false}
+{"qid": "k2_np_f129", "answer": "(Physical and geographical conditions, lithology)", "dev": false}
+{"qid": "k2_ap_742", "answer": "B", "dev": false}
+{"qid": "k2_ap_885", "answer": "B", "dev": false}
+{"qid": "k2_ap_1088", "answer": "D", "dev": false}
+{"qid": "k2_ap_1274", "answer": "B", "dev": false}
+{"qid": "k2_np_f92", "answer": "Supratidal zone", "dev": false}
+{"qid": "k2_ap_364", "answer": "D", "dev": false}
+{"qid": "k2_ap_251", "answer": "E", "dev": false}
+{"qid": "k2_ap_1286", "answer": "E", "dev": false}
+{"qid": "k2_ap_1380", "answer": "B", "dev": false}
+{"qid": "k2_np_f126", "answer": "(Heavy energy, radioactive energy, page 4 of 8, rotational energy, crystal energy and chemical energy, solar radiation energy, solar and lunar gravitational energy)", "dev": false}
+{"qid": "k2_ap_734", "answer": "A", "dev": false}
+{"qid": "k2_ap_1017", "answer": "C", "dev": false}
+{"qid": "k2_ap_533", "answer": "D", "dev": false}
+{"qid": "k2_ap_800", "answer": "B", "dev": false}
+{"qid": "k2_ap_1031", "answer": "D", "dev": false}
+{"qid": "k2_ap_837", "answer": "C", "dev": false}
+{"qid": "k2_np_c82", "answer": "C", "dev": false}
+{"qid": "k2_ap_266", "answer": "B", "dev": false}

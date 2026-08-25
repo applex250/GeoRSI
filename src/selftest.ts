@@ -12,6 +12,7 @@ import { openMemory, addMemory, recall, renderMemory, defaultObservation } from 
 import { deterministicTrend } from "./goal.js";
 import { renderLeaderboard, renderFindings } from "./board.js";
 import { loadConfig, SUPPORTED_MODELS, modelSpec } from "./config.js";
+import { execFileSync } from "node:child_process";
 
 let passed = 0;
 let failed = 0;
@@ -93,6 +94,7 @@ export async function selftest(): Promise<boolean> {
 		weight: 1,
 		heldout: false,
 		genre: "general",
+		overrides: {},
 	};
 	writeFileSync(
 		join(tmp, "eval.py"),
@@ -142,7 +144,7 @@ export async function selftest(): Promise<boolean> {
 	check("findings escapes pipes", fmd.includes("adds L-moment estimator tip / pipe") && fmd.includes("ACCEPTED"));
 
 	console.log("== supported model list ==");
-	check("5 models fixed (4 gateway + 1 local)", SUPPORTED_MODELS.length === 5);
+	check("6 models fixed (4 gateway + 1 local + 1 openrouter)", SUPPORTED_MODELS.length === 6);
 	const muse = modelSpec("muse-spark-1.2-contributor");
 	check("muse is proxy + responses", muse?.route === "proxy" && muse?.api === "openai-responses");
 	check("hy3/ox-alpha/mimo direct chat", ["hy3", "ox-alpha-free", "mimo-v2.5"].every((id) => modelSpec(id)?.route === "direct" && modelSpec(id)?.api === "openai-completions"));
@@ -161,6 +163,87 @@ export async function selftest(): Promise<boolean> {
 	const goodCfg = loadConfig(join(process.cwd(), "config.json"));
 	check("config models are supported", !!modelSpec(goodCfg.inner_model) && !!modelSpec(goodCfg.outer_model));
 	check("local_base_url present", /^http:\/\/.+\/v1$/.test(goodCfg.local_base_url));
+
+	console.log("== quiz grader (python) ==");
+	const graderOut = execFileSync("python", ["scripts/quiz_selftest.py"], { encoding: "utf-8", timeout: 60_000 });
+	check("quiz grader unit tests pass", graderOut.includes("GRADER_OK"), graderOut.slice(-200));
+
+	console.log("== suite structure (python) ==");
+	const structOut = execFileSync("python", ["scripts/struct_selftest.py"], { encoding: "utf-8", timeout: 120_000 });
+	check("suite structure checks pass", structOut.includes("STRUCT_OK"), structOut.slice(-400));
+
+	console.log("== knowledge base ==");
+	const { loadKnowledge, selectKnowledge, renderKnowledge, KNOWLEDGE_CHAR_BUDGET } = await import("./knowledge.js");
+	const kb = loadKnowledge();
+	check("knowledge nodes load", kb.length >= 5, `got ${kb.length}`);
+	const ksel1 = selectKnowledge(kb, { genre: "quiz-k2", id: "k2_c001" });
+	const ksel2 = selectKnowledge(loadKnowledge(), { genre: "quiz-k2", id: "k2_c001" });
+	check(
+		"knowledge selection deterministic",
+		JSON.stringify(ksel1.nodes.map((n) => n.id)) === JSON.stringify(ksel2.nodes.map((n) => n.id)) &&
+			ksel1.version === ksel2.version,
+	);
+	const krender = renderKnowledge(ksel1);
+	check("knowledge render within budget", krender.length <= KNOWLEDGE_CHAR_BUDGET + 200, `${krender.length} chars`);
+	const { deriveTags } = await import("./knowledge.js");
+	const ktags = deriveTags("quiz-k2", "k2_c001");
+	check(
+		"knowledge routes by region",
+		ksel1.nodes.length > 0 && ksel1.nodes.some((n) => n.tags.some((t) => ktags.includes(t))),
+		`tags=${ktags.join(",")} picked=${ksel1.nodes.map((n) => n.id).join(",")}`,
+	);
+
+	console.log("== model profiles ==");
+	const { loadProfiles, resolveThinking, assertVisionAllowed, getProfile } = await import("./models.js");
+	loadProfiles();
+	check("model profiles parse", !!getProfile("hy3") && !!getProfile("dsv4f"));
+	const oxA = getProfile("stealth/ox-alpha");
+	check("openrouter ox-alpha profiled", oxA.vision_raw_api === true && !!oxA.reasoning.mandatory);
+	const rHy3Max = resolveThinking("hy3", "max");
+	check("hy3 max clamps to real ceiling xhigh", rHy3Max.level === "xhigh" && rHy3Max.clamped);
+	check("ox-alpha-free high clamps to trusted medium", resolveThinking("ox-alpha-free", "high").level === "medium");
+	const rDsv = resolveThinking("dsv4f", "max");
+	check("dsv4f deep thinking uses thinking_budget", (rDsv.extraBody as Record<string, unknown>).thinking_budget === 16384);
+	check(
+		"muse strips reasoning params",
+		Object.keys(resolveThinking("muse-spark-1.2-contributor", "high").extraBody).length === 0,
+	);
+	let visionBlocked = false;
+	try {
+		assertVisionAllowed("dsv4f", true);
+	} catch {
+		visionBlocked = true;
+	}
+	check("vision gate blocks unsupported model", visionBlocked);
+	assertVisionAllowed("ox-alpha-free", true); // raw API supports images - must not throw
+
+	console.log("== anti-cheat guard ==");
+	const { scanWorkspaceForBreaches } = await import("./guard.js");
+	const { resolveInWorkspace } = await import("./inner/solve.js");
+	const guardDir = join(tmp, "guard");
+	mkdirSync(join(guardDir, "data"), { recursive: true });
+	writeFileSync(join(guardDir, "clean.py"), "print('hello')\n");
+	writeFileSync(join(guardDir, "data", "quiz.jsonl"), '{"qid":"q1"}\n'); // copied inputs are exempt
+	const noBreach = scanWorkspaceForBreaches(guardDir);
+	writeFileSync(join(guardDir, "cheat.py"), 'open("../../problems/k2_c001/answers.private.jsonl")\n');
+	const breach = scanWorkspaceForBreaches(guardDir);
+	check("guard passes clean workspace", noBreach.length === 0);
+	check("guard detects gold-path access", breach.length === 1 && breach[0].file === "cheat.py");
+	check("workspace fence contains relative paths", resolveInWorkspace(guardDir, "sub/a.py") !== null && resolveInWorkspace(guardDir, "a.py") !== null);
+	check("workspace fence blocks traversal", resolveInWorkspace(guardDir, "../escape.py") === null && resolveInWorkspace(guardDir, "../../problems/x/answers.private.jsonl") === null);
+
+	const { protectedManifest, verifyManifest, scanTextForBreaches } = await import("./guard.js");
+	const fakeProblem = join(tmp, "fakeproblem");
+	mkdirSync(join(fakeProblem, "reference"), { recursive: true });
+	writeFileSync(join(fakeProblem, "eval.py"), "print(1)\n");
+	writeFileSync(join(fakeProblem, "reference", "solution.py"), "x = 1\n");
+	const manifest = protectedManifest(fakeProblem);
+	check("manifest hashes grading assets", Object.keys(manifest).length === 2);
+	check("manifest verifies untouched dir", verifyManifest(fakeProblem, manifest).length === 0);
+	writeFileSync(join(fakeProblem, "eval.py"), "print(2)\n");
+	check("manifest detects eval.py tampering", verifyManifest(fakeProblem, manifest).includes("eval.py"));
+	const toolBreaches = scanTextForBreaches("tool_execution_start read file=../../problems/k2_c001/answers.private.jsonl");
+	check("tool-log scan flags gold reads", toolBreaches.length === 1 && toolBreaches[0].pattern === "answers.private");
 
 	console.log("== genres ==");
 	check("genre guess", guessGenre("quake_b") === "seismology" && guessGenre("flood_rp") === "hydrology" && guessGenre("poro_perm") === "petrophysics");

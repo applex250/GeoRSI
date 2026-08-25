@@ -1,0 +1,60 @@
+{"qid": "mq_california_full_intersection_89", "answer": "Hibachi Barbecue", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1570", "answer": "Podlasie Club", "dev": true}
+{"qid": "mq_california_full_intersection_208", "answer": "I Said Sit!", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_1623", "answer": "Olyve's", "dev": true}
+{"qid": "mq_california_full_direction_nearest_29", "answer": "Momentum Acrobatics", "dev": true}
+{"qid": "mq_illinois_test_adjacent_12", "answer": "Mobil", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_572", "answer": "Bank of America", "dev": true}
+{"qid": "mq_california_full_compare-closer_36", "answer": "Roadhouse", "dev": true}
+{"qid": "mq_illinois_test_nearest_amenity_62", "answer": "Luthernen Church", "dev": true}
+{"qid": "mq_california_full_direction_nearest_39", "answer": "MCASD Sherwood Auditorium", "dev": true}
+{"qid": "mq_california_full_amenities_around_111", "answer": "fast_food; parking_entrance", "dev": true}
+{"qid": "mq_california_full_intersection_333", "answer": "Catalina Express Long Beach Downtown Landing", "dev": true}
+{"qid": "mq_illinois_test_direction_nearest_50", "answer": "Edwardsville Arts Center", "dev": true}
+{"qid": "mq_california_full_intersection_74", "answer": "The Villa", "dev": true}
+{"qid": "mq_california_full_nearest_amenity_150", "answer": "Gould Mesa Trail Camp", "dev": true}
+{"qid": "mq_illinois_test_intersection_0", "answer": "Kampsville Ferry", "dev": true}
+{"qid": "mq_california_full_amenities_146", "answer": "fire_station", "dev": true}
+{"qid": "mq_california_full_direction_nearest_243", "answer": "Chevron", "dev": true}
+{"qid": "mq_illinois_test_intersection_256", "answer": "U.S. Bank", "dev": true}
+{"qid": "mq_illinois_test_amenities-around-specific_792", "answer": "Stella’s Sports Bar", "dev": true}
+{"qid": "mq_california_full_amenities_140", "answer": "place_of_worship", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_1376", "answer": "Western Union", "dev": false}
+{"qid": "mq_california_full_direction_nearest_51", "answer": "California Department of Industrial Relations - San Bernardino District office", "dev": false}
+{"qid": "mq_california_full_intersection_97", "answer": "Road One Towing", "dev": false}
+{"qid": "mq_california_full_direction_nearest_247", "answer": "Villa Barhi", "dev": false}
+{"qid": "mq_california_full_adjacent_132", "answer": "Dunkin'", "dev": false}
+{"qid": "mq_california_full_amenities_214", "answer": "school", "dev": false}
+{"qid": "mq_california_full_adjacent_230", "answer": "Taco Bell; Primo's Donuts", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 14 from 13?", "dev": false}
+{"qid": "mq_illinois_test_intersection_120", "answer": "AMC Showplace 8", "dev": false}
+{"qid": "mq_california_full_amenities_175", "answer": "fast_food", "dev": false}
+{"qid": "mq_illinois_test_amenities-around-specific_370", "answer": "The Beetle Bar and Grill", "dev": false}
+{"qid": "mq_illinois_test_intersection_134", "answer": "Boat Drinks", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_38", "answer": "Greenbush Townhall", "dev": false}
+{"qid": "mq_california_full_direction_nearest_60", "answer": "Gottlieb Transit Corridor", "dev": false}
+{"qid": "mq_california_full_intersection_8", "answer": "Nix / Payday Today Check Cashing", "dev": false}
+{"qid": "mq_california_full_intersection_347", "answer": "Nix / Payday Today Check Cashing", "dev": false}
+{"qid": "mq_california_full_amenities_around_195", "answer": "bicycle_parking; vending_machine", "dev": false}
+{"qid": "mq_california_full_compare-closer_28", "answer": "Round Table Pizza", "dev": false}
+{"qid": "mq_illinois_test_intersection_302", "answer": "Argosy Casino Alton", "dev": false}
+{"qid": "mq_california_full_nearest_amenity_377", "answer": "West Coast Surrogacy", "dev": false}
+{"qid": "mq_california_full_amenities_around_226", "answer": "No amenities found", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_11", "answer": "Violet's Gaming Cafe", "dev": false}
+{"qid": "mq_illinois_test_amenities_around_19", "answer": "No amenities found", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_2291", "answer": "El Dorado", "dev": false}
+{"qid": "mq_illinois_test_distance_?", "answer": "How far is 0.78 miles from 11th & Pine?", "dev": false}
+{"qid": "mq_illinois_test_intersection_115", "answer": "Lincoln Elementary School", "dev": false}
+{"qid": "mq_illinois_test_intersection_190", "answer": "Springfield Clinic at the Villas", "dev": false}
+{"qid": "mq_california_full_direction_nearest_48", "answer": "Virtual Snow", "dev": false}
+{"qid": "mq_illinois_test_intersection_61", "answer": "Alpha Gail Daycare", "dev": false}
+{"qid": "mq_california_full_amenities_134", "answer": "fuel", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 183rd Street / Alburtis Avenue from 14th & Colorado?", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st & Cummings from 12,14?", "dev": false}
+{"qid": "mq_california_full_amenities_around_192", "answer": "cafe; clinic; dentist; fast_food; post_office; restaurant; social_facility", "dev": false}
+{"qid": "mq_california_full_distance_?", "answer": "How far is 1st-Jackson from 11?", "dev": false}
+{"qid": "mq_illinois_test_direction_nearest_19", "answer": "Belvidere Family Practice Rockford Health Physicians", "dev": false}
+{"qid": "mq_california_full_intersection_311", "answer": "PayDay Advance", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_16", "answer": "Freeburg City Hall", "dev": false}
+{"qid": "mq_illinois_test_nearest_amenity_7", "answer": "Jeffrey's Meat Market", "dev": false}
+{"qid": "mq_california_full_amenities-around-specific_9042", "answer": "Ginger’s", "dev": false}
