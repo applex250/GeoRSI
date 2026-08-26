@@ -1,0 +1,2 @@
+Create charts using Python to better explore the distribution of corals and sponges around Catalina Island.
+Your task is performing raster analysis on the elevation and environmental factors influencing coral and sponge distribution at Catalina Island. Update the database with the slope and aspect analysis results. Use the updated database to visualize the mean slope and aspect distribution of each Coral and Sponge species in Catalina Island as "pred_results/CoralandSponge.png".

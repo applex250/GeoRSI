@@ -1,0 +1,2 @@
+Designate bike routes for commuting professionals
+Your task is to design optimal bike routes for a commuter network. Analyze demand hotspots using spatial clustering tools.Evaluate existing infrastructure by overlaying bike lane and road network data. Apply suitability analysis by combining traffic volume, road slope, and safety data using a weighted overlay. Use Network Analyst to propose new routes, ensuring connectivity to major employment centers and evaluating the solution through accessibility metrics like coverage within a half-mile radius.

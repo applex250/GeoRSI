@@ -1,0 +1,107 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/USA_seagrass.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/USA_shallow_waters.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Global_ocean_measurements.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Global_shallow_waters.shp"
+    }
+  },
+  {
+    "tool": "dissolve_polygons",
+    "arguments": {
+      "input_path": "dataset/USA_seagrass.shp",
+      "output_name": "seagrass_dissolved.shp"
+    }
+  },
+  {
+    "tool": "generate_random_points",
+    "arguments": {
+      "reference_polygon_path": "./output\\seagrass_dissolved.shp",
+      "num_points": 5000,
+      "output_name": "presence_points.shp",
+      "target_crs": "EPSG:8857",
+      "label_field": "presence",
+      "label_value": 1
+    }
+  },
+  {
+    "tool": "generate_random_points",
+    "arguments": {
+      "reference_polygon_path": "dataset/USA_shallow_waters.shp",
+      "num_points": 10000,
+      "output_name": "background_points.shp",
+      "target_crs": "EPSG:8857",
+      "label_field": "presence",
+      "label_value": 0
+    }
+  },
+  {
+    "tool": "interpolate_points_to_raster",
+    "arguments": {
+      "points_path": "dataset/Global_ocean_measurements.shp",
+      "value_column": "temp",
+      "mask_path": "dataset/Global_shallow_waters.shp",
+      "output_name": "temp_grid.tif",
+      "cell_size": 25000,
+      "target_crs": "EPSG:8857"
+    }
+  },
+  {
+    "tool": "interpolate_points_to_raster",
+    "arguments": {
+      "points_path": "dataset/Global_ocean_measurements.shp",
+      "value_column": "salinity",
+      "mask_path": "dataset/Global_shallow_waters.shp",
+      "output_name": "salinity_grid.tif",
+      "cell_size": 25000,
+      "target_crs": "EPSG:8857"
+    }
+  },
+  {
+    "tool": "predict_habitat_suitability",
+    "arguments": {
+      "presence_points_path": "./output\\presence_points.shp",
+      "background_points_path": "./output\\background_points.shp",
+      "prediction_area_path": "dataset/Global_shallow_waters.shp",
+      "raster_paths": {
+        "temp": "./output\\temp_grid.tif",
+        "salinity": "./output\\salinity_grid.tif"
+      },
+      "output_name": "seagrass_predict2",
+      "n_estimators": 100,
+      "random_state": 42
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\seagrass_predict2.tif",
+      "output_name": "seagrass_prediction.png",
+      "bands": null,
+      "cmap": "YlGn",
+      "stretch": true,
+      "title": "Predicted Seagrass Habitat Suitability (Global)",
+      "legend": true,
+      "legend_label": "Habitat Suitability Probability",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]

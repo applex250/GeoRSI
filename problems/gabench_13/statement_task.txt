@@ -1,0 +1,1 @@
+Your task is using sea temperature and salinity data from the South Atlantic Ocean to calculate and analyze a vertical temperature-salinity profile within a specified range of latitude, longitude, and depth. Plot the profile and save the figure as 'ocean_profiles_vis.png'.

@@ -1,0 +1,68 @@
+{
+ "task_ID": "TASK_250309_135125_921361",
+ "task_text": "Create a heatmap of earthquakes in South Asia.",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Countries",
+      "output_geodataframe_name": "countries"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "get_unique_values",
+     "arguments": {
+      "dataframe_name": "countries",
+      "column": "SUBREGION"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "filter_categorical",
+     "arguments": {
+      "dataframe_name": "countries",
+      "filters": {
+       "SUBREGION": "Southern Asia"
+      },
+      "output_dataframe_name": "south_asia"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Earthquakes occurences and magnitude March 15- February 14 2025",
+      "output_geodataframe_name": "earthquakes"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "select_features_by_spatial_relationship",
+     "arguments": {
+      "features_geodataframe_name": "earthquakes",
+      "reference_geodataframe_name": "south_asia",
+      "spatial_predicates": [
+       "within"
+      ],
+      "output_geodataframe_name": "south_asia_earthquakes"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "make_heatmap",
+     "arguments": {
+      "geodataframe_name": "south_asia_earthquakes",
+      "value_column": "mag",
+      "radius": 30,
+      "map_style": "carto-positron",
+      "output_html_name": "south_asia_earthquakes_heatmap"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

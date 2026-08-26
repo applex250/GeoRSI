@@ -1,0 +1,146 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/roads.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/deforestedArea.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/protectedForest.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/planned_road.geojson"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/roads.geojson",
+      "output_name": "roads_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/deforestedArea.geojson",
+      "output_name": "deforest_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/protectedForest.geojson",
+      "output_name": "protected_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\roads_crs.geojson",
+      "target_crs": "EPSG:32723",
+      "output_name": "roads_32723.geojson"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\deforest_crs.geojson",
+      "target_crs": "EPSG:32723",
+      "output_name": "deforest_32723.geojson"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\protected_crs.geojson",
+      "target_crs": "EPSG:32723",
+      "output_name": "protected_32723.geojson"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "dataset/planned_road.geojson",
+      "target_crs": "EPSG:32723",
+      "output_name": "planned_32723.geojson"
+    }
+  },
+  {
+    "tool": "buffer_vector",
+    "arguments": {
+      "input_path": "./output\\planned_32723.geojson",
+      "distance": 5500,
+      "output_name": "planned_road_buffer_5500.geojson"
+    }
+  },
+  {
+    "tool": "overlay_difference",
+    "arguments": {
+      "a_path": "./output\\planned_road_buffer_5500.geojson",
+      "b_path": "./output\\deforest_32723.geojson",
+      "output_name": "risky_area.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\protected_32723.geojson",
+          "type": "vector",
+          "style": {
+            "color": "green",
+            "label": "Protected Forest"
+          }
+        },
+        {
+          "data": "./output\\roads_32723.geojson",
+          "type": "vector",
+          "style": {
+            "color": "grey",
+            "label": "Roads"
+          }
+        },
+        {
+          "data": "./output\\risky_area.geojson",
+          "type": "vector",
+          "style": {
+            "color": "red",
+            "label": "Risky Area"
+          }
+        },
+        {
+          "data": "./output\\planned_32723.geojson",
+          "type": "vector",
+          "style": {
+            "color": "yellow",
+            "label": "Proposed Road"
+          }
+        }
+      ],
+      "output_name": "predictedRiskyArea.png",
+      "title": "Risky Area created by Proposed Road in Protected Area",
+      "legend_loc": "best"
+    }
+  }
+]
+EXPECTED PRODUCT(S): predictedRiskyArea.png
+INTERMEDIATE LAYERS: risky_area.geojson
+protected_32723.geojson
+planned_32723.geojson
+roads_32723.geojson

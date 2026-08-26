@@ -1,0 +1,72 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/street_trees_sample.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/sfo_boroughs.geojson"
+    }
+  },
+  {
+    "tool": "generate_quadtree_cells",
+    "arguments": {
+      "points_geojson_path": "dataset/street_trees_sample.geojson",
+      "polygons_geojson_path": "dataset/sfo_boroughs.geojson",
+      "output_name": "quadtree_street_trees_sample.geojson",
+      "value_field": "Species",
+      "indicator_field": "nullity",
+      "nmax": 100,
+      "max_depth": 10,
+      "target_cells": null,
+      "min_quadrant_points": 0
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "output/quadtree_street_trees_sample.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/quadtree_street_trees_sample.geojson",
+          "type": "vector",
+          "style": {
+            "column": "non_null_ratio",
+            "cmap": "Greens",
+            "legend": true,
+            "scheme": "Quantiles",
+            "k": 5,
+            "edgecolor": "white",
+            "linewidth": 1,
+            "label": "Tree Density"
+          }
+        },
+        {
+          "data": "dataset/sfo_boroughs.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "gray",
+            "linewidth": 1,
+            "zorder": 2,
+            "label": "Boroughs"
+          }
+        }
+      ],
+      "output_name": "trees_count_vis.png",
+      "title": "Quadtree Cells"
+    }
+  }
+]
+EXPECTED PRODUCT(S): trees_count_vis.png
+INTERMEDIATE LAYERS: quadtree_street_trees_sample.geojson
+sfo_boroughs.geojson

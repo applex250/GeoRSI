@@ -1,0 +1,40 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/2015_Nature_Africa_PR.2000.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/2015_Nature_Africa_PR.2015.tif"
+    }
+  },
+  {
+    "tool": "calculate_raster_difference",
+    "arguments": {
+      "raster_a_path": "dataset/2015_Nature_Africa_PR.2015.tif",
+      "raster_b_path": "dataset/2015_Nature_Africa_PR.2000.tif",
+      "output_name": "Malaria_Change.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\Malaria_Change.tif",
+      "output_name": "Malaria_Change.png",
+      "bands": null,
+      "cmap": "RdBu_r",
+      "stretch": true,
+      "title": "Malaria Prevalence Change (2000-2015)",
+      "legend": true,
+      "legend_label": "Change in Prevalence",
+      "vmin": -1.0,
+      "vmax": 1.0
+    }
+  }
+]
+EXPECTED PRODUCT(S): Malaria_Change.png
+INTERMEDIATE LAYERS: Malaria_Change.tif

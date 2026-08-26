@@ -1,0 +1,47 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/landCover.tif"
+    }
+  },
+  {
+    "tool": "reclassify_raster",
+    "arguments": {
+      "raster_path": "dataset/landCover.tif",
+      "output_name": "landCover_reclassified.tif",
+      "reclass_dict": {
+        "11": 10,
+        "21": 8,
+        "22": 7,
+        "23": 8,
+        "24": 9,
+        "31": 6,
+        "41": 2,
+        "42": 1,
+        "43": 2,
+        "52": 3,
+        "71": 3,
+        "72": 3,
+        "81": 4,
+        "82": 6,
+        "90": 4,
+        "95": 4,
+        "255": 10
+      }
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\landCover_reclassified.tif",
+      "output_name": "reclassified_landCover.png",
+      "cmap": "tab20",
+      "legend": true,
+      "title": "Landcover (reclassified)"
+    }
+  }
+]
+EXPECTED PRODUCT(S): reclassified_landCover.png
+INTERMEDIATE LAYERS: landCover_reclassified.tif

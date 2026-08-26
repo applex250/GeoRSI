@@ -1,0 +1,2 @@
+Improve campsite data quality using a relationship class
+In this tutorial, you are a regional GIS specialist tasked with helping improve campsite data quality in Wyoming. You'll initially address the loss of data at the park level by creating joins and relates to incorporate associated records then inspect and create a relationship class between campsites and campgrounds.

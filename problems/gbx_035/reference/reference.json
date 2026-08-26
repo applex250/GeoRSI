@@ -1,0 +1,71 @@
+{
+ "task_ID": "TASK_250309_135125_311281",
+ "task_text": "How many active wildfires are currently burning within 50 miles of Amtrak stations?",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Amtrak railway stations",
+      "output_geodataframe_name": "amtrak_stations"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Current Wildland Fire Incident Locations, size in acres",
+      "output_geodataframe_name": "fires"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "create_buffer",
+     "arguments": {
+      "geodataframe_name": "amtrak_stations",
+      "buffer_size": 80467,
+      "output_geodataframe_name": "station_buffers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "select_features_by_spatial_relationship",
+     "arguments": {
+      "features_geodataframe_name": "fires",
+      "reference_geodataframe_name": "station_buffers",
+      "spatial_predicates": [
+       "within",
+       "intersects"
+      ],
+      "output_geodataframe_name": "fires_near_stations"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "visualize_geographies",
+     "arguments": {
+      "geodataframe_names": [
+       "amtrak_stations",
+       "fires_near_stations"
+      ],
+      "layer_styles": [
+       {
+        "color": "blue",
+        "alpha": 1,
+        "label": "Amtrak Stations"
+       },
+       {
+        "color": "red",
+        "alpha": 1,
+        "label": "Fires within 50 miles of stations"
+       }
+      ],
+      "title": "Active Wildfires Near Amtrak Stations"
+     },
+     "comment": "Optional step."
+    }
+   ]
+  }
+ ]
+}

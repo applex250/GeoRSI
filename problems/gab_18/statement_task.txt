@@ -1,0 +1,2 @@
+Analyze the street tree species data  in San Francisco
+Your task is using the distribution data data about San Francisco street trees and shapefiles of administrative regions to analyze the tree species NULL percentage in different regions. Visualize the results in a quadtree format map. Save the figure as 'pred_results/trees_count_vis.png'.

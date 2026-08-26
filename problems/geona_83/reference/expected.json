@@ -1,0 +1,12 @@
+{
+ "expected_tools": [
+  "get_layer_bounds"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Balearic"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

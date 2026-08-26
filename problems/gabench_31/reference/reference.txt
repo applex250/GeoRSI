@@ -1,0 +1,95 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/AllSeasonRoads.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/ShikokuMetropolitan.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/ShikokuPopulation.geojson"
+    }
+  },
+  {
+    "tool": "clip_by_attribute",
+    "arguments": {
+      "input_geojson_path": "dataset/ShikokuPopulation.geojson",
+      "mask_geojson_path": "dataset/ShikokuMetropolitan.geojson",
+      "output_name": "rural_population.geojson",
+      "attribute_field": "AREATYPE",
+      "attribute_value": "RURAL"
+    }
+  },
+  {
+    "tool": "buffer_vector",
+    "arguments": {
+      "input_path": "dataset/AllSeasonRoads.geojson",
+      "distance": 2000.0,
+      "output_name": "roads_buffer.geojson"
+    }
+  },
+  {
+    "tool": "clip_by_attribute",
+    "arguments": {
+      "input_geojson_path": "./output\\rural_population.geojson",
+      "mask_geojson_path": "./output\\roads_buffer.geojson",
+      "output_name": "rural_roads_buffer.geojson",
+      "attribute_field": null,
+      "attribute_value": "RURAL"
+    }
+  },
+  {
+    "tool": "calculate_population_access_proportion",
+    "arguments": {
+      "roads_rural_path": "./output\\rural_roads_buffer.geojson",
+      "population_rural_path": "./output\\rural_population.geojson",
+      "output_name": "accessibility_proportion.geojson",
+      "population_field": "D0001"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\accessibility_proportion.geojson",
+          "type": "vector",
+          "style": {
+            "column": "population_proportion",
+            "cmap": "Greens",
+            "legend": true,
+            "vmin": 0,
+            "vmax": 1.0,
+            "legend_kwds": {
+              "label": "Access Proportion",
+              "orientation": "vertical"
+            }
+          }
+        },
+        {
+          "data": "dataset/AllSeasonRoads.geojson",
+          "type": "vector",
+          "style": {
+            "color": "black",
+            "linewidth": 0.5,
+            "label": "Roads"
+          }
+        }
+      ],
+      "output_name": "accessibility.png",
+      "title": "Proportion of Rural Population with Road Access (2km)",
+      "legend_loc": "best"
+    }
+  }
+]
+EXPECTED PRODUCT(S): accessibility.png
+INTERMEDIATE LAYERS: accessibility_proportion.geojson
+AllSeasonRoads.geojson

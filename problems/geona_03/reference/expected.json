@@ -1,0 +1,17 @@
+{
+ "expected_tools": [
+  "lookup_municipality",
+  "analyze_area"
+ ],
+ "expected_actions": [
+  "fly_to_bounds"
+ ],
+ "must_contain": [
+  "Santiago",
+  "%"
+ ],
+ "must_not_contain": [
+  "error",
+  "not found"
+ ]
+}

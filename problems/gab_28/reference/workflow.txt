@@ -1,0 +1,7 @@
+1. Load dataset
+2. Aggregate OD flow data to subregion scale, and merge socio-economic data to create interaction pairs
+3. Prepare data for Random Forest model
+4. Split data into training and testing sets
+5. Hyperparameter tuning using GridSearchCV
+6. Use the best model from GridSearchCV for prediction
+7. Make predictions and evaluate the model

@@ -1,0 +1,1 @@
+Load North America climate data in NetCDF file and extract temperature data along the time series, then perform a quadratic polynomial fit analysis on the temperature data, finally plot the curve as 'polynomial_fit_pred.png'.

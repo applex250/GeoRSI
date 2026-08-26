@@ -1,0 +1,15 @@
+{
+ "expected_tools": [
+  "compare_areas"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Badajoz",
+  "Toledo",
+  "%"
+ ],
+ "must_not_contain": [
+  "error",
+  "which province"
+ ]
+}

@@ -1,0 +1,8 @@
+1. Load dataset
+2. Project (raster)
+3. Project (shapefile)
+4. Polygon to Raster (get drainage conditions from soils)
+5. Polygon to Raster (get water depth from soils)
+6. Reclassify (drainage conditions)
+7. Reclassify (water depth)
+8. Calculate vulnerable areas

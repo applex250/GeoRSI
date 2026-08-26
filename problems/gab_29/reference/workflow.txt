@@ -1,0 +1,7 @@
+1. Load Data
+2. Invert AtlanticDEM values to make ocean depths positive.
+3. Use the Raster Calculator to apply the formula 鈭?g*d)
+4. Mark tsunami origin points.
+5.Use geodesic distance tools to map tsunami travel paths.
+6.Derive travel times based on calculated speeds.
+7.Visualize and interpret the outputs for risk assessment.

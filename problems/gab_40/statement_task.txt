@@ -1,0 +1,2 @@
+Calculate and visualize changes in malaria prevalence
+Your task is to analyze changes in malaria prevalence among children aged 2鈥?0 in Sub-Saharan Africa from 2000 to 2015. Using raster data from the Malaria Atlas Project, calculate the difference between the prevalence rates in 2000 and 2015 using the Minus raster function. Then, visualize the change in malaria prevalence with a diverging color scheme and adjust the symbology to highlight areas of increase and decrease.

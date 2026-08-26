@@ -1,7 +1,7 @@
-# GeoBenchX task 418513
+# GeoBenchX task 305778
 
 ## Task
-How many power stations in Africa are located within 10 km of major railways?
+How many power stations in Africa are located in economically strategic regions?
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

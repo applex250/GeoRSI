@@ -1,0 +1,15 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Pontevedra",
+  "%"
+ ],
+ "must_not_contain": [
+  "error",
+  "not found"
+ ]
+}

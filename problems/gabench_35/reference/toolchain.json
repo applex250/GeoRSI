@@ -1,0 +1,72 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/berlin_neighbourhoods.geojson"
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "dataset/berlin_listings.csv"
+    }
+  },
+  {
+    "tool": "csv_to_points",
+    "arguments": {
+      "csv_path": "dataset/berlin_listings.csv",
+      "output_name": "berlin_listings.shp",
+      "crs": "EPSG:4326",
+      "lon_field": "longitude",
+      "lat_field": "latitude"
+    }
+  },
+  {
+    "tool": "create_spatial_join",
+    "arguments": {
+      "left_path": "dataset/berlin_neighbourhoods.geojson",
+      "right_path": "./output\\berlin_listings.shp",
+      "output_name": "berlin_listings_join.geojson",
+      "predicate": "intersects",
+      "how": "inner",
+      "max_distance": null,
+      "distance_col": null
+    }
+  },
+  {
+    "tool": "local_moran",
+    "arguments": {
+      "input_path": "./output\\berlin_listings_join.geojson",
+      "value_field": "price",
+      "output_name": "moran_local.geojson",
+      "p_threshold": 0.05,
+      "group_field": "neighbourhood_group",
+      "polygons_path": "dataset/berlin_neighbourhoods.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\moran_local.geojson",
+          "type": "vector",
+          "style": {
+            "column": "cl",
+            "categorical": true,
+            "cmap": "Set1",
+            "linewidth": 0.1,
+            "edgecolor": "white",
+            "legend": true,
+            "legend_kwds": {
+              "title": "Cluster Type"
+            }
+          }
+        }
+      ],
+      "output_name": "moran_local.png",
+      "title": "Local Moran's I",
+      "legend_loc": "best"
+    }
+  }
+]

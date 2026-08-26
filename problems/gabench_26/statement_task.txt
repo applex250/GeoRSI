@@ -1,0 +1,5 @@
+Your task is to identify those high risk zones of groundwater vulnerable areas that need protection. First, use vulnerable_areas and land_cover to perform suitability modeling to calculate risk_zones. Next, filter out high_risk_zones, and then undeveloped_areas based on risk_zones, and visualize the result as 'undeveloped_areas.png'.
+The reclassification of vulnerable_areas is standardization to [1, 10].
+The reclassification of land_cover is [[11, 1],[21, 6],[22, 7],[23, 8],[24, 10],[31, 4],[41, 3],[42, 1],[43, 3],[52, 3],[71, 2],[81, 5],[82, 9],[90, 1],[95, 1]].
+risk_zones = vulnerable_areas * 8 + land_cover * 10
+Undeveloped areas in the high risk zones (risk_zones > 100) need more protection. Seek for the areas in land_cover masking high risk zone, use the following rule: [31, 41, 43, 52, 71, 81, 90, 95]

@@ -1,0 +1,2 @@
+Identify hot spots for peak crashes
+Your task is identifying hot spots for peak crashes in Brevard County, Florida, 2010 - 2015. The first step is select all the crashes based on peak time zone. Create a copy of selected crashes data. Then, snap the crashes points to the road network and spatial join with the road. Calculate the crash rate based on the joint data and use hot spot analysis to get crash hot spot map as the result.

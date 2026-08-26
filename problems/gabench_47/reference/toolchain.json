@@ -1,0 +1,31 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/flow_direction.tif"
+    }
+  },
+  {
+    "tool": "compute_flow_length_downstream",
+    "arguments": {
+      "flow_direction_path": "dataset/flow_direction.tif",
+      "output_name": "flow_length_downstream.tif",
+      "weight_raster_path": null
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\flow_length_downstream.tif",
+      "output_name": "FlowLength_Downstream.png",
+      "bands": null,
+      "cmap": "Blues",
+      "stretch": true,
+      "title": "Flow Length (Downstream)",
+      "legend": true,
+      "legend_label": "Downstream Length (m)",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]

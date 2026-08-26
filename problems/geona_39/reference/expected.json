@@ -1,0 +1,14 @@
+{
+ "expected_tools": [],
+ "expected_actions": [],
+ "must_contain": [
+  "not"
+ ],
+ "must_not_contain": [
+  "28%",
+  "34%",
+  "42%",
+  "Grassland: 18",
+  "Shrubland: 45"
+ ]
+}

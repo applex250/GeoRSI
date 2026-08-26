@@ -1,0 +1,16 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_multi_layer",
+  "generate_chart"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Huelva",
+  "Caceres",
+  "%"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

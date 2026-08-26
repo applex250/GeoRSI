@@ -1,0 +1,2 @@
+Use animal GPS tracks to model home range to understand where they are and how they move over time.
+Your task is to analyze and visualize elk movements using the provided dataset. The goal is to estimate home ranges and assess habitat preferences using spatial analysis techniques, including Minimum Bounding Geometry (Convex Hull), Kernel Density Estimation, and Density-Based Clustering (DBSCAN). The analysis will generate spatial outputs stored in "dataset/elk_home_range.gdb" and "dataset/".

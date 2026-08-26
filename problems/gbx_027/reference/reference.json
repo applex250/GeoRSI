@@ -1,0 +1,47 @@
+{
+ "task_ID": "TASK_250309_135125_621471",
+ "task_text": "Make a heatmap of seaport density along the Pacific coast of South America",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Seaports of Latin America",
+      "output_geodataframe_name": "seaports"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "filter_categorical",
+     "arguments": {
+      "dataframe_name": "seaports",
+      "filters": {
+       "COUNTRY": [
+        "Chile",
+        "Peru",
+        "Ecuador",
+        "Colombia"
+       ]
+      },
+      "output_dataframe_name": "pacific_seaports"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "make_heatmap",
+     "arguments": {
+      "geodataframe_name": "pacific_seaports",
+      "value_column": "FACID_NUM",
+      "center_lat": -10,
+      "center_lon": -78,
+      "zoom_level": 4,
+      "radius": 20,
+      "map_style": "carto-positron"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+hot_spots_result.geojson

@@ -1,0 +1,65 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Before_Storm.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/After_Storm.tif"
+    }
+  },
+  {
+    "tool": "calculate_savi",
+    "arguments": {
+      "input_raster_path": "dataset/Before_Storm.tif",
+      "output_name": "SAVI_Before.tif",
+      "nir_band": 4,
+      "red_band": 3
+    }
+  },
+  {
+    "tool": "calculate_savi",
+    "arguments": {
+      "input_raster_path": "dataset/After_Storm.tif",
+      "output_name": "SAVI_After.tif",
+      "nir_band": 4,
+      "red_band": 3
+    }
+  },
+  {
+    "tool": "align_raster_to_reference",
+    "arguments": {
+      "raster_path": "./output\\SAVI_After.tif",
+      "reference_raster_path": "./output\\SAVI_Before.tif",
+      "output_name": "SAVI_After_Aligned.tif",
+      "resampling": "nearest",
+      "band": null
+    }
+  },
+  {
+    "tool": "calculate_raster_difference",
+    "arguments": {
+      "raster_a_path": "./output\\SAVI_Before.tif",
+      "raster_b_path": "./output\\SAVI_After_Aligned.tif",
+      "output_name": "Veg_Loss.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\Veg_Loss.tif",
+      "output_name": "Veg_Loss.png",
+      "bands": null,
+      "cmap": "RdYlGn_r",
+      "stretch": true,
+      "title": "Vegetation Loss (SAVI Difference)",
+      "legend": true,
+      "legend_label": "Vegetation Loss (Before - After)",
+      "vmin": -1.0,
+      "vmax": 1.0
+    }
+  }
+]

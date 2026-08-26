@@ -1,0 +1,14 @@
+{
+ "expected_tools": [
+  "find_top_n",
+  "generate_chart"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Illes Balears",
+  "%"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

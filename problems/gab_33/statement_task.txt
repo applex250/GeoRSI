@@ -1,0 +1,2 @@
+Analyze the impacts of land subsidence on flooding.
+Your task is analyzing the impact of land subsidence on flooding based on future elevation data of the study area. Your will calculate the flood damage to building in the future given the elevation of sea level in 2050 and shapefile of study area. You need find the flood depth given the elevation. Then you will filter and select the buildings within the flooded area. The final goal is summarizing the flood depth in each building area and calculate the final flood damage.

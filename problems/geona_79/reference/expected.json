@@ -1,0 +1,12 @@
+{
+ "expected_tools": [
+  "list_layers"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "display"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

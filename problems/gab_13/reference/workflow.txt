@@ -1,0 +1,6 @@
+1. Load Dataset
+2. Extract temperature
+3. Extract Salinity
+4. Define Constraints
+5. Overlay
+6. Visualization

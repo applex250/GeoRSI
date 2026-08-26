@@ -1,0 +1,11 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Las Palmas"
+ ],
+ "must_not_contain": []
+}

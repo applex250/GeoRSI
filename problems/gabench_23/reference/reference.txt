@@ -1,0 +1,57 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/High_Blood_Level_Results.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Sacramento_ZIP_Codes.shp"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "dataset/High_Blood_Level_Results.shp",
+      "target_crs": "EPSG:4326",
+      "output_name": "reproj_High_Blood_Level_Results_4326.geojson"
+    }
+  },
+  {
+    "tool": "add_vector_coords",
+    "arguments": {
+      "vector_path": "./output\\reproj_High_Blood_Level_Results_4326.geojson",
+      "output_name": "coords_reproj_High_Blood_Level_Results_4326.geojson"
+    }
+  },
+  {
+    "tool": "round_coordinate_values",
+    "arguments": {
+      "points_path": "./output\\coords_reproj_High_Blood_Level_Results_4326.geojson",
+      "output_name": "rounded_coords_reproj_High_Blood_Level_Results_4326.geojson",
+      "lat_col": "Latitude",
+      "lon_col": "Longitude",
+      "decimals": 2
+    }
+  },
+  {
+    "tool": "visualize_vector",
+    "arguments": {
+      "input_path": "./output\\rounded_coords_reproj_High_Blood_Level_Results_4326.geojson",
+      "output_name": "rounded_points_plot.png",
+      "style": {
+        "color": "blue",
+        "markersize": 5,
+        "alpha": 1.0
+      },
+      "title": "Rounded Points",
+      "legend": true,
+      "legend_kwds": null
+    }
+  }
+]
+EXPECTED PRODUCT(S): rounded_points_plot.png
+INTERMEDIATE LAYERS: rounded_coords_reproj_High_Blood_Level_Results_4326.geojson

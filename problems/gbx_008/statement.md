@@ -1,7 +1,7 @@
-# GeoBenchX task 621471
+# GeoBenchX task 117526
 
 ## Task
-Make a heatmap of seaport density along the Pacific coast of South America
+Map drought severity indices for agricultural regions in Southern Africa?
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

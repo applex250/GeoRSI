@@ -1,0 +1,6 @@
+1. Load Dataset
+2. Pairwise Dissolve
+3. Create Random Points
+4. Empirical Bayesian Kriging
+5. Empirical Bayesian Kriging
+6. Presence-only Prediction (MaxEnt)

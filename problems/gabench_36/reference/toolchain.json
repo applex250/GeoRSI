@@ -1,0 +1,40 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Elevation.tif"
+    }
+  },
+  {
+    "tool": "compute_ruggedness",
+    "arguments": {
+      "input_path": "dataset/Elevation.tif",
+      "output_name": "ruggedness.tif",
+      "window_size": 3
+    }
+  },
+  {
+    "tool": "normalize_raster_values",
+    "arguments": {
+      "input_raster_path": "./output\\ruggedness.tif",
+      "output_name": "ruggedness_norm.tif",
+      "lower": 1.0,
+      "upper": 10.0
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\ruggedness_norm.tif",
+      "output_name": "ruggedness_norm.png",
+      "bands": null,
+      "cmap": "viridis",
+      "stretch": true,
+      "title": "Ruggedness",
+      "legend": true,
+      "legend_label": "Ruggedness",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]

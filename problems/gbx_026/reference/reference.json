@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_911221",
+ "task_text": "Generate a heatmap of power station density in regions with energy transition plans",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

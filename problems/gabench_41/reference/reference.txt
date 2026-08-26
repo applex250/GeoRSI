@@ -1,0 +1,36 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Protected_Status.tif"
+    }
+  },
+  {
+    "tool": "reclassify_raster",
+    "arguments": {
+      "raster_path": "dataset/Protected_Status.tif",
+      "output_name": "Protected_Status_reclassified.tif",
+      "reclass_dict": {
+        "0": 1,
+        "1": 3,
+        "2": 6,
+        "3": 9,
+        "4": 10,
+        "255": 10
+      }
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\Protected_Status_reclassified.tif",
+      "output_name": "reclassified_protectedStatus.png",
+      "cmap": "tab20",
+      "legend": true,
+      "title": "Protected Status (reclassified)"
+    }
+  }
+]
+EXPECTED PRODUCT(S): reclassified_protectedStatus.png
+INTERMEDIATE LAYERS: Protected_Status_reclassified.tif

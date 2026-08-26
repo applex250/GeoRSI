@@ -1,0 +1,2 @@
+Analyze climate change trends in North America using spatial temporal data
+Load North America climate data in NetCDF file and extract temperature data along the time series, then perform a quadratic polynomial fit analysis on the temperature data, and output the fitting results by year in 'pred_results/polynomial_fit_pred.csv'.

@@ -1,0 +1,8 @@
+1. Load data
+2. Convert dataframe to Geodataframe
+3. Spatial Join
+4. Calculate Median Price
+5. Handle Missing Data
+6. Spatial Similarity Analysis
+7. Local Moran's I Calculation
+8. Visualization

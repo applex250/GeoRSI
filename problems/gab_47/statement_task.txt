@@ -1,0 +1,2 @@
+Calculate impervious surface area
+Your task is calculating impervious surface area through the impervious area and lands parcel. Use tabulate area to get the area count, and join the area with land parcels, copy and save the joint result.

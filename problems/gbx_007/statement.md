@@ -1,7 +1,7 @@
-# GeoBenchX task 565545
+# GeoBenchX task 138450
 
 ## Task
-Create a heatmap of earthquakes magnitude in Indonesia, Malaysia and Phillippines
+Calculate urban sprawl rates for Chinese cities between 2015-2020?
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

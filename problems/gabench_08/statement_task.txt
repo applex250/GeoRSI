@@ -1,0 +1,2 @@
+Your task is analyzing Toronto fire stations and their service coverage. The goal is visualize the current fire station coverage in Etobicoke by buffering to identify coverage gaps. Save the figure as "Fire_Service_Analysis.png".
+Note: If any input GeoJSON file does not explicitly define a coordinate reference system (CRS), assume and assign it as WGS84 (EPSG:4326).

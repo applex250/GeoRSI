@@ -1,0 +1,1 @@
+This task performs a 3D line-of-sight (LOS) analysis between two specified points (Observer ID 0 and Target ID 2) from a 3D point shapefile, using 3D building data as potential obstacles. The result indicates whether the target is visible from the observer’s position in 3D space, and is saved to "los_stats.json".

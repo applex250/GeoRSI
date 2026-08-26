@@ -1,0 +1,55 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/DissolvedO2.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Bay.geojson"
+    }
+  },
+  {
+    "tool": "kde_interpolate",
+    "arguments": {
+      "points_path": "dataset/DissolvedO2.geojson",
+      "polygons_path": "dataset/Bay.geojson",
+      "output_name": "kde_DissolvedO2.tif",
+      "value_field": "MeasureValue"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/kde_DissolvedO2.tif",
+          "type": "raster",
+          "style": {
+            "cmap": "Spectral",
+            "label": "Dissolved O2",
+            "colorbar": true
+          }
+        },
+        {
+          "data": "dataset/Bay.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "white",
+            "linewidth": 2,
+            "label": "Bay Boundary"
+          }
+        }
+      ],
+      "output_name": "interploated_water_quality.png",
+      "title": "Interpolated Data"
+    }
+  }
+]
+EXPECTED PRODUCT(S): interploated_water_quality.png
+INTERMEDIATE LAYERS: kde_DissolvedO2.tif
+Bay.geojson

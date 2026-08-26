@@ -1,0 +1,1 @@
+Your task is processing 3D building data to create a unified 2D coverage map. First, flatten the 3D polygons to generate 2D footprints, then dissolve them into a unified layer to eliminate overlaps. Finally, visualize the merged geometry and save the result as 'buildings_viz.png'.

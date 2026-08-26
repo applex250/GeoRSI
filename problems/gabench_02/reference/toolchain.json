@@ -1,0 +1,62 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/BusServiceArea.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/HamiltonDemographics.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "dataset/HamiltonDemographics.geojson",
+          "style": {
+            "column": "populationToPolygonSizeRating",
+            "cmap": "Greens",
+            "linewidth": 0.1,
+            "alpha": 0.5,
+            "label": "Population Density"
+          }
+        },
+        {
+          "data": "dataset/HamiltonDemographics.geojson",
+          "style": {
+            "column": "AtRisk_ACSOVEH0",
+            "cmap": "Blues",
+            "linewidth": 0.1,
+            "alpha": 0.5,
+            "label": "No Vehicle Access"
+          }
+        },
+        {
+          "data": "dataset/HamiltonDemographics.geojson",
+          "style": {
+            "column": "households_ACSHHBPOV",
+            "cmap": "Reds",
+            "linewidth": 0.1,
+            "alpha": 0.5,
+            "label": "Poverty Households"
+          }
+        },
+        {
+          "data": "dataset/BusServiceArea.geojson",
+          "style": {
+            "color": "none",
+            "edgecolor": "black",
+            "linewidth": 1.5,
+            "label": "Bus Service Area"
+          }
+        }
+      ],
+      "output_name": "transit_access.png",
+      "title": "Demographic Variables and Bus Service Area in Hamilton County, TN"
+    }
+  }
+]

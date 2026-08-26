@@ -1,0 +1,153 @@
+[
+  {
+    "tool": "export_vector_to_geojson",
+    "arguments": {
+      "input_vector_path": "dataset/network.shp",
+      "output_name": "network.geojson"
+    }
+  },
+  {
+    "tool": "export_vector_to_geojson",
+    "arguments": {
+      "input_vector_path": "dataset/Marketplace.shp",
+      "output_name": "Marketplace.geojson"
+    }
+  },
+  {
+    "tool": "export_vector_to_geojson",
+    "arguments": {
+      "input_vector_path": "dataset/school.shp",
+      "output_name": "school.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\network.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\Marketplace.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\school.geojson"
+    }
+  },
+  {
+    "tool": "add_service_time_field",
+    "arguments": {
+      "facilities_path": ".\\output\\Marketplace.geojson",
+      "type_field": "TYPE",
+      "service_minutes_by_type": {
+        "一级": 8.0,
+        "二级": 6.0,
+        "三级": 4.0,
+        "四级": 3.0
+      },
+      "default_service_minutes": 4.0,
+      "output_name": "Marketplace_with_service_minutes.geojson"
+    }
+  },
+  {
+    "tool": "filter_facilities_by_names",
+    "arguments": {
+      "facilities_path": ".\\output\\Marketplace_with_service_minutes.geojson",
+      "name_field": "NAME",
+      "selected_names": [
+        "康复路批发市场"
+      ],
+      "output_name": "selected_marketplaces.geojson"
+    }
+  },
+  {
+    "tool": "compute_service_area_lines",
+    "arguments": {
+      "network_path": ".\\output\\network.geojson",
+      "facilities_path": ".\\output\\selected_marketplaces.geojson",
+      "facility_name_field": "NAME",
+      "facility_type_field": "TYPE",
+      "service_time_field": "service_min",
+      "cost_field": "MINUTES",
+      "output_name": "marketplace_service_area_lines.geojson",
+      "report_output_name": "service_area_report.json"
+    }
+  },
+  {
+    "tool": "evaluate_school_coverage",
+    "arguments": {
+      "network_path": ".\\output\\network.geojson",
+      "facilities_path": ".\\output\\selected_marketplaces.geojson",
+      "schools_path": ".\\output\\school.geojson",
+      "facility_name_field": "NAME",
+      "service_time_field": "service_min",
+      "school_name_field": "name",
+      "cost_field": "MINUTES",
+      "output_name": "school_coverage.csv",
+      "summary_output_name": "school_coverage_summary.json"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": ".\\output\\network.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#c7cbd1",
+            "linewidth": 0.45,
+            "label": "Road network"
+          }
+        },
+        {
+          "data": ".\\output\\Marketplace.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#8e8e8e",
+            "markersize": 18,
+            "alpha": 0.45,
+            "label": "Other marketplaces"
+          }
+        },
+        {
+          "data": ".\\output\\marketplace_service_area_lines.geojson",
+          "type": "vector",
+          "style": {
+            "column": "facility_l",
+            "linewidth": 2.0,
+            "alpha": 0.82,
+            "categorical": true,
+            "label": "Service area"
+          }
+        },
+        {
+          "data": ".\\output\\selected_marketplaces.geojson",
+          "type": "vector",
+          "style": {
+            "column": "facility_l",
+            "markersize": 75,
+            "categorical": true,
+            "label": "Selected marketplaces"
+          }
+        },
+        {
+          "data": ".\\output\\school.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#1f5fbf",
+            "markersize": 30,
+            "label": "Schools"
+          }
+        }
+      ],
+      "output_name": "service_area_overview.png",
+      "title": "Single Marketplace Service Area and School Coverage",
+      "legend_loc": "upper right"
+    }
+  }
+]

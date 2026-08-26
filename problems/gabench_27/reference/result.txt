@@ -1,0 +1,1 @@
+CHECK:JSON_VALUE:model_performance.json:mse:<6000

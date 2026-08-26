@@ -1,0 +1,1 @@
+Your task is to analyze homelessness trends in North Dakota during the 2013 oil boom. Join the homelessness tabular data to the U.S. states spatial layer using state abbreviations, and save the resulting map as "us_homeless_2013.png".

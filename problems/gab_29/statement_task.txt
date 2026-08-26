@@ -1,0 +1,2 @@
+Calculate Travel Time for a Tsunami
+To calculate tsunami travel time, set up your project with bathymetric and coastal data, then identify the tsunami origin. Simulate wave travel over the bathymetric surface to create an arrival time map. Visualize and analyze the results, adjust for accuracy, and prepare a report to aid in preparedness and response planning.

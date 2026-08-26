@@ -1,0 +1,34 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/flow_direction.tif"
+    }
+  },
+  {
+    "tool": "compute_flow_length_upstream",
+    "arguments": {
+      "flow_direction_path": "dataset/flow_direction.tif",
+      "output_name": "flow_length_upstream.tif",
+      "weight_raster_path": null
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\flow_length_upstream.tif",
+      "output_name": "FlowLength_Upstream.png",
+      "bands": null,
+      "cmap": "Greens",
+      "stretch": true,
+      "title": "Flow Length (Upstream)",
+      "legend": true,
+      "legend_label": "Upstream Length (m)",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]
+EXPECTED PRODUCT(S): FlowLength_Upstream.png
+INTERMEDIATE LAYERS: flow_length_upstream.tif

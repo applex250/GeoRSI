@@ -1,0 +1,38 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/dem.tif"
+    }
+  },
+  {
+    "tool": "fill_depressions",
+    "arguments": {
+      "raster_path": "dataset/dem.tif",
+      "output_name": "dem_filled.tif"
+    }
+  },
+  {
+    "tool": "compute_depression_depth",
+    "arguments": {
+      "dem_path": "dataset/dem.tif",
+      "filled_dem_path": "./output\\dem_filled.tif",
+      "output_name": "sink_depth.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\sink_depth.tif",
+      "output_name": "Sink_Depth_Analysis.png",
+      "bands": null,
+      "cmap": "viridis",
+      "stretch": true,
+      "title": "Topographic Sink Depth Analysis",
+      "legend": true,
+      "legend_label": "Depth (m)",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]

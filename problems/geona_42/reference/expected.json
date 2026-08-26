@@ -1,0 +1,13 @@
+{
+ "expected_tools": [
+  "lookup_municipality",
+  "analyze_area"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "%"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_819657",
+ "task_text": "What percentage of Chile's population lives in areas with population density over 1000 people per square km?",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

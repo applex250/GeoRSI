@@ -1,0 +1,34 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_nc_info",
+    "arguments": {
+      "nc_path": "dataset/E1_north_america.nc"
+    }
+  },
+  {
+    "tool": "count_netcdf_spells",
+    "arguments": {
+      "nc_path": "dataset/E1_north_america.nc",
+      "var_name": "air_temperature",
+      "output_name": "spell_E1_north_america.tif",
+      "threshold": 280.0,
+      "spell_length": 5
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "output/spell_E1_north_america.tif",
+      "output_name": "temperature_statistic_vis.png",
+      "bands": null,
+      "cmap": "RdYlBu_r",
+      "stretch": true,
+      "title": "Warm Spells",
+      "legend": true,
+      "legend_label": "Warm spell count"
+    }
+  }
+]
+EXPECTED PRODUCT(S): temperature_statistic_vis.png
+INTERMEDIATE LAYERS: spell_E1_north_america.tif

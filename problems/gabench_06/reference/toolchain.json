@@ -1,0 +1,79 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Elk_in_Southwestern_Alberta_2009.geojson"
+    }
+  },
+  {
+    "tool": "calculate_bandwidth",
+    "arguments": {
+      "input_path": "dataset/Elk_in_Southwestern_Alberta_2009.geojson"
+    }
+  },
+  {
+    "tool": "compute_convex_hull",
+    "arguments": {
+      "input_path": "dataset/Elk_in_Southwestern_Alberta_2009.geojson",
+      "output_name": "elk_convex_hull.geojson"
+    }
+  },
+  {
+    "tool": "compute_kernel_density",
+    "arguments": {
+      "input_path": "dataset/Elk_in_Southwestern_Alberta_2009.geojson",
+      "bandwidth": 11.2373,
+      "grid_res": 100,
+      "output_name": "elk_kde.tif"
+    }
+  },
+  {
+    "tool": "density_clusters",
+    "arguments": {
+      "input_path": "dataset/Elk_in_Southwestern_Alberta_2009.geojson",
+      "min_cluster_size": 100,
+      "output_name": "elk_clusters.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/elk_kde.tif",
+          "type": "raster",
+          "style": {
+            "label": "Density",
+            "cmap": "viridis",
+            "alpha": 0.6,
+            "colorbar": true
+          }
+        },
+        {
+          "data": "output/elk_convex_hull.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "red",
+            "linewidth": 1.0,
+            "alpha": 0.8,
+            "label": "Convex Hull"
+          }
+        },
+        {
+          "data": "output/elk_clusters.geojson",
+          "type": "vector",
+          "style": {
+            "color": "orange",
+            "alpha": 0.6,
+            "label": "Clusters",
+            "markersize": 5
+          }
+        }
+      ],
+      "output_name": "Elk_Analysis.png",
+      "title": "Elk Kernel Density, Convex Hull, and Clusters",
+      "legend_loc": "best"
+    }
+  }
+]

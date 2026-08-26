@@ -1,0 +1,2 @@
+Find optimal corridors to connect dwindling mountain lion populations.
+You task is standardizing land cover and protected status datasets for consistency in analysis for mountain lion habitat. Reclassify these categorical datasets to a common scale using geospatial tools. Save the reclassified data as pred_results/landCover_reclassified.tif and pred_results/protected_status_reclassified.tif.

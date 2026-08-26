@@ -1,0 +1,44 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/USA_States.shp"
+    }
+  },
+  {
+    "tool": "join_table_to_vector",
+    "arguments": {
+      "vector_path": "dataset/USA_States.shp",
+      "table_path": "dataset/homeless_data.xlsx",
+      "vector_key": "L0USA_St_1",
+      "table_key": "State",
+      "output_name": "joined_USA_States.geojson"
+    }
+  },
+  {
+    "tool": "calculate_vector_field",
+    "arguments": {
+      "input_path": "./output\\joined_USA_States.geojson",
+      "output_name": "joined_USA_States_Rate.geojson",
+      "new_field": "HomelessRate",
+      "expression": "(Homeless13 / Pop13) * 10000"
+    }
+  },
+  {
+    "tool": "visualize_vector",
+    "arguments": {
+      "input_path": "./output\\joined_USA_States_Rate.geojson",
+      "output_name": "us_homeless_2013.png",
+      "style": {
+        "column": "HomelessRate",
+        "cmap": "Reds"
+      },
+      "title": "Homeless Population per 10k",
+      "legend": true,
+      "legend_kwds": null
+    }
+  }
+]
+EXPECTED PRODUCT(S): us_homeless_2013.png
+INTERMEDIATE LAYERS: joined_USA_States_Rate.geojson

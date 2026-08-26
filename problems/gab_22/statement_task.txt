@@ -1,0 +1,2 @@
+Find optimal corridors to connect dwindling mountain lion populations.
+Your task is integrating ruggedness, road distance, land cover, and protected status into a single cost surface. Assign weights to each criterion to create a comprehensive habitat suitability map. Save the composite cost surface as "pred_results/mountainLionCorridor.png".

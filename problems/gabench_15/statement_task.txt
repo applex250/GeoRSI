@@ -1,0 +1,1 @@
+Your task is analyzing the distribution of Total Electron Content. Load Total Electron Content (TEC) data from a space weather NetCDF file and visualize it. Save the figure as 'TEC_vis.png'.

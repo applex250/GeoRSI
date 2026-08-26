@@ -1,0 +1,1 @@
+Your task is evaluating mountain lion habitat suitability, and the first step is calculating terrain ruggedness using elevation data. Visualizing the ruggedness and save the outputs as "ruggedness.png".

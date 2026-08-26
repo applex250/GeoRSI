@@ -1,0 +1,150 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/vulnerable_areas.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/land_cover.tif"
+    }
+  },
+  {
+    "tool": "reproject_raster",
+    "arguments": {
+      "raster_path": "dataset/vulnerable_areas.tif",
+      "target_crs": "EPSG:32126",
+      "output_name": "reproj_vul_32126.tif",
+      "band": null
+    }
+  },
+  {
+    "tool": "align_raster_to_reference",
+    "arguments": {
+      "raster_path": "output/reproj_vul_32126.tif",
+      "reference_raster_path": "dataset/land_cover.tif",
+      "output_name": "aligned_vul_32126.tif",
+      "resampling": "bilinear",
+      "band": null
+    }
+  },
+  {
+    "tool": "normalize_raster_values",
+    "arguments": {
+      "input_raster_path": "output/aligned_vul_32126.tif",
+      "output_name": "norm_vul.tif",
+      "lower": 1.0,
+      "upper": 10.0
+    }
+  },
+  {
+    "tool": "reclassify_raster",
+    "arguments": {
+      "raster_path": "dataset/land_cover.tif",
+      "output_name": "reclass_lc.tif",
+      "reclass_dict": {
+        "11": 1,
+        "21": 6,
+        "22": 7,
+        "23": 8,
+        "24": 10,
+        "31": 4,
+        "41": 3,
+        "42": 1,
+        "43": 3,
+        "52": 3,
+        "71": 2,
+        "81": 5,
+        "82": 9,
+        "90": 1,
+        "95": 1
+      },
+      "band": 1
+    }
+  },
+  {
+    "tool": "weighted_sum_rasters",
+    "arguments": {
+      "raster_paths": [
+        "output/norm_vul.tif",
+        "output/reclass_lc.tif"
+      ],
+      "output_name": "wsum_risk.tif",
+      "bands": [
+        1,
+        1
+      ],
+      "weights": [
+        8,
+        10
+      ]
+    }
+  },
+  {
+    "tool": "threshold_raster",
+    "arguments": {
+      "raster_path": "output/wsum_risk.tif",
+      "output_name": "high_risk_mask.tif",
+      "threshold": 100.0,
+      "band": 1,
+      "true_value": 1,
+      "false_value": 0
+    }
+  },
+  {
+    "tool": "extract_raster_classes_by_mask",
+    "arguments": {
+      "lc_path": "dataset/land_cover.tif",
+      "high_risk_mask_path": "output/high_risk_mask.tif",
+      "output_name": "undeveloped_high_risk.tif",
+      "undeveloped_codes": [
+        31,
+        41,
+        43,
+        52,
+        71,
+        81,
+        90,
+        95
+      ],
+      "lc_band": 1,
+      "mask_band": 1,
+      "mask_true_value": 1
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/wsum_risk.tif",
+          "type": "raster",
+          "style": {
+            "cmap": "viridis",
+            "alpha": 0.9,
+            "label": "Risk",
+            "colorbar": true
+          }
+        },
+        {
+          "data": "output/undeveloped_high_risk.tif",
+          "type": "raster",
+          "style": {
+            "cmap": "Greys",
+            "alpha": 0.5,
+            "label": "Undeveloped"
+          }
+        }
+      ],
+      "output_name": "undeveloped_areas.png",
+      "title": "Water Risk and Undeveloped Areas",
+      "legend_loc": "best"
+    }
+  }
+]
+EXPECTED PRODUCT(S): undeveloped_areas.png
+INTERMEDIATE LAYERS: undeveloped_high_risk.tif
+wsum_risk.tif

@@ -1,0 +1,2 @@
+Use drainage conditions and water depth to calculate groundwater vulnerable areas.
+Your task is to calculate groundwater vulnerable areas using the Arcpy. First, project 'mc_land_cover.tif' and 'mc_soils.shp' to Lambert Conformal Conic. Next, using 'mc_boundary.shp' as the extent, land_cover as the cellSize and snapRaster, extract the drainage_conditions and water_depth respectively from 'mc_soils.shp'. Then, use drainage_conditions and water_depth to perform suitability modeling to calculate vulnerable_areas.

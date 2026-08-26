@@ -1,0 +1,30 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_nc_info",
+    "arguments": {
+      "nc_path": "dataset/space_weather.nc"
+    }
+  },
+  {
+    "tool": "export_nc_var",
+    "arguments": {
+      "nc_path": "dataset/space_weather.nc",
+      "var_name": "TEC",
+      "output_name": "nc_space_weather_TEC.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "output/nc_space_weather_TEC.tif",
+      "output_name": "TEC_vis.png",
+      "cmap": "viridis",
+      "title": "Total Electron Content",
+      "legend": true,
+      "legend_label": "TEC"
+    }
+  }
+]
+EXPECTED PRODUCT(S): TEC_vis.png
+INTERMEDIATE LAYERS: nc_space_weather_TEC.tif

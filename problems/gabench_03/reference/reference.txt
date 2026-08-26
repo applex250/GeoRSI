@@ -1,0 +1,100 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/G_2014.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/G_2015.tif"
+    }
+  },
+  {
+    "tool": "compute_nbr",
+    "arguments": {
+      "raster_path": "dataset/G_2014.tif",
+      "output_name": "nbr_G_2014.tif",
+      "nir_band": 5,
+      "swir_band": 7
+    }
+  },
+  {
+    "tool": "compute_nbr",
+    "arguments": {
+      "raster_path": "dataset/G_2015.tif",
+      "output_name": "nbr_G_2015.tif",
+      "nir_band": 5,
+      "swir_band": 7
+    }
+  },
+  {
+    "tool": "calculate_raster_difference",
+    "arguments": {
+      "raster_a_path": "output/nbr_G_2014.tif",
+      "raster_b_path": "output/nbr_G_2015.tif",
+      "output_name": "nbr_diff.tif"
+    }
+  },
+  {
+    "tool": "threshold_raster",
+    "arguments": {
+      "raster_path": "output/nbr_diff.tif",
+      "output_name": "nbr_burn_mask.tif",
+      "threshold": 0.2,
+      "true_value": 1,
+      "false_value": 0
+    }
+  },
+  {
+    "tool": "convert_mask_to_polygons",
+    "arguments": {
+      "mask_path": "output/nbr_burn_mask.tif",
+      "output_name": "nbrdelta_nbr_G_2014_nbr_G_2015_burnscar.geojson",
+      "mask_value": 1
+    }
+  },
+  {
+    "tool": "apply_mask_to_raster",
+    "arguments": {
+      "input_raster_path": "output/nbr_diff.tif",
+      "mask_raster_path": "output/nbr_burn_mask.tif",
+      "output_name": "nbrdelta_nbr_G_2014_nbr_G_2015_burndisplay.tif",
+      "mask_value": 1
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/nbrdelta_nbr_G_2014_nbr_G_2015_burndisplay.tif",
+          "type": "raster",
+          "style": {
+            "cmap": "Reds",
+            "label": "Burn Severity",
+            "vmin": 0,
+            "vmax": 0.8
+          }
+        },
+        {
+          "data": "output/nbrdelta_nbr_G_2014_nbr_G_2015_burnscar.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "black",
+            "linewidth": 1,
+            "label": "Burn Scar Boundary"
+          }
+        }
+      ],
+      "output_name": "burn_scar_analysis.png",
+      "title": "Burn Scar Area (2014 vs 2015) in Montana Fire"
+    }
+  }
+]
+EXPECTED PRODUCT(S): burn_scar_analysis.png
+INTERMEDIATE LAYERS: nbrdelta_nbr_G_2014_nbr_G_2015_burndisplay.tif
+nbrdelta_nbr_G_2014_nbr_G_2015_burnscar.geojson

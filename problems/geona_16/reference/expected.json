@@ -1,0 +1,11 @@
+{
+ "expected_tools": [],
+ "expected_actions": [],
+ "must_contain": [
+  "not"
+ ],
+ "must_not_contain": [
+  "biodiversity index shows",
+  "biodiversity score"
+ ]
+}

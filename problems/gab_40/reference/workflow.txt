@@ -1,0 +1,4 @@
+1. Load Data
+2. calculate change in Malaria Prevalence
+3. classify change categories
+4. Visualize Results

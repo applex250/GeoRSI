@@ -1,0 +1,152 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/hkg_constituency.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/target_risk.shp"
+    }
+  },
+  {
+    "tool": "search_similarity",
+    "arguments": {
+      "candidates_path": "dataset/hkg_constituency.shp",
+      "targets_path": "dataset/target_risk.shp",
+      "attrs": [
+        "PopDensity",
+        "SpInterIdx"
+      ],
+      "output_name": "similarity_trans.geojson",
+      "id_field": "ID"
+    }
+  },
+  {
+    "tool": "join_similarity_attributes",
+    "arguments": {
+      "candidates_path": "dataset/hkg_constituency.shp",
+      "simrank_path": "./output\\similarity_trans.geojson",
+      "output_name": "candidates_trans.geojson",
+      "id_field": "ID",
+      "label": "trans"
+    }
+  },
+  {
+    "tool": "search_similarity",
+    "arguments": {
+      "candidates_path": "dataset/hkg_constituency.shp",
+      "targets_path": "dataset/target_risk.shp",
+      "attrs": [
+        "PopDensity",
+        "Seniors60t",
+        "spending_c",
+        "keyfacts_p"
+      ],
+      "output_name": "similarity_susc.geojson",
+      "id_field": "ID"
+    }
+  },
+  {
+    "tool": "join_similarity_attributes",
+    "arguments": {
+      "candidates_path": "./output\\candidates_trans.geojson",
+      "simrank_path": "./output\\similarity_susc.geojson",
+      "output_name": "candidates_susc.geojson",
+      "id_field": "ID",
+      "label": "susc"
+    }
+  },
+  {
+    "tool": "search_similarity",
+    "arguments": {
+      "candidates_path": "dataset/hkg_constituency.shp",
+      "targets_path": "dataset/target_risk.shp",
+      "attrs": [
+        "Seniors60t",
+        "SUM_Beds"
+      ],
+      "output_name": "similarity_insr.geojson",
+      "id_field": "ID"
+    }
+  },
+  {
+    "tool": "join_similarity_attributes",
+    "arguments": {
+      "candidates_path": "./output\\candidates_susc.geojson",
+      "simrank_path": "./output\\similarity_insr.geojson",
+      "output_name": "candidates_insr.geojson",
+      "id_field": "ID",
+      "label": "insr"
+    }
+  },
+  {
+    "tool": "search_similarity",
+    "arguments": {
+      "candidates_path": "dataset/hkg_constituency.shp",
+      "targets_path": "dataset/target_risk.shp",
+      "attrs": [
+        "RelativeCa"
+      ],
+      "output_name": "similarity_expo.geojson",
+      "id_field": "ID"
+    }
+  },
+  {
+    "tool": "join_similarity_attributes",
+    "arguments": {
+      "candidates_path": "./output\\candidates_insr.geojson",
+      "simrank_path": "./output\\similarity_expo.geojson",
+      "output_name": "candidates_expo.geojson",
+      "id_field": "ID",
+      "label": "expo"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "./output\\candidates_expo.geojson"
+    }
+  },
+  {
+    "tool": "multivariate_clusters",
+    "arguments": {
+      "candidates_path": "./output\\candidates_expo.geojson",
+      "risk_fields": [
+        "trans_risk",
+        "susc_risk",
+        "insr_risk",
+        "expo_risk"
+      ],
+      "output_name": "risk_profiles_candidates_expo.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "./output\\risk_profiles_candidates_expo.geojson"
+    }
+  },
+  {
+    "tool": "visualize_vector",
+    "arguments": {
+      "input_path": "./output\\risk_profiles_candidates_expo.geojson",
+      "output_name": "hkg_covid_risk_profiles.png",
+      "style": {
+        "column": "CLUSTER_ID",
+        "cmap": "tab20",
+        "edgecolor": "black",
+        "linewidth": 0.2,
+        "categorical": true
+      },
+      "title": "COVID-19 Risk Profiles (HKG)",
+      "legend": true,
+      "legend_kwds": null
+    }
+  }
+]
+EXPECTED PRODUCT(S): hkg_covid_risk_profiles.png
+INTERMEDIATE LAYERS: risk_profiles_candidates_expo.geojson

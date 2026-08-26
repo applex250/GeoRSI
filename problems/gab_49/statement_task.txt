@@ -1,0 +1,2 @@
+Mapping the Impact of Housing Shortage on Oil Workers
+Your task is to analyze homelessness trends in North Dakota during the 2013 oil boom. Join homelessness tabular data to the U.S. states spatial layer using state abbreviations. Then, save the maps for analysis.

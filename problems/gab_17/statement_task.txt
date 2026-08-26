@@ -1,0 +1,2 @@
+Analyze the geographical distribution of fatal car crashes in New York City during 2016
+Your task is using data on the locations and related information of fatal car crashes in New York City to analyze fatal car crash distribution in 2016. You will use the car crash data along with the GeoJSON data of NYC administrative regions to plot the geographical distribution of fatal crashes in 2016 on a map by geoplot. Save the figure as 'pred_results/collisions_map_vis.png'.

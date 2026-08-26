@@ -1,7 +1,7 @@
-# GeoBenchX task 741001
+# GeoBenchX task 577156
 
 ## Task
-How many Latin American seaports are located within 5 km of major rivers?
+Compare the agricultural value added between Brazilian states with and without railway access
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

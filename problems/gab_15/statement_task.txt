@@ -1,0 +1,2 @@
+Understand the geographical distribution of Total Electron Content (TEC) in the ionosphere.
+Your task is analyzing the distribution of Total Electron Content. Load Total Electron Content (TEC) data from a space weather NetCDF file and visualize it as a filled contour map with a geographical and coastline background. Save the figure as 'pred_results/TEC_vis.png'.

@@ -1,0 +1,177 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/net.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/city_Net_Junctions.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/supermarkets.shp"
+    }
+  },
+  {
+    "tool": "build_graph_from_road_shp",
+    "arguments": {
+      "roads_path": "dataset/net.shp",
+      "output_name": "t52_road_graph.graphml",
+      "snap_tolerance": 1.0,
+      "length_field": "METERS",
+      "oneway_field": "ONEWAY",
+      "road_id_field": "OBJECTID",
+      "encoding": "gbk"
+    }
+  },
+  {
+    "tool": "snap_points_to_network_batch",
+    "arguments": {
+      "graph_path": ".\\output\\t52_road_graph.graphml",
+      "points_path": "dataset/city_Net_Junctions.shp",
+      "output_name": "t52_origins_snapped.csv",
+      "id_field": "OBJECTID",
+      "encoding": "gbk",
+      "point_id_col": "origin_pid",
+      "node_id_col": "origin_node",
+      "snap_distance_col": "origin_snap_m",
+      "x_col": "x",
+      "y_col": "y"
+    }
+  },
+  {
+    "tool": "snap_points_to_network_batch",
+    "arguments": {
+      "graph_path": ".\\output\\t52_road_graph.graphml",
+      "points_path": "dataset/supermarkets.shp",
+      "output_name": "t52_destinations_snapped.csv",
+      "id_field": "OBJECTID",
+      "encoding": "gbk",
+      "point_id_col": "dest_pid",
+      "node_id_col": "dest_node",
+      "snap_distance_col": "dest_snap_m",
+      "x_col": "x",
+      "y_col": "y"
+    }
+  },
+  {
+    "tool": "compute_od_cost_matrix",
+    "arguments": {
+      "graph_path": ".\\output\\t52_road_graph.graphml",
+      "origins_snapped_csv": ".\\output\\t52_origins_snapped.csv",
+      "destinations_snapped_csv": ".\\output\\t52_destinations_snapped.csv",
+      "output_name": "t52_od_matrix.csv",
+      "weight_attr": "length_m",
+      "origin_id_col": "origin_pid",
+      "origin_node_col": "origin_node",
+      "dest_id_col": "dest_pid",
+      "dest_node_col": "dest_node",
+      "output_origin_col": "O_id",
+      "output_dest_col": "D_id",
+      "output_cost_col": "cost_m",
+      "output_reachable_col": "is_reachable"
+    }
+  },
+  {
+    "tool": "apply_gravity_model",
+    "arguments": {
+      "od_matrix_csv": ".\\output\\t52_od_matrix.csv",
+      "output_name": "t52_gravity_predicted.csv",
+      "beta": 2.0,
+      "constraint": "production",
+      "origin_id_col": "O_id",
+      "dest_id_col": "D_id",
+      "cost_col": "cost_m",
+      "reachable_col": "is_reachable",
+      "output_cost_col": "distance_m",
+      "output_flow_col": "predicted_flow",
+      "min_cost": 0.001,
+      "balance_iterations": 50
+    }
+  },
+  {
+    "tool": "assign_flows_to_roads",
+    "arguments": {
+      "graph_path": ".\\output\\t52_road_graph.graphml",
+      "predicted_flow_csv": ".\\output\\t52_gravity_predicted.csv",
+      "origins_snapped_csv": ".\\output\\t52_origins_snapped.csv",
+      "destinations_snapped_csv": ".\\output\\t52_destinations_snapped.csv",
+      "roads_path": "dataset/net.shp",
+      "output_name": "roads_with_load.geojson",
+      "weight_attr": "length_m",
+      "origin_id_col": "O_id",
+      "dest_id_col": "D_id",
+      "flow_col": "predicted_flow",
+      "flow_load_field": "traffic_load_t52",
+      "road_id_field": "OBJECTID",
+      "encoding": "gbk",
+      "origin_point_id_col": "origin_pid",
+      "origin_node_col": "origin_node",
+      "dest_point_id_col": "dest_pid",
+      "dest_node_col": "dest_node"
+    }
+  },
+  {
+    "tool": "compute_network_betweenness",
+    "arguments": {
+      "graph_path": ".\\output\\t52_road_graph.graphml",
+      "output_name": "t52_betweenness.csv",
+      "k": 100,
+      "weight_attr": "length_m",
+      "node_id_col": "nid",
+      "betweenness_col": "centrality",
+      "x_col": "x_coord",
+      "y_col": "y_coord"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "dataset/net.shp",
+          "type": "vector",
+          "style": {
+            "color": "lightgray",
+            "linewidth": 0.4,
+            "alpha": 0.5
+          }
+        },
+        {
+          "data": ".\\output\\roads_with_load.geojson",
+          "type": "vector",
+          "style": {
+            "column": "traffic_load_t52",
+            "cmap": "hot_r",
+            "linewidth": 1.2,
+            "alpha": 0.85,
+            "legend": true,
+            "legend_kwds": {
+              "label": "'Network Traffic Load (custom field: traffic_load_t52)'",
+              "shrink": "0.5"
+            }
+          }
+        },
+        {
+          "data": "dataset/supermarkets.shp",
+          "type": "vector",
+          "style": {
+            "color": "blue",
+            "marker": "*",
+            "markersize": 200,
+            "edgecolor": "white",
+            "linewidth": 0.5,
+            "label": "Supermarkets (Hubs)"
+          }
+        }
+      ],
+      "output_name": "network_traffic_assignment.png",
+      "title": "Network Traffic Assignment & Mobility Patterns (renamed schema demo)"
+    }
+  }
+]

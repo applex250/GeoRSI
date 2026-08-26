@@ -1,0 +1,8 @@
+1. Load data
+2. Distance Accumulation for road
+3. Focal Statistics for elevation
+4. Rescale by function for road and ruggedness
+5. Reclassify landcover and protected status
+6. Weighted Sum all cost layers
+7. Optimal Region Connections
+8. Visualize results

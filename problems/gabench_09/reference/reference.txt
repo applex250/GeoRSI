@@ -1,0 +1,98 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/roads.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/deforestedArea.geojson"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/roads.geojson",
+      "output_name": "roads_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/deforestedArea.geojson",
+      "output_name": "deforest_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\roads_crs.geojson",
+      "target_crs": "EPSG:32723",
+      "output_name": "roads_32723.geojson"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\deforest_crs.geojson",
+      "target_crs": "EPSG:32723",
+      "output_name": "deforest_32723.geojson"
+    }
+  },
+  {
+    "tool": "buffer_vector",
+    "arguments": {
+      "input_path": "./output\\roads_32723.geojson",
+      "distance": 5500,
+      "output_name": "roads_buffer_5500.geojson"
+    }
+  },
+  {
+    "tool": "dissolve_polygons",
+    "arguments": {
+      "input_path": "./output\\roads_buffer_5500.geojson",
+      "output_name": "roads_buffer_dissolved.geojson"
+    }
+  },
+  {
+    "tool": "compute_area_sum",
+    "arguments": {
+      "vector_path": "./output\\roads_buffer_dissolved.geojson"
+    }
+  },
+  {
+    "tool": "clip_by_attribute",
+    "arguments": {
+      "input_geojson_path": "./output\\roads_buffer_dissolved.geojson",
+      "mask_geojson_path": "./output\\deforest_32723.geojson",
+      "output_name": "deforested_clip.geojson",
+      "attribute_field": null,
+      "attribute_value": null
+    }
+  },
+  {
+    "tool": "compute_area_sum",
+    "arguments": {
+      "vector_path": "./output\\deforested_clip.geojson"
+    }
+  },
+  {
+    "tool": "calculate_deforestation_percentage",
+    "arguments": {
+      "output_name": "deforestation_rate.csv",
+      "buffer_area_csv": null,
+      "deforest_area_csv": null,
+      "buffer_area_field": "area_sum",
+      "deforest_area_field": "area_sum",
+      "buffer_area_value": 179792795540.404,
+      "deforest_area_value": 86176671033.82933
+    }
+  }
+]
+EXPECTED PRODUCT(S): deforestation_rate.csv
+INTERMEDIATE LAYERS: deforestation_rate.csv

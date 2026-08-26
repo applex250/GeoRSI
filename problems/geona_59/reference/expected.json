@@ -1,0 +1,13 @@
+{
+ "expected_tools": [
+  "get_legend"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "probability",
+  "%"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

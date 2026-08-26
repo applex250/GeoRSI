@@ -1,55 +1,12 @@
 {
- "task_ID": "TASK_250309_135125_565545",
- "task_text": "Create a heatmap of earthquakes magnitude in Indonesia, Malaysia and Phillippines",
+ "task_ID": "TASK_250309_135125_138450",
+ "task_text": "Calculate urban sprawl rates for Chinese cities between 2015-2020?",
  "reference_solutions": [
   {
    "steps": [
     {
-     "function_name": "load_geodata",
-     "arguments": {
-      "geodataset": "Earthquakes occurences and magnitude March 15- February 14 2025",
-      "output_geodataframe_name": "earthquakes"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "load_geodata",
-     "arguments": {
-      "geodataset": "Countries",
-      "output_geodataframe_name": "countries"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "filter_categorical",
-     "arguments": {
-      "dataframe_name": "countries",
-      "filters": "{\"NAME_EN\": [\"Indonesia\", \"Malaysia\", \"Philippines\"]}",
-      "output_dataframe_name": "sea_countries"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "select_features_by_spatial_relationship",
-     "arguments": {
-      "features_geodataframe_name": "earthquakes",
-      "reference_geodataframe_name": "sea_countries",
-      "spatial_predicates": [
-       "within"
-      ],
-      "output_geodataframe_name": "sea_earthquakes",
-      "plot_result": false
-     },
-     "comment": null
-    },
-    {
-     "function_name": "make_heatmap",
-     "arguments": {
-      "geodataframe_name": "sea_earthquakes",
-      "value_column": "mag",
-      "radius": 25,
-      "map_style": "carto-positron"
-     },
+     "function_name": "reject_task",
+     "arguments": {},
      "comment": null
     }
    ]

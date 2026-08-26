@@ -1,0 +1,37 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/buildings.shp"
+    }
+  },
+  {
+    "tool": "flatten_3d_polygons",
+    "arguments": {
+      "input_path": "dataset/buildings.shp",
+      "output_name": "buildings_2d.shp"
+    }
+  },
+  {
+    "tool": "dissolve_polygons",
+    "arguments": {
+      "input_path": "./output\\buildings_2d.shp",
+      "output_name": "buildings_merged.geojson"
+    }
+  },
+  {
+    "tool": "visualize_vector",
+    "arguments": {
+      "input_path": "./output\\buildings_merged.geojson",
+      "output_name": "buildings_viz.png",
+      "style": {
+        "color": "lightblue",
+        "edgecolor": "blue",
+        "alpha": 0.7
+      },
+      "title": "Merged Buildings Coverage",
+      "legend": true,
+      "legend_kwds": null
+    }
+  }
+]

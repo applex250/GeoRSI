@@ -1,0 +1,5 @@
+1. Load and Preview Data
+2. Preprocess Data for GWR
+3. Set GWR Bandwidth
+4. Fit GWR Model
+5. Plot Changes in Bandwidth

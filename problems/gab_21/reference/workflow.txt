@@ -1,0 +1,5 @@
+1. Load Datasets
+2. Reclassify landcover
+3. Reclassify protected status
+4. Save landcover
+5. Save protected status

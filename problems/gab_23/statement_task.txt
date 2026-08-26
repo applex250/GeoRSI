@@ -1,0 +1,2 @@
+Assess Open Space to Lower Flood Insurance Cost
+Your task is assessing open space to lower flood insurance cost. The goal is to calculate the predominant land cover in each parcel and estimate open space area with accuracy of 85%. You should pay attention that small parcels contributed minimally can be excluded. You should integrate all information of OSP into a single table.

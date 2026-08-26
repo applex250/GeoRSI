@@ -1,0 +1,2 @@
+Determine how location impacts interest rates
+Your task is to analyze how location impacts interest rates. First, select and copy the tracts with at least 30 loans. Find interest rate hot spots on the selected loan tracts. Then create a Generalized Weighted Regression model on the selected data to determine how location impacts interest rates.

@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_536420",
+ "task_text": "Compare population density between flood-affected and non-flood-affected areas in Bangladesh during August 2018",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

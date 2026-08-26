@@ -1,7 +1,7 @@
-# GeoBenchX task 782046
+# GeoBenchX task 529248
 
 ## Task
-Make a heatmap final size of fire incidents in USA.
+Which African countries have the most efficient distribution of power stations relative to population?
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

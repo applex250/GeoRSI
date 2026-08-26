@@ -1,0 +1,77 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Elevation_2050.tif"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/StudyAreaBuildings.shp"
+    }
+  },
+  {
+    "tool": "compute_flood_depth",
+    "arguments": {
+      "elevation_raster_path": "dataset/Elevation_2050.tif",
+      "output_name": "flood_depth.tif",
+      "threshold": -200
+    }
+  },
+  {
+    "tool": "raster_to_polygons",
+    "arguments": {
+      "raster_path": "./output\\flood_depth.tif",
+      "output_name": "flood_extent.geojson",
+      "band": 1
+    }
+  },
+  {
+    "tool": "zonal_statistics",
+    "arguments": {
+      "raster_path": "./output\\flood_depth.tif",
+      "polygons_path": "dataset/StudyAreaBuildings.shp",
+      "output_name": "Buildings_Flooded_Stats.geojson",
+      "band": 1,
+      "stats": [
+        "mean"
+      ]
+    }
+  },
+  {
+    "tool": "calculate_flood_damage_costs",
+    "arguments": {
+      "buildings_stats_path": "./output\\Buildings_Flooded_Stats.geojson",
+      "output_name": "Damage_Costs.geojson",
+      "mean_field": "mean",
+      "cost_field": "DmgCost",
+      "area_field": null
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\Damage_Costs.geojson",
+          "type": "vector",
+          "style": {
+            "column": "DmgCost",
+            "cmap": "YlOrRd",
+            "edgecolor": "black",
+            "linewidth": 0.1,
+            "legend": true,
+            "legend_kwds": {
+              "label": "Damage Costs ($)",
+              "orientation": "vertical"
+            }
+          }
+        }
+      ],
+      "output_name": "Damage_Costs.png",
+      "title": "Projected Flood Damage Costs (2050)",
+      "legend_loc": "best"
+    }
+  }
+]

@@ -1,0 +1,11 @@
+1. Load the Neighborhoods, Streets, and Zoning datasets.
+2. Perform spatial joins to link zoning data with neighborhoods.
+3. Identify and classify streets by type and connectivity.
+4. Conduct a suitability analysis by overlaying zoning and street data.
+5. Use geoprocessing tools to delineate high-demand areas within neighborhoods.
+6. Propose bike routes by applying network analysis to streets.
+7. Evaluate proposed routes against zoning and neighborhood coverage metrics.
+8. Adjust routes based on accessibility and land-use compatibility.
+9. Generate final maps and summarize results for reporting.
+
+

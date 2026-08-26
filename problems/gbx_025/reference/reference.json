@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_146485",
+ "task_text": "Generate contour lines of population density in Angola's northern regions",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

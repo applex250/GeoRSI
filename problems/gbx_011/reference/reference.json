@@ -1,78 +1,76 @@
 {
- "task_ID": "TASK_250309_135125_438953",
- "task_text": "Create a bivariate map showing the relationship between CO2 emissions per capita and greenhouse gases emissions per capita for 1990 and 2020 across all countries.",
+ "task_ID": "TASK_250309_135125_741001",
+ "task_text": "How many Latin American seaports are located within 5 km of major rivers?",
  "reference_solutions": [
   {
    "steps": [
     {
-     "function_name": "load_data",
+     "function_name": "load_geodata",
      "arguments": {
-      "dataset": "CO2 emissions per capita, tons",
-      "output_dataframe_name": "co2_data"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "load_data",
-     "arguments": {
-      "dataset": "Greenhouse gases emission, per capita, tons of carbon dioxide-equivalents ",
-      "output_dataframe_name": "ghg_data"
+      "geodataset": "Seaports of Latin America",
+      "output_geodataframe_name": "seaports"
      },
      "comment": null
     },
     {
      "function_name": "load_geodata",
      "arguments": {
-      "geodataset": "Countries",
-      "output_geodataframe_name": "countries"
+      "geodataset": "Rivers in South America",
+      "output_geodataframe_name": "rivers"
      },
      "comment": null
     },
     {
-     "function_name": "merge_dataframes",
+     "function_name": "create_buffer",
      "arguments": {
-      "dataframe_name": "co2_data",
-      "geodataframe_name": "countries",
-      "statkey": "Country name",
-      "geokey": "NAME_EN",
-      "output_dataframe_name": "merged_co2"
-     },
-     "comment": "If 'statkey' is 'Country Name', then 'geokey' should be 'NAME_EN'. If 'statkey' is 'Country Code', then 'geokey' can be either 'WB_A3' or 'ISO_A3'."
-    },
-    {
-     "function_name": "merge_dataframes",
-     "arguments": {
-      "dataframe_name": "ghg_data",
-      "geodataframe_name": "merged_co2",
-      "statkey": "Country Name",
-      "geokey": "NAME_EN",
-      "output_dataframe_name": "final_merged"
-     },
-     "comment": "If 'statkey' is 'Country Name', then 'geokey' should be 'NAME_EN'. If 'statkey' is 'Country Code', then 'geokey' can be either 'WB_A3' or 'ISO_A3'."
-    },
-    {
-     "function_name": "make_bivariate_map",
-     "arguments": {
-      "dataframe_name": "final_merged",
-      "var1": "1990_x",
-      "var2": "1990_y",
-      "var1_name": "CO2 emissions per capita",
-      "var2_name": "Total GHG emissions per capita",
-      "title": "Relationship between CO2 and GHG emissions per capita (1990)",
-      "output_variable_name": "map_1990"
+      "geodataframe_name": "rivers",
+      "buffer_size": 5000,
+      "output_geodataframe_name": "rivers_buffer"
      },
      "comment": null
     },
     {
-     "function_name": "make_bivariate_map",
+     "function_name": "select_features_by_spatial_relationship",
      "arguments": {
-      "dataframe_name": "final_merged",
-      "var1": "2020_x",
-      "var2": "2020_y",
-      "var1_name": "CO2 emissions per capita",
-      "var2_name": "Total GHG emissions per capita",
-      "title": "Relationship between CO2 and GHG emissions per capita (2020)",
-      "output_variable_name": "map_2020"
+      "features_geodataframe_name": "seaports",
+      "reference_geodataframe_name": "rivers_buffer",
+      "spatial_predicates": [
+       "within",
+       "intersects"
+      ],
+      "output_geodataframe_name": "seaports_near_rivers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "visualize_geographies",
+     "arguments": {
+      "geodataframe_names": [
+       "rivers",
+       "seaports_near_rivers",
+       "seaports"
+      ],
+      "layer_styles": [
+       {
+        "color": "blue",
+        "alpha": 0.6,
+        "linewidth": 1,
+        "label": "Rivers"
+       },
+       {
+        "color": "green",
+        "alpha": 1,
+        "linewidth": 2,
+        "label": "Seaports within 5km of rivers"
+       },
+       {
+        "color": "red",
+        "alpha": 1,
+        "linewidth": 2,
+        "label": "Other seaports"
+       }
+      ],
+      "title": "Latin American Seaports and Major Rivers"
      },
      "comment": null
     }

@@ -1,0 +1,15 @@
+{
+ "expected_tools": [
+  "list_layers"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "not"
+ ],
+ "must_not_contain": [
+  "water stress shows",
+  "drought index is",
+  "0.45",
+  "score"
+ ]
+}

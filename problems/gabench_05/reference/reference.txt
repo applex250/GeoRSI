@@ -1,0 +1,86 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/High_Blood_Level_Results.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Sacramento_ZIP_Codes.shp"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "dataset/Sacramento_ZIP_Codes.shp",
+      "target_crs": "EPSG:3857",
+      "output_name": "sacramento_3857.shp"
+    }
+  },
+  {
+    "tool": "create_hexagonal_grid",
+    "arguments": {
+      "ref_gdf_path": "output/sacramento_3857.shp",
+      "output_name": "sacramento_hex_grid.shp",
+      "hex_size": 500
+    }
+  },
+  {
+    "tool": "count_points_in_polygons",
+    "arguments": {
+      "polygons_path": "output/sacramento_hex_grid.shp",
+      "points_path": "dataset/High_Blood_Level_Results.shp",
+      "output_name": "sacramento_hex_counts.geojson",
+      "count_field_name": "inc_cnt"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "output/sacramento_hex_counts.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/sacramento_hex_counts.geojson",
+          "style": {
+            "label": "Hex Bin Counts",
+            "column": "inc_cnt",
+            "scheme": "UserDefined",
+            "classification_kwds": {
+              "bins": [
+                1,
+                2
+              ]
+            },
+            "cmap": "Reds",
+            "legend": true,
+            "alpha": 0.6,
+            "edgecolor": "black",
+            "linewidth": 0.3
+          }
+        },
+        {
+          "data": "output/sacramento_3857.shp",
+          "style": {
+            "label": "Sacramento ZIP Codes",
+            "facecolor": "none",
+            "edgecolor": "grey",
+            "linewidth": 1
+          }
+        }
+      ],
+      "output_name": "blood_lead_hotspots_hex.png",
+      "title": "Elevated Blood Lead Hotspots (Hex Tessellation)"
+    }
+  }
+]
+EXPECTED PRODUCT(S): blood_lead_hotspots_hex.png
+INTERMEDIATE LAYERS: sacramento_3857.shp
+sacramento_hex_counts.geojson

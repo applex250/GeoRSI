@@ -405,21 +405,52 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				try {
 					const parsed = JSON.parse(readFileSync(af, "utf8")) as Record<string, unknown>;
 					answer = parsed.answers && typeof parsed.answers === "object" ? (parsed.answers as Record<string, unknown>) : parsed;
-					// coverage gate: fast models sometimes final-submit a nearly
-					// empty sheet (measured: 15/100 answers -> fitness 0.13,
-					// which alone sank an adversarial verification). Refuse the
-					// FIRST final attempt under 50% coverage — no eval budget
-					// spent, the agent is sent back to answer.
+					// verifier (deterministic, no gold access): catch output_format
+					// and instruction errors before they cost points. Refuses the
+					// first final submission that fails coverage or sanity; later
+					// attempts pass through with a warning appended by the caller.
 					if (isQuiz && params.final && st.submits === 0) {
 						const quizPath = join(workspace, "data", "quiz.jsonl");
 						if (existsSync(quizPath)) {
-							const total = readFileSync(quizPath, "utf8").split(/\r?\n/).filter((x) => x.trim()).length;
-							const covered = Object.keys(answer ?? {}).length;
+							const qs: { qid: string; kind?: string; options?: string[] | null }[] = [];
+							for (const x of readFileSync(quizPath, "utf8").split(/\r?\n/)) {
+								if (!x.trim()) continue;
+								try {
+									qs.push(JSON.parse(x));
+								} catch {
+									/* skip torn line */
+								}
+							}
+							const total = qs.length;
+							const covered = Object.keys(answer ?? {}).filter((k) => {
+								const v = (answer as Record<string, unknown>)[k];
+								return v !== undefined && v !== null && String(v).trim() !== "";
+							}).length;
+							const issues: string[] = [];
 							if (total > 0 && covered / total < 0.5) {
+								issues.push(`only ${covered}/${total} answered (${Math.round((covered / total) * 100)}%) — unanswered score ZERO`);
+							}
+							const unknownQids = Object.keys(answer ?? {}).filter((k) => !qs.some((q) => q.qid === k));
+							if (unknownQids.length > 0) {
+								issues.push(`${unknownQids.length} answers reference unknown qids (e.g. ${unknownQids[0]}) — check you used the exact qids from data/quiz.jsonl`);
+							}
+							let badFormat = 0;
+							for (const q of qs) {
+								const v = (answer as Record<string, unknown>)[q.qid];
+								if (v === undefined || v === null || String(v).trim() === "") continue;
+								const s = String(v).trim();
+								if (q.kind === "mcq" && q.options && q.options.length > 0) {
+									const letterOk = /^[a-jA-J]$/.test(s) || q.options.some((o) => o.trim() === s);
+									if (!letterOk) badFormat += 1;
+								} else if (q.kind === "tf" && !/^(true|false|t|f|yes|no|对|错|正确|错误)$/i.test(s.replace(/[。.\s]/g, ""))) {
+									badFormat += 1;
+								}
+							}
+							if (badFormat > 0) issues.push(`${badFormat} answers look malformed for their question kind (mcq should be a bare letter like "B", tf should be true/false)`);
+							if (issues.length > 0) {
 								return toolOutput(
-									`submission refused: only ${covered}/${total} questions answered (${Math.round((covered / total) * 100)}%). ` +
-										"Unanswered questions score ZERO. Keep answering and submit again when at least ~90% are answered. " +
-										"This refusal did not consume a submission.",
+									`submission refused — fix and resubmit (this refusal did not consume a submission):\n- ` +
+										issues.join("\n- "),
 								);
 							}
 						}

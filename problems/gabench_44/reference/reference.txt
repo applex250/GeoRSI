@@ -1,0 +1,33 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/dem.tif"
+    }
+  },
+  {
+    "tool": "fill_depressions",
+    "arguments": {
+      "raster_path": "dataset/dem.tif",
+      "output_name": "dem_filled.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\dem_filled.tif",
+      "output_name": "dem_filled_viz.png",
+      "bands": null,
+      "cmap": "terrain",
+      "stretch": true,
+      "title": "Depressionless DEM (Filled)",
+      "legend": true,
+      "legend_label": "Elevation (m)",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]
+EXPECTED PRODUCT(S): dem_filled_viz.png
+INTERMEDIATE LAYERS: dem_filled.tif

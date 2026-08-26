@@ -1,0 +1,1 @@
+Your task is to process a de-identified point-level dataset that includes all variables of interest for each child as well as their approximate locations. You need to load the point data, ensure a consistent Coordinate Reference System (CRS), round the coordinates to two decimal places, save the result as "rounded_points_plot.png", and visualize it.

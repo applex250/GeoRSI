@@ -1,0 +1,38 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/dem_filled.tif"
+    }
+  },
+  {
+    "tool": "compute_flow_direction",
+    "arguments": {
+      "raster_path": "dataset/dem_filled.tif",
+      "output_name": "flow_direction.tif"
+    }
+  },
+  {
+    "tool": "compute_flow_accumulation",
+    "arguments": {
+      "flow_direction_path": "./output\\flow_direction.tif",
+      "output_name": "flow_accumulation.tif",
+      "weight_raster_path": null
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\flow_accumulation.tif",
+      "output_name": "FlowAccumulation.png",
+      "bands": null,
+      "cmap": "gray",
+      "stretch": true,
+      "title": "Flow Accumulation (D8)",
+      "legend": true,
+      "legend_label": "Flow Accumulation",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]

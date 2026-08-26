@@ -1,0 +1,50 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/loan_data.shp"
+    }
+  },
+  {
+    "tool": "filter_features_by_expression",
+    "arguments": {
+      "input_path": "dataset/loan_data.shp",
+      "output_name": "loan_data_selected.geojson",
+      "expression": "AcceptedLo >= 30"
+    }
+  },
+  {
+    "tool": "classify_hotspots",
+    "arguments": {
+      "input_vector_path": "./output\\loan_data_selected.geojson",
+      "field": "AveInteres",
+      "output_name": "hot_spots_result.geojson"
+    }
+  },
+  {
+    "tool": "ols_regression",
+    "arguments": {
+      "input_vector_path": "./output\\loan_data_selected.geojson",
+      "y_field": "AveInteres",
+      "x_field": "AveLoanGra",
+      "output_name": "ols_result.geojson"
+    }
+  },
+  {
+    "tool": "visualize_vector",
+    "arguments": {
+      "input_path": "./output\\hot_spots_result.geojson",
+      "output_name": "loan_hot_spots.png",
+      "style": {
+        "column": "hspot_type",
+        "categorical": true,
+        "cmap": "RdYlBu_r"
+      },
+      "title": "Hot Spot Analysis Result",
+      "legend": true,
+      "legend_kwds": {
+        "title": "Hot Spot Type"
+      }
+    }
+  }
+]

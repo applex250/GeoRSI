@@ -1,0 +1,68 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/StudyAreaBuildings.shp"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Elevation_2050.tif"
+    }
+  },
+  {
+    "tool": "compute_flood_depth",
+    "arguments": {
+      "elevation_raster_path": "dataset/Elevation_2050.tif",
+      "output_name": "flood_depth.tif",
+      "threshold": -200
+    }
+  },
+  {
+    "tool": "summarize_damage",
+    "arguments": {
+      "buildings_in_flood_path": "dataset/StudyAreaBuildings.shp",
+      "original_buildings_path": "dataset/StudyAreaBuildings.shp",
+      "raster_path": "./output\\flood_depth.tif",
+      "output_name": "damage_assessment.geojson",
+      "group_field": null,
+      "sample_band": 1
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\flood_depth.tif",
+          "type": "raster",
+          "style": {
+            "label": "Flood Depth",
+            "cmap": "Blues",
+            "alpha": 0.6,
+            "colorbar": true
+          }
+        },
+        {
+          "data": "./output\\damage_assessment.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "red",
+            "linewidth": 0.5,
+            "alpha": 0.8,
+            "label": "Buildings"
+          }
+        }
+      ],
+      "output_name": "flooding_analysis.png",
+      "title": "Flood Depth and Affected Buildings",
+      "legend_loc": "best"
+    }
+  }
+]
+EXPECTED PRODUCT(S): flooding_analysis.png
+INTERMEDIATE LAYERS: flood_depth.tif
+damage_assessment.geojson

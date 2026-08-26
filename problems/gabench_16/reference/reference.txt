@@ -1,0 +1,47 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_nc_info",
+    "arguments": {
+      "nc_path": "dataset/A1B_north_america.nc"
+    }
+  },
+  {
+    "tool": "fit_netcdf_timeseries",
+    "arguments": {
+      "nc_path": "dataset/A1B_north_america.nc",
+      "output_name": "polyfit_A1B_north_america.csv",
+      "degree": 2,
+      "var_constraint": null
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "output/polyfit_A1B_north_america.csv"
+    }
+  },
+  {
+    "tool": "create_chart",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/polyfit_A1B_north_america.csv",
+          "style": {
+            "x_col": "Year",
+            "y_col": "Fitted_Temperature",
+            "label": "Fitted",
+            "color": "red",
+            "linewidth": 2
+          }
+        }
+      ],
+      "output_name": "polynomial_fit_pred.png",
+      "title": "Polynomial Fit",
+      "xlabel": "Year",
+      "ylabel": "Temperature"
+    }
+  }
+]
+EXPECTED PRODUCT(S): polynomial_fit_pred.png
+INTERMEDIATE LAYERS: polyfit_A1B_north_america.csv

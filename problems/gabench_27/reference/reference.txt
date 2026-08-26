@@ -1,0 +1,82 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "dataset/socioeconomic_data.csv"
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "dataset/od_data.csv"
+    }
+  },
+  {
+    "tool": "aggregate_od_flows",
+    "arguments": {
+      "od_path": "dataset/od_data.csv",
+      "attributes_path": "dataset/socioeconomic_data.csv",
+      "flow_field": "FlowVolume",
+      "output_name": "28_merged_data.csv",
+      "origin_field": "Origin",
+      "destination_field": "Destination",
+      "join_key": "Subregion",
+      "undirected": false
+    }
+  },
+  {
+    "tool": "prepare_model_data",
+    "arguments": {
+      "data_path": "./output\\28_merged_data.csv",
+      "output_name": "28",
+      "target_column": "TotalFlow",
+      "feature_columns": null,
+      "drop_columns": null,
+      "index": false
+    }
+  },
+  {
+    "tool": "split_train_test",
+    "arguments": {
+      "csv_path": "./output\\28_prepared.csv",
+      "output_name": "28",
+      "label_column": "TotalFlow",
+      "test_size": 0.2,
+      "random_state": 42,
+      "stratify": false,
+      "index": false
+    }
+  },
+  {
+    "tool": "tune_model_hyperparameters",
+    "arguments": {
+      "X_train_path": "./output\\28_X_train.csv",
+      "output_name": "28",
+      "y_train_path": "./output\\28_y_train.csv",
+      "target_column": "TotalFlow"
+    }
+  },
+  {
+    "tool": "generate_model_predictions",
+    "arguments": {
+      "model_path": "./output\\28_best_model.joblib",
+      "X_test_path": "./output\\28_X_test.csv",
+      "output_name": "28",
+      "output_type": "labels",
+      "pred_column": "y_pred"
+    }
+  },
+  {
+    "tool": "evaluate_regression_mse",
+    "arguments": {
+      "labels_path": "./output\\28_y_test.csv",
+      "predictions_path": "./output\\28_predictions.csv",
+      "output_name": "model_performance",
+      "label_column": "TotalFlow",
+      "pred_column": "y_pred"
+    }
+  }
+]
+EXPECTED PRODUCT(S): CHECK:JSON_VALUE:model_performance.json:mse:<6000
+INTERMEDIATE LAYERS: model_performance.json

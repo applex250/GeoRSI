@@ -1,0 +1,20 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area",
+  "generate_chart"
+ ],
+ "expected_actions": [
+  "fly_to_bounds"
+ ],
+ "must_contain": [
+  "Setubal",
+  "Faro",
+  "forest",
+  "%"
+ ],
+ "must_not_contain": [
+  "error",
+  "not found"
+ ]
+}

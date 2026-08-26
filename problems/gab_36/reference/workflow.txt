@@ -1,0 +1,7 @@
+1. Load Data
+2. Calculate SAVI
+3. Compute Vegetation Loss
+4. Remap vegetation loss
+5. Perform Zonal Statistics
+6. Join Zonal Statistics table to field boundaries
+7. Visualize Results

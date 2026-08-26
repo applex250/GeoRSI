@@ -1,0 +1,2 @@
+Identify undeveloped areas from groundwater risk zones.
+Your task is to identify those high risk zones of groundwater vulnerable areas that need protection using the Arcpy. First, use vulnerable_areas and land_cover to perform suitability modeling to calculate risk_zones. Next, filter out high_risk_zones, and then undeveloped_areas based on risk_zones, and save the result to 'output/undeveloped_areas.tif'.

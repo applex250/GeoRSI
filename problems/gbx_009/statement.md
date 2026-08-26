@@ -1,7 +1,7 @@
-# GeoBenchX task 822439
+# GeoBenchX task 476928
 
 ## Task
-Create a heatmap of earthquake occurrences in Pacific US states.
+Find municipalities in Brazil where population density is above national average and are within 20km of both rivers and railways
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

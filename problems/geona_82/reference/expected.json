@@ -1,0 +1,13 @@
+{
+ "expected_tools": [
+  "list_layers"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "bigearthnet",
+  "land cover"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

@@ -1,0 +1,147 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "export_vector_to_geojson",
+    "arguments": {
+      "input_vector_path": "dataset/network.shp",
+      "output_name": "network.geojson"
+    }
+  },
+  {
+    "tool": "export_vector_to_geojson",
+    "arguments": {
+      "input_vector_path": "dataset/school.shp",
+      "output_name": "school.geojson"
+    }
+  },
+  {
+    "tool": "export_vector_to_geojson",
+    "arguments": {
+      "input_vector_path": "dataset/Marketplace.shp",
+      "output_name": "Marketplace.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\network.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\school.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\Marketplace.geojson"
+    }
+  },
+  {
+    "tool": "select_start_end_from_candidates",
+    "arguments": {
+      "network_path": ".\\output\\network.geojson",
+      "start_points_path": ".\\output\\school.geojson",
+      "end_points_path": ".\\output\\Marketplace.geojson",
+      "start_name_field": "name",
+      "end_name_field": "NAME",
+      "cost_field": "MINUTES",
+      "selection_strategy": "longest_network_distance",
+      "output_name": "selected_start_end_points.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": ".\\output\\selected_start_end_points.geojson"
+    }
+  },
+  {
+    "tool": "shortest_path_start_end",
+    "arguments": {
+      "network_path": ".\\output\\network.geojson",
+      "start_x": 3808.451648534482,
+      "start_y": 2543.2622771379315,
+      "end_x": 8644.682084918235,
+      "end_y": 5048.816455274964,
+      "cost_field": "MINUTES",
+      "start_label": "附属中学",
+      "end_label": "康复路批发市场",
+      "output_name": "start_end_shortest_route.geojson",
+      "report_output_name": "start_end_shortest_route_report.json"
+    }
+  },
+  {
+    "tool": "summarize_route_result",
+    "arguments": {
+      "route_geojson_path": ".\\output\\start_end_shortest_route.geojson",
+      "report_json_path": ".\\output\\start_end_shortest_route_report.json",
+      "output_name": "route_summary.json"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": ".\\output\\network.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#c7cbd1",
+            "linewidth": 0.55,
+            "label": "Road network"
+          }
+        },
+        {
+          "data": ".\\output\\school.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#1f5fbf",
+            "markersize": 18,
+            "alpha": 0.75,
+            "label": "School candidates"
+          }
+        },
+        {
+          "data": ".\\output\\Marketplace.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#2f7d32",
+            "markersize": 18,
+            "alpha": 0.75,
+            "label": "Marketplace candidates"
+          }
+        },
+        {
+          "data": ".\\output\\start_end_shortest_route.geojson",
+          "type": "vector",
+          "style": {
+            "color": "#d7191c",
+            "linewidth": 3.0,
+            "label": "Shortest path"
+          }
+        },
+        {
+          "data": ".\\output\\selected_start_end_points.geojson",
+          "type": "vector",
+          "style": {
+            "column": "role",
+            "markersize": 75,
+            "categorical": true,
+            "label": "Selected start/end"
+          }
+        }
+      ],
+      "output_name": "start_end_overview_map.png",
+      "title": "Candidate-Based Path Analysis Overview"
+    }
+  }
+]
+EXPECTED PRODUCT(S): service_area_overview.png
+INTERMEDIATE LAYERS: network.geojson
+school.geojson
+Marketplace.geojson
+tart_end_shortest_route.geojson
+selected_start_end_points.geojson

@@ -1,0 +1,18 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area"
+ ],
+ "expected_actions": [
+  "fly_to_bounds"
+ ],
+ "must_contain": [
+  "Santarem",
+  "Murcia",
+  "%"
+ ],
+ "must_not_contain": [
+  "error",
+  "not found"
+ ]
+}

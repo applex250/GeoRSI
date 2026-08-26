@@ -1,0 +1,1 @@
+Your task is to evaluate mountain lion habitat suitability by calculating terrain ruggedness from elevation data. The analysis applies focal statistics with a 3x3 moving window to measure terrain variation, followed by rescaling to standardize the ruggedness values. The final result should be visualized as "ruggedness_norm.png".

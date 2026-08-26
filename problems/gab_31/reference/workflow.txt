@@ -1,0 +1,6 @@
+1. Load Flow and Area Data.
+2. Calculate the polygon areas
+3. Edge Correction
+5. Local K-function calculation
+6. Aggregate the local K-functions to derive the global K-function
+7. Visualize the L-function with confidence intervals and highlight key aggregation scales

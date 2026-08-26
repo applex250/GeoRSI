@@ -1,0 +1,7 @@
+1. Load Dataset
+2. Ensure Consistent Coordinate Reference System (CRS)
+3. Add fields to hold the rounded coordinate values
+4. Round the values for the coordinates
+5. Create new points at the rounded coordinates
+6. Document the coordinate rounding results
+7. Visualization

@@ -1,0 +1,9 @@
+1. Load Dataset
+2. Define crash hotspot
+3. Select Layer By 脜ttribute(Crashes)
+4. Copy Feature
+5. Snap
+6. Spatial Join
+7. Add Fields
+8. Calculates Fields
+9. Hot Spot Analysis (Getis-Ord Gi*)

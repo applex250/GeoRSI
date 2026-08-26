@@ -1,0 +1,165 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/CatalinaBathymetry.tif"
+    }
+  },
+  {
+    "tool": "compute_slope",
+    "arguments": {
+      "raster_path": "dataset/CatalinaBathymetry.tif",
+      "band": 1,
+      "output_name": "CatalinaBathymetry_band1_slope.tif"
+    }
+  },
+  {
+    "tool": "compute_aspect",
+    "arguments": {
+      "raster_path": "dataset/CatalinaBathymetry.tif",
+      "band": 1,
+      "output_name": "CatalinaBathymetry_band1_aspect.tif"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/CoralandSpongeCatalina.geojson"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/CoralandSpongeCatalina.geojson",
+      "crs": "EPSG:4326",
+      "output_name": "setcrs_CoralandSpongeCatalina_4326.geojson"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\setcrs_CoralandSpongeCatalina_4326.geojson",
+      "target_crs": "EPSG:3310",
+      "output_name": "reproj_setcrs_CoralandSpongeCatalina_4326_3310.geojson"
+    }
+  },
+  {
+    "tool": "sample_slope_aspect_at_points",
+    "arguments": {
+      "points_geojson_path": "./output\\reproj_setcrs_CoralandSpongeCatalina_4326_3310.geojson",
+      "slope_raster_path": "./output\\CatalinaBathymetry_band1_slope.tif",
+      "aspect_raster_path": "./output\\CatalinaBathymetry_band1_aspect.tif",
+      "group_field_name": "VernacularNameCategory",
+      "output_name": "sample_reproj_setcrs_CoralandSpongeCatalina_4326_3310.csv"
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "./output\\sample_reproj_setcrs_CoralandSpongeCatalina_4326_3310.csv"
+    }
+  },
+  {
+    "tool": "calculate_group_statistics",
+    "arguments": {
+      "csv_path": "./output\\sample_reproj_setcrs_CoralandSpongeCatalina_4326_3310.csv",
+      "group_field_name": "VernacularNameCategory",
+      "metric": "mean",
+      "output_name": "group_statistics.csv"
+    }
+  },
+  {
+    "tool": "plot_group_metrics_layers",
+    "arguments": {
+      "analysis_results": [
+        {
+          "VernacularNameCategory_": "black coral",
+          "slope_mean": 0.3269673849527652,
+          "aspect_mean": 233.81641534658576
+        },
+        {
+          "VernacularNameCategory_": "demosponge",
+          "slope_mean": 0.3679851280054548,
+          "aspect_mean": 255.86757299402257
+        },
+        {
+          "VernacularNameCategory_": "fish",
+          "slope_mean": 0.0975223337353645,
+          "aspect_mean": 121.2392498907915
+        },
+        {
+          "VernacularNameCategory_": "glass sponge",
+          "slope_mean": 0.3486687039713497,
+          "aspect_mean": 156.27366312949553
+        },
+        {
+          "VernacularNameCategory_": "gorgonian coral",
+          "slope_mean": 0.4213578264930752,
+          "aspect_mean": 278.6544107677556
+        },
+        {
+          "VernacularNameCategory_": "lace coral",
+          "slope_mean": 0.6919144994482912,
+          "aspect_mean": 242.20085074983797
+        },
+        {
+          "VernacularNameCategory_": "sea pen",
+          "slope_mean": 0.359573580546687,
+          "aspect_mean": 191.31000264064627
+        },
+        {
+          "VernacularNameCategory_": "soft coral",
+          "slope_mean": 0.1624816978971162,
+          "aspect_mean": 150.0
+        },
+        {
+          "VernacularNameCategory_": "sponge (unspecified)",
+          "slope_mean": 0.29971130866412,
+          "aspect_mean": 210.371756987334
+        },
+        {
+          "VernacularNameCategory_": "stoloniferan coral",
+          "slope_mean": 0.1865470707416534,
+          "aspect_mean": 316.0655822753906
+        },
+        {
+          "VernacularNameCategory_": "stony coral (branching)",
+          "slope_mean": 0.1107268181184063,
+          "aspect_mean": 240.60196022365403
+        },
+        {
+          "VernacularNameCategory_": "stony coral (cup coral)",
+          "slope_mean": 0.4480728265146414,
+          "aspect_mean": 221.99097834269205
+        },
+        {
+          "VernacularNameCategory_": "stony coral (unspecified)",
+          "slope_mean": 0.4539072378724813,
+          "aspect_mean": 155.59400884628295
+        }
+      ],
+      "group_field": "VernacularNameCategory",
+      "layers": [
+        {
+          "key": "slope_mean",
+          "style": {
+            "ylabel": "Mean Slope (degrees)",
+            "title": "Mean Slope per Species",
+            "color": "b",
+            "rotation": 45
+          }
+        },
+        {
+          "key": "aspect_mean",
+          "style": {
+            "ylabel": "Mean Aspect (degrees)",
+            "title": "Mean Aspect per Species",
+            "color": "g",
+            "rotation": 45
+          }
+        }
+      ],
+      "output_name": "CoralandSponge.png"
+    }
+  }
+]

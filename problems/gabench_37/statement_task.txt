@@ -1,0 +1,1 @@
+Your task is to calculate impervious surface area by combining the impervious surface raster data with land parcel polygons. Use the Tabulate Area tool to compute the area of impervious surfaces within each parcel, then join these area statistics back to the parcel layer. Finally, visualize the resulting impervious surface distribution and save the map as "impervious_area.png".

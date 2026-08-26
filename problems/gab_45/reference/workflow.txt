@@ -1,0 +1,4 @@
+1. Load Dataset
+2. Calculate Ruggedness using focal statistic
+3. Calculate Cost using Rescale by function
+4. Save the cost layer

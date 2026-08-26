@@ -1,0 +1,7 @@
+1. Load Dataset
+2. Convert to Geodataframe
+3. Calculate Slope
+4. Caclulate Aspect
+5. Define New Geodataframe
+6. Calculate attribute mean
+7. Visualization

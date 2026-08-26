@@ -1,0 +1,7 @@
+1. Retrive and load data
+2. Save the network graph
+3. Calculate and add speed limit to the edges
+4. Calculate and add travel time to the edges
+6. Find the nearest node
+7. Find distance from each node to the nearest node
+8. Visualization

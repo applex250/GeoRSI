@@ -1,0 +1,10 @@
+1. Load Dataset
+2. Search Similarity (transmission risk)
+3. Join transmission risk result
+4. Search Similarity (susceptibility risk)
+5. Join susceptibility risk result
+6. Search Similarity (healthcare resource scarcity risk)
+7. Join healthcare resource scarcity risk result
+8. Search Similarity (exposure risk)
+9. Join exposure risk result
+10. Multivariate Clustering

@@ -1,0 +1,134 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/sn_w_minoccs.gpkg"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasgrav_IR_1VD.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasgrav_IR.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasmag_TMI_1VD.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasmag_TMI.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasrad_K_pct.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasrad_Th_ppm.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/tasrad_U_ppm.tif"
+    }
+  },
+  {
+    "tool": "extract_raster_variables",
+    "arguments": {
+      "raster_paths": [
+        "dataset/tasgrav_IR_1VD.tif",
+        "dataset/tasgrav_IR.tif",
+        "dataset/tasmag_TMI_1VD.tif",
+        "dataset/tasmag_TMI.tif",
+        "dataset/tasrad_K_pct.tif",
+        "dataset/tasrad_Th_ppm.tif",
+        "dataset/tasrad_U_ppm.tif"
+      ],
+      "output_name": "data",
+      "band": 1
+    }
+  },
+  {
+    "tool": "rasterize_vector_labels",
+    "arguments": {
+      "point_path": "dataset/sn_w_minoccs.gpkg",
+      "metadata_path": "./output\\data_metadata.pkl",
+      "output_name": "data_labels.npy",
+      "buffer_meters": 1000.0,
+      "label_value": 1,
+      "fill_value": 0
+    }
+  },
+  {
+    "tool": "undersample_raster_data",
+    "arguments": {
+      "data_path": "./output\\data.npy",
+      "labels_path": "./output\\data_labels.npy",
+      "metadata_path": "./output\\data_metadata.pkl",
+      "output_name": "data",
+      "random_state": 42
+    }
+  },
+  {
+    "tool": "split_train_test",
+    "arguments": {
+      "csv_path": "./output\\data_undersampled.csv",
+      "output_name": "data",
+      "label_column": "label",
+      "test_size": 0.3,
+      "random_state": 42,
+      "stratify": true,
+      "index": false
+    }
+  },
+  {
+    "tool": "train_random_forest_model",
+    "arguments": {
+      "X_train_path": "./output\\data_X_train.csv",
+      "output_name": "data",
+      "y_train_path": "./output\\data_y_train.csv",
+      "label_column": "label",
+      "n_estimators": 100,
+      "max_depth": null,
+      "random_state": 42
+    }
+  },
+  {
+    "tool": "generate_model_predictions",
+    "arguments": {
+      "model_path": "./output\\data.joblib",
+      "X_test_path": "./output\\data_X_test.csv",
+      "output_name": "data",
+      "output_type": "proba",
+      "pred_column": "y_pred"
+    }
+  },
+  {
+    "tool": "evaluate_classification_auc",
+    "arguments": {
+      "labels_path": "./output\\data_y_test.csv",
+      "predictions_path": "./output\\data_y_proba.csv",
+      "output_name": "data",
+      "label_column": "label",
+      "class_index": 1
+    }
+  }
+]
+EXPECTED PRODUCT(S): CHECK:JSON_VALUE:*rf_auc_metrics.json:roc_auc:>=0.9
+INTERMEDIATE LAYERS: data_rf_auc_metrics.json

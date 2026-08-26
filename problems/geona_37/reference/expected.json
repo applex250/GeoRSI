@@ -1,0 +1,12 @@
+{
+ "expected_tools": [],
+ "expected_actions": [],
+ "must_contain": [
+  "Broadleaf"
+ ],
+ "must_not_contain": [
+  "error",
+  "which district",
+  "analyze"
+ ]
+}

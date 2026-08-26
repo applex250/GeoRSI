@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_772258",
+ "task_text": "Visualize deforestation rates within 100km of major African highways?",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

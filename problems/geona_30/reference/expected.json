@@ -1,0 +1,18 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area"
+ ],
+ "expected_actions": [
+  "show_province_boundary",
+  "fly_to_bounds"
+ ],
+ "must_contain": [
+  "Guadalajara",
+  "%",
+  "eligible"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

@@ -1,7 +1,7 @@
-# GeoBenchX task 311281
+# GeoBenchX task 551060
 
 ## Task
-How many active wildfires are currently burning within 50 miles of Amtrak stations?
+Calculate the percentage of Angola's population living in areas with density above 1000 people per square kilometer
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

@@ -1,7 +1,7 @@
-# GeoBenchX task 438953
+# GeoBenchX task 741001
 
 ## Task
-Create a bivariate map showing the relationship between CO2 emissions per capita and greenhouse gases emissions per capita for 1990 and 2020 across all countries.
+How many Latin American seaports are located within 5 km of major rivers?
 
 ## Your toolkit (solution vocabulary)
 Solutions are expressed as an ordered chain of tool calls. You do NOT call these

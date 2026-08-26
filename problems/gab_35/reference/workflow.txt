@@ -1,0 +1,10 @@
+1. Load data
+2. Calculate NBR for pre-fire
+3. Calculate NBR for post-fire
+4. Calculate Burn Severity
+5. Calculate Slope
+6. Landcover remap
+7. Burn severity remap
+8. Slope remap
+9. Weighted Overlay
+10. Visualize results

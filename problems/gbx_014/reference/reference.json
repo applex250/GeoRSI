@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_538378",
+ "task_text": "Calculate the average freshwater withdrawal in regions with significant mining activities in Africa",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,59 @@
+[
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "dataset/o_area.csv"
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "dataset/d_area.csv"
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": "dataset/flow.csv"
+    }
+  },
+  {
+    "tool": "local_k_function",
+    "arguments": {
+      "flow_path": "dataset/flow.csv",
+      "output_name": "localK_flow.csv"
+    }
+  },
+  {
+    "tool": "global_l_function",
+    "arguments": {
+      "localK_path": "./output\\localK_flow.csv",
+      "o_area_path": "dataset/o_area.csv",
+      "d_area_path": "dataset/d_area.csv",
+      "output_name": "L_localK_flow.csv"
+    }
+  },
+  {
+    "tool": "create_chart",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\L_localK_flow.csv",
+          "style": {
+            "x_col": "r",
+            "y_col": "L",
+            "label": "L(r)",
+            "color": "blue",
+            "linewidth": 2
+          }
+        }
+      ],
+      "output_name": "l_function.png",
+      "title": "L-function Analysis",
+      "xlabel": "Distance r (km)",
+      "ylabel": "L(r)",
+      "invert_y": false,
+      "secondary_xlabel": null
+    }
+  }
+]

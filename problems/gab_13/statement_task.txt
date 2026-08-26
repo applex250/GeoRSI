@@ -1,0 +1,2 @@
+Understand the relationship between ocean temperature and salinity at various depths in the South Atlantic Ocean.
+Your task is using sea temperature and salinity data from the South Atlantic Ocean to calculate and analyze a vertical temperature-salinity profile within a specified range of latitude, longitude, and depth. Plot the profile and save the figure as 'pred_results/ocean_profiles_vis.png'.

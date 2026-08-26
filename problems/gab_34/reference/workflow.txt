@@ -1,0 +1,7 @@
+1. Load Data
+2. Filter Rural Areas
+3. Clip population for rural Areas
+4. Create 2km buffer for roads
+5. Clip population of the rural area in the buffer
+6. Calculate the population percentage
+7. Visualize results

@@ -1,0 +1,63 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/impervious.tif"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/parcels.shp"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "dataset/parcels.shp",
+      "target_crs": "EPSG:2246",
+      "output_name": "parcels_reprojected.geojson"
+    }
+  },
+  {
+    "tool": "calculate_area_above_threshold",
+    "arguments": {
+      "parcels_path": "./output\\parcels_reprojected.geojson",
+      "raster_path": "dataset/impervious.tif",
+      "output_name": "impervious_area.csv",
+      "parcel_id_field": "Parcel_ID",
+      "threshold": 0.0
+    }
+  },
+  {
+    "tool": "join_table_to_vector",
+    "arguments": {
+      "vector_path": "./output\\parcels_reprojected.geojson",
+      "table_path": "output/impervious_area.csv",
+      "vector_key": "Parcel_ID",
+      "table_key": "Parcel_ID",
+      "output_name": "parcels_impervious_join.geojson"
+    }
+  },
+  {
+    "tool": "visualize_vector",
+    "arguments": {
+      "input_path": "./output\\parcels_impervious_join.geojson",
+      "output_name": "impervious_area.png",
+      "style": {
+        "column": "impervious_area",
+        "cmap": "Reds",
+        "edgecolor": "black",
+        "linewidth": 0.5
+      },
+      "title": "Impervious Area Distribution",
+      "legend": true,
+      "legend_kwds": {
+        "label": "Impervious Area (m²)"
+      }
+    }
+  }
+]
+EXPECTED PRODUCT(S): impervious_area.png
+INTERMEDIATE LAYERS: parcels_impervious_join.geojson

@@ -1,0 +1,5 @@
+1. Load Dataset
+2. Buffer
+3. Save the buffered fire stations
+4. Visualize the most compromised areas in terms of fire service
+5. Save the no service area

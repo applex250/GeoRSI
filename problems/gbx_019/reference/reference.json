@@ -1,0 +1,111 @@
+{
+ "task_ID": "TASK_250309_135125_620811",
+ "task_text": "Create contour lines of population density along major rivers in Brazil",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  },
+  {
+   "steps": [
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Countries",
+      "output_geodataframe_name": "countries"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "filter_categorical",
+     "arguments": {
+      "dataframe_name": "countries",
+      "filters": {
+       "NAME_EN": "Brazil"
+      },
+      "output_dataframe_name": "brazil"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "load_geodata",
+     "arguments": {
+      "geodataset": "Rivers in South America",
+      "output_geodataframe_name": "rivers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "select_features_by_spatial_relationship",
+     "arguments": {
+      "features_geodataframe_name": "rivers",
+      "reference_geodataframe_name": "brazil",
+      "spatial_predicates": [
+       "within",
+       "intersects"
+      ],
+      "output_geodataframe_name": "brazil_rivers"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "get_raster_path",
+     "arguments": {
+      "rasterdataset": "Brazil population, 2018, 1 km resolution"
+     },
+     "comment": null
+    },
+    {
+     "function_name": "generate_contours_display",
+     "arguments": {
+      "raster_path": "G:/My Drive/Geo Agent/Tasks data/Data/GeoData/bra_ppp_2018_1km_Aggregated_UNadj.tif",
+      "output_filename": "brazil_pop_contours.shp",
+      "contour_interval": 500,
+      "column_title": "population_density",
+      "output_geodataframe_name": "population_contours",
+      "nodataval": 0,
+      "plot_title": "Population Density Contours and Rivers in Brazil (2018)"
+     },
+     "comment": "'contour_interval' can differ"
+    },
+    {
+     "function_name": "visualize_geographies",
+     "arguments": {
+      "geodataframe_names": [
+       "brazil",
+       "brazil_rivers",
+       "population_contours"
+      ],
+      "layer_styles": [
+       {
+        "color": "none",
+        "alpha": 0.2,
+        "linewidth": 1,
+        "label": "Brazil Border"
+       },
+       {
+        "color": "blue",
+        "alpha": 0.6,
+        "linewidth": 0.5,
+        "label": "Rivers"
+       },
+       {
+        "color": "red",
+        "alpha": 0.5,
+        "linewidth": 0.5,
+        "label": "Population Density Contours"
+       }
+      ],
+      "title": "Population Density Contours and Rivers in Brazil (2018)"
+     },
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "%",
+  "Forest"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

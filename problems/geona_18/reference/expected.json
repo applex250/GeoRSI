@@ -1,0 +1,11 @@
+{
+ "expected_tools": [],
+ "expected_actions": [],
+ "must_contain": [
+  "Barcelona",
+  "2026"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

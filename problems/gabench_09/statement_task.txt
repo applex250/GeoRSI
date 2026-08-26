@@ -1,0 +1,3 @@
+Your task is to find the deforestation rate for the Brazilian state of Rondônia. The goal is to calculate the percentage of deforested area within a 5.5 km buffer zone around road layers in Rondônia. Optimization Requirement : Since the road network is complex and the dataset is large, please optimize the processing workflow to minimize execution time. Consider simplifying or merging geometric features before intersection analysis to avoid performance bottlenecks.
+Save the percentage result in a CSV file named "deforestation_rate.csv".
+Note: If any input GeoJSON file does not explicitly define a coordinate reference system (CRS), assume and assign it as WGS84 (EPSG:4326).

@@ -1,0 +1,3 @@
+Your task is standardizing protected status datasets for consistency in analysis for mountain lion habitat. Reclassify this categorical dataset to a common scale using geospatial tools, and visualize the reclassified results, saving them as "reclassified_protectedStatus.png".
+The protected status data are reclassified as follows: 0 (Unprotected) → 1, 1 (Low protection) → 3, 2 (Moderate protection) → 6, 3 (High protection) → 9, 4 (Highest/strict protection) → 10, and 255 (NoData or undefined) → 10.
+These reclassification schemes align the original categorical values to a unified scale suitable for mountain lion habitat suitability modeling.

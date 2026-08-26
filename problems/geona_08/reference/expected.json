@@ -1,0 +1,12 @@
+{
+ "expected_tools": [
+  "generate_chart"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "chart"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

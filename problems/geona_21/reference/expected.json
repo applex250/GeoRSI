@@ -1,0 +1,14 @@
+{
+ "expected_tools": [
+  "compare_areas"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Murcia",
+  "Cordoba",
+  "%"
+ ],
+ "must_not_contain": [
+  "error"
+ ]
+}

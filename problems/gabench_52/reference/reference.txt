@@ -1,0 +1,53 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/flow_direction.tif"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/streamfea.shp"
+    }
+  },
+  {
+    "tool": "compute_watershed_basins",
+    "arguments": {
+      "flow_direction_path": "dataset/flow_direction.tif",
+      "output_name": "basin.tif"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "D:\\study_up\\geobench\\output\\basin.tif",
+          "type": "raster",
+          "style": {
+            "cmap": "tab20b",
+            "alpha": 0.8,
+            "label": "Watershed Basins"
+          }
+        },
+        {
+          "data": "dataset/streamfea.shp",
+          "type": "vector",
+          "style": {
+            "color": "black",
+            "linewidth": 0.8,
+            "label": "Stream Network"
+          }
+        }
+      ],
+      "output_name": "Watershed_Basins.png",
+      "title": "Watershed Basins with Stream Network",
+      "legend_loc": "best"
+    }
+  }
+]
+EXPECTED PRODUCT(S): Watershed_Basins.png
+INTERMEDIATE LAYERS: basin.tif
+streamfea.shp

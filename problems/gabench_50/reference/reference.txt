@@ -1,0 +1,58 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/dem_filled.tif"
+    }
+  },
+  {
+    "tool": "compute_flow_direction",
+    "arguments": {
+      "raster_path": "dataset/dem_filled.tif",
+      "output_name": "flow_direction.tif"
+    }
+  },
+  {
+    "tool": "compute_flow_accumulation",
+    "arguments": {
+      "flow_direction_path": "./output\\flow_direction.tif",
+      "output_name": "flow_accumulation.tif",
+      "weight_raster_path": null
+    }
+  },
+  {
+    "tool": "extract_stream_network",
+    "arguments": {
+      "flowacc_path": "./output\\flow_accumulation.tif",
+      "output_name": "streamnet.tif",
+      "threshold": 100
+    }
+  },
+  {
+    "tool": "compute_stream_order",
+    "arguments": {
+      "stream_raster_path": "./output\\streamnet.tif",
+      "flow_direction_path": "./output\\flow_direction.tif",
+      "output_name": "Stream_Order_Strahler.tif",
+      "method": "strahler"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\Stream_Order_Strahler.tif",
+      "output_name": "Strahler_Order.png",
+      "bands": null,
+      "cmap": "Set1",
+      "stretch": true,
+      "title": "Strahler Stream Order (Hierarchy)",
+      "legend": true,
+      "legend_label": "Stream Order",
+      "vmin": null,
+      "vmax": null
+    }
+  }
+]
+EXPECTED PRODUCT(S): Strahler_Order.png
+INTERMEDIATE LAYERS: Stream_Order_Strahler.tif

@@ -1,0 +1,2 @@
+Detecting persistent periods of high temperature over time in past 240 years.
+Your task is using 240 years of annual average surface temperature data from North America to calculate and plot the number of occurrences where the temperature exceeds 280K for five consecutive years. Save the figure as 'pred_results/temperature_statistic_vis.png'.

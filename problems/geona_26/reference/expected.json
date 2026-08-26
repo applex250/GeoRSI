@@ -1,0 +1,14 @@
+{
+ "expected_tools": [
+  "toggle_layer"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "erosion",
+  "forest"
+ ],
+ "must_not_contain": [
+  "error",
+  "not available"
+ ]
+}

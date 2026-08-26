@@ -1,0 +1,13 @@
+{
+ "expected_tools": [
+  "get_layer_bounds"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "coverage"
+ ],
+ "must_not_contain": [
+  "error",
+  "all layers cover exactly the same area"
+ ]
+}

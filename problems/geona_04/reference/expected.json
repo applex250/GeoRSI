@@ -1,0 +1,16 @@
+{
+ "expected_tools": [
+  "lookup_municipality",
+  "analyze_area"
+ ],
+ "expected_actions": [],
+ "must_contain": [
+  "Caravaca",
+  "CO2",
+  "%"
+ ],
+ "must_not_contain": [
+  "error",
+  "not found"
+ ]
+}

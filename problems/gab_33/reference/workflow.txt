@@ -1,0 +1,5 @@
+1. Load data
+2. Flood Depth Calculations
+3. Select Building in flooded area
+4. Summarize flood depth within building
+5. Calculate flood damage

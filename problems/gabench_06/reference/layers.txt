@@ -1,0 +1,3 @@
+elk_clusters.geojson
+elk_convex_hull.geojson
+elk_kde.tif

@@ -1,0 +1,85 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/AtlanticDEM.tif"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/TsunamiPaths.shp"
+    }
+  },
+  {
+    "tool": "invert_dem_values",
+    "arguments": {
+      "raster_path": "dataset/AtlanticDEM.tif",
+      "output_name": "Atlantic_Depth.tif",
+      "band": 1
+    }
+  },
+  {
+    "tool": "calculate_speed",
+    "arguments": {
+      "depth_path": "./output\\Atlantic_Depth.tif",
+      "output_name": "Atlantic_Speed.tif",
+      "band": 1
+    }
+  },
+  {
+    "tool": "extract_route_origins",
+    "arguments": {
+      "paths_path": "dataset/TsunamiPaths.shp",
+      "output_name": "Route_Origins.geojson",
+      "route_field": "Route"
+    }
+  },
+  {
+    "tool": "densify_paths",
+    "arguments": {
+      "paths_path": "dataset/TsunamiPaths.shp",
+      "output_name": "Densified_Paths.shp",
+      "spacing_m": 5000
+    }
+  },
+  {
+    "tool": "calculate_travel_time",
+    "arguments": {
+      "speed_path": "./output\\Atlantic_Speed.tif",
+      "densified_paths_path": "./output\\Densified_Paths.shp",
+      "output_name": "Path_TravelTime.shp"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "dataset/AtlanticDEM.tif",
+          "type": "raster",
+          "style": {
+            "cmap": "terrain",
+            "alpha": 0.6
+          }
+        },
+        {
+          "data": "./output\\Path_TravelTime.shp",
+          "type": "vector",
+          "style": {
+            "column": "TravelTime",
+            "cmap": "viridis",
+            "linewidth": 3,
+            "legend": true,
+            "legend_kwds": {
+              "label": "Travel Time (Hours)"
+            }
+          }
+        }
+      ],
+      "output_name": "TsunamiRiskMap.png",
+      "title": "Tsunami Travel Time Segments with Elevation Background",
+      "legend_loc": "best"
+    }
+  }
+]

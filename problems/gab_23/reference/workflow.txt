@@ -1,0 +1,4 @@
+1.Prepare Raster Data
+2.Calculate Zonal Statistics for Eligible Open Space
+3.Aggregate Open Space by Parcel
+4.Join and Relate Parcel Data

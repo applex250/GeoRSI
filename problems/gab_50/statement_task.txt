@@ -1,0 +1,2 @@
+Predict seagrass habitats
+Your task is to predict seagrass habitats with machine learning methods. First, dissolve the USA seagrass, and create 5000 random points on the dissolved result. Then, use the empirical Bayesian kriging geostatistical method to interpolate raster surfaces for the environmental values stored in the Global ocean measurements layer, for temp and salinity, separately. Finally, use the two kriging result as explanatory rasters to perform presence-only prediction (MaxEnt), get the train features and seagrass predict raster as the outputs.

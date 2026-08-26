@@ -1,0 +1,15 @@
+{
+ "task_ID": "TASK_250309_135125_518135",
+ "task_text": "Generate contour lines of population density near railways in upper-middle-income countries",
+ "reference_solutions": [
+  {
+   "steps": [
+    {
+     "function_name": "reject_task",
+     "arguments": {},
+     "comment": null
+    }
+   ]
+  }
+ ]
+}

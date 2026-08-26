@@ -1,0 +1,96 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/fire_stations.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/etobicoke.geojson"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/fire_stations.geojson",
+      "output_name": "fire_stations_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "set_geojson_crs",
+    "arguments": {
+      "geojson_path": "dataset/etobicoke.geojson",
+      "output_name": "etobicoke_crs.geojson",
+      "crs": "EPSG:4326"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\fire_stations_crs.geojson",
+      "target_crs": "EPSG:32617",
+      "output_name": "fire_stations_32617.geojson"
+    }
+  },
+  {
+    "tool": "reproject_vector",
+    "arguments": {
+      "vector_path": "./output\\etobicoke_crs.geojson",
+      "target_crs": "EPSG:32617",
+      "output_name": "etobicoke_32617.geojson"
+    }
+  },
+  {
+    "tool": "buffer_vector",
+    "arguments": {
+      "input_path": "./output\\fire_stations_32617.geojson",
+      "distance": 2500,
+      "output_name": "fire_buffer_2500.geojson"
+    }
+  },
+  {
+    "tool": "overlay_difference",
+    "arguments": {
+      "a_path": "./output\\etobicoke_32617.geojson",
+      "b_path": "./output\\fire_buffer_2500.geojson",
+      "output_name": "no_service.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "./output\\etobicoke_32617.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "lightgrey",
+            "edgecolor": "black",
+            "alpha": 0.8,
+            "label": "Etobicoke Area"
+          }
+        },
+        {
+          "data": "./output\\no_service.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "blue",
+            "edgecolor": "black",
+            "alpha": 0.5,
+            "label": "No Service Area"
+          }
+        }
+      ],
+      "output_name": "Fire_Service_Analysis.png",
+      "title": "No Fire Service Area in Etobicoke",
+      "legend_loc": "best"
+    }
+  }
+]
+EXPECTED PRODUCT(S): Fire_Service_Analysis.png
+INTERMEDIATE LAYERS: etobicoke_32617.geojson
+no_service.geojson

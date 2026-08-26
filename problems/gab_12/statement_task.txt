@@ -1,0 +1,2 @@
+Find optimal corridors to connect dwindling mountain lion populations.
+Your task is evaluating mountain lion habitat suitability, and the first step is calculating terrain ruggedness using elevation data. Visualizing the ruggedness and save the outputs as "pred_results/ruggedness.png".

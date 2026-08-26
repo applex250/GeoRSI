@@ -1,0 +1,7 @@
+1. Load Dataset,
+2. Extract Variables
+3. Create Labels
+4. Random Undersampling
+5. Train Random Forest Classifier
+6. Evaluate auc
+7. Visualization

@@ -1,0 +1,1 @@
+Your task is generating a hydrologically corrected Digital Elevation Model (DEM) by removing surface depressions. Apply a depression-filling algorithm to the original DEM to ensure water can flow continuously across the terrain. Finally, visualize the resulting depressionless DEM using a terrain colormap and save the output map as 'dem_filled_viz.png'.

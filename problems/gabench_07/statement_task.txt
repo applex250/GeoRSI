@@ -1,0 +1,1 @@
+Your task is analyzing the impact of land subsidence on flooding based on future elevation data of the study area with a design water level of -200. Identify flood-prone areas and estimate potential building damage to support urban planning and mitigation strategies. Save the results to "flooding_analysis.png".

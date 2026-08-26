@@ -1,0 +1,63 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/distance.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/ruggedness.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/landCover_reclassified.tif"
+    }
+  },
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Protected_Status_reclassified.tif"
+    }
+  },
+  {
+    "tool": "overlay_weighted_rasters",
+    "arguments": {
+      "raster_paths": [
+        "dataset/distance.tif",
+        "dataset/ruggedness.tif",
+        "dataset/Protected_Status_reclassified.tif",
+        "dataset/landCover_reclassified.tif"
+      ],
+      "bands": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "weights": [
+        1.0,
+        1.25,
+        1.0,
+        1.25
+      ],
+      "output_name": "weighted_overlay.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\weighted_overlay.tif",
+      "output_name": "mountainLionCorridor.png",
+      "cmap": "viridis",
+      "legend": true,
+      "title": "Raster Visualization with Viridis Colormap"
+    }
+  }
+]
+EXPECTED PRODUCT(S): mountainLionCorridor.png
+INTERMEDIATE LAYERS: weighted_overlay.tif

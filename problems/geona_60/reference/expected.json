@@ -1,0 +1,18 @@
+{
+ "expected_tools": [
+  "lookup_province",
+  "analyze_area",
+  "generate_chart"
+ ],
+ "expected_actions": [
+  "fly_to_bounds"
+ ],
+ "must_contain": [
+  "Beja",
+  "chart"
+ ],
+ "must_not_contain": [
+  "error",
+  "not found"
+ ]
+}

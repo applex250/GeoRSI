@@ -1,0 +1,2 @@
+Train a Geographically Weighted Regression model to predict Georgia's Bachelor's degree rate.
+Your task is to train a Geographically Weighted Regression(GWR) model with demographical data in the state of Georgia. The target variable is the percentage of bachelor's degree in each county while the indepdent variables are the percentage of foreign-born population, black population, and rural populations. You should search for the optimal bandwidth for the GWR models and plot their differences in the same graph. Save the plots as "pred_results/GA_GWR.png".

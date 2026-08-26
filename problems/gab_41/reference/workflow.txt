@@ -1,0 +1,4 @@
+1. Load data
+2. Join National Park and Organization
+3. Add relate between Campsite and Campsite attributes
+4. Create relationship class and add rule

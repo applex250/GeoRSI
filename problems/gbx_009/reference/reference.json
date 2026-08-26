@@ -1,55 +1,12 @@
 {
- "task_ID": "TASK_250309_135125_822439",
- "task_text": "Create a heatmap of earthquake occurrences in Pacific US states.",
+ "task_ID": "TASK_250309_135125_476928",
+ "task_text": "Find municipalities in Brazil where population density is above national average and are within 20km of both rivers and railways",
  "reference_solutions": [
   {
    "steps": [
     {
-     "function_name": "load_geodata",
-     "arguments": {
-      "geodataset": "USA states borders",
-      "output_geodataframe_name": "us_states"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "load_geodata",
-     "arguments": {
-      "geodataset": "Earthquakes occurences and magnitude March 15- February 14 2025",
-      "output_geodataframe_name": "earthquakes"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "filter_categorical",
-     "arguments": {
-      "dataframe_name": "us_states",
-      "filters": "{\\'NAME\\': [\\'Alaska\\', \\'Hawaii\\', \\'California\\', \\'Oregon\\', \\'Washington\\']}",
-      "output_dataframe_name": "pacific_states"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "select_features_by_spatial_relationship",
-     "arguments": {
-      "features_geodataframe_name": "earthquakes",
-      "reference_geodataframe_name": "pacific_states",
-      "spatial_predicates": [
-       "within",
-       "touches"
-      ],
-      "output_geodataframe_name": "pacific_earthquakes"
-     },
-     "comment": null
-    },
-    {
-     "function_name": "make_heatmap",
-     "arguments": {
-      "geodataframe_name": "pacific_earthquakes",
-      "value_column": "mag",
-      "radius": 15,
-      "map_style": "carto-positron"
-     },
+     "function_name": "reject_task",
+     "arguments": {},
      "comment": null
     }
    ]

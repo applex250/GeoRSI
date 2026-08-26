@@ -1,0 +1,46 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/nyc_boroughs.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/fatal_collisions.geojson"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "dataset/nyc_boroughs.geojson",
+          "type": "vector",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "black",
+            "linewidth": 1,
+            "label": "Boroughs"
+          }
+        },
+        {
+          "data": "dataset/fatal_collisions.geojson",
+          "type": "vector",
+          "style": {
+            "color": "red",
+            "markersize": 5,
+            "label": "Fatal Collisions"
+          }
+        }
+      ],
+      "output_name": "collisions_map_vis.png",
+      "title": "Fatal Crashes in New York City, 2016"
+    }
+  }
+]
+EXPECTED PRODUCT(S): collisions_map_vis.png
+INTERMEDIATE LAYERS: nyc_boroughs.geojson
+fatal_collisions.geojson

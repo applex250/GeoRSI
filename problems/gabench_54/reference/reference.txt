@@ -1,0 +1,182 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/net.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/city_Net_Junctions.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/supermarkets.shp"
+    }
+  },
+  {
+    "tool": "build_graph_from_road_shp",
+    "arguments": {
+      "roads_path": "dataset/net.shp",
+      "output_name": "t51_road_graph.graphml",
+      "snap_tolerance": 1.0,
+      "length_field": "METERS",
+      "oneway_field": "ONEWAY",
+      "road_id_field": "OBJECTID",
+      "encoding": "gbk"
+    }
+  },
+  {
+    "tool": "snap_points_to_network_batch",
+    "arguments": {
+      "graph_path": ".\\output\\t51_road_graph.graphml",
+      "points_path": "dataset/city_Net_Junctions.shp",
+      "output_name": "t51_origins_snapped.csv",
+      "id_field": "OBJECTID",
+      "encoding": "gbk",
+      "point_id_col": "origin_pid",
+      "node_id_col": "origin_node",
+      "snap_distance_col": "origin_snap_m",
+      "x_col": "x",
+      "y_col": "y"
+    }
+  },
+  {
+    "tool": "snap_points_to_network_batch",
+    "arguments": {
+      "graph_path": ".\\output\\t51_road_graph.graphml",
+      "points_path": "dataset/supermarkets.shp",
+      "output_name": "t51_destinations_snapped.csv",
+      "id_field": "OBJECTID",
+      "encoding": "gbk",
+      "point_id_col": "dest_pid",
+      "node_id_col": "dest_node",
+      "snap_distance_col": "dest_snap_m",
+      "x_col": "x",
+      "y_col": "y"
+    }
+  },
+  {
+    "tool": "compute_od_cost_matrix",
+    "arguments": {
+      "graph_path": ".\\output\\t51_road_graph.graphml",
+      "origins_snapped_csv": ".\\output\\t51_origins_snapped.csv",
+      "destinations_snapped_csv": ".\\output\\t51_destinations_snapped.csv",
+      "output_name": "t51_od_matrix.csv",
+      "weight_attr": "length_m",
+      "origin_id_col": "origin_pid",
+      "origin_node_col": "origin_node",
+      "dest_id_col": "dest_pid",
+      "dest_node_col": "dest_node",
+      "output_origin_col": "O_id",
+      "output_dest_col": "D_id",
+      "output_cost_col": "cost_m",
+      "output_reachable_col": "is_reachable"
+    }
+  },
+  {
+    "tool": "apply_gravity_model",
+    "arguments": {
+      "od_matrix_csv": ".\\output\\t51_od_matrix.csv",
+      "output_name": "t51_gravity_predicted.csv",
+      "beta": 2.0,
+      "constraint": "production",
+      "origin_id_col": "O_id",
+      "dest_id_col": "D_id",
+      "cost_col": "cost_m",
+      "reachable_col": "is_reachable",
+      "output_cost_col": "distance_m",
+      "output_flow_col": "predicted_flow",
+      "min_cost": 0.001,
+      "balance_iterations": 50
+    }
+  },
+  {
+    "tool": "build_od_desire_lines",
+    "arguments": {
+      "predicted_flow_csv": ".\\output\\t51_gravity_predicted.csv",
+      "origins_snapped_csv": ".\\output\\t51_origins_snapped.csv",
+      "destinations_snapped_csv": ".\\output\\t51_destinations_snapped.csv",
+      "output_name": "desire_lines.geojson",
+      "top_k": 100,
+      "min_flow": null,
+      "crs": "EPSG:32638",
+      "origin_id_col": "O_id",
+      "dest_id_col": "D_id",
+      "flow_col": "predicted_flow",
+      "origin_point_id_col": "origin_pid",
+      "dest_point_id_col": "dest_pid",
+      "x_col": "x",
+      "y_col": "y",
+      "driver": "GeoJSON"
+    }
+  },
+  {
+    "tool": "summarize_od_mobility",
+    "arguments": {
+      "od_matrix_csv": ".\\output\\t51_od_matrix.csv",
+      "predicted_flow_csv": ".\\output\\t51_gravity_predicted.csv",
+      "output_name": "t51_od_mobility_report.txt",
+      "top_k": 20,
+      "reachable_col": "is_reachable",
+      "cost_col": "cost_m",
+      "flow_col": "predicted_flow",
+      "origin_id_col": "O_id",
+      "dest_id_col": "D_id",
+      "report_cost_col": "distance_m",
+      "report_title": "Custom OD Report — Task 51 Pair-level Analysis (renamed schema demo)"
+    }
+  },
+  {
+    "tool": "get_csv_info",
+    "arguments": {
+      "csv_path": ".\\output\\t51_gravity_predicted.csv"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "dataset/net.shp",
+          "type": "vector",
+          "style": {
+            "color": "lightgray",
+            "linewidth": 0.4,
+            "alpha": 0.5
+          }
+        },
+        {
+          "data": ".\\output\\desire_lines.geojson",
+          "type": "vector",
+          "style": {
+            "color": "cyan",
+            "linewidth": 0.8,
+            "alpha": 0.6,
+            "label": "Top-100 Mobility Desire Lines (Flow)"
+          }
+        },
+        {
+          "data": "dataset/supermarkets.shp",
+          "type": "vector",
+          "style": {
+            "color": "red",
+            "marker": "D",
+            "markersize": 50,
+            "label": "Supermarkets"
+          }
+        }
+      ],
+      "output_name": "mobility_desire_lines.png",
+      "title": "Top 100 Mobility Desire Lines"
+    }
+  }
+]
+EXPECTED PRODUCT(S): mobility_desire_lines.png
+INTERMEDIATE LAYERS: net.shp
+desire_lines.geojson
+supermarkets.shp

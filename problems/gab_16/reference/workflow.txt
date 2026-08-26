@@ -1,0 +1,5 @@
+1. Load Dataset
+2. Extract Data Points
+3. Polynomial Fit
+4. Convert data types
+5. Write output

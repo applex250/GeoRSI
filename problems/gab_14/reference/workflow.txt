@@ -1,0 +1,4 @@
+1. Load
+2. Define Temperature Theshold
+3. Count Spells
+4. Visualization

@@ -93,7 +93,10 @@ def main(run):
         next_action = "STOP_SUCCESS"
     elif len(state["fitnessHistory"]) >= 2 and max(state["fitnessHistory"][1:]) <= baseline + 0.001:
         verdict = "CLEAN_NEGATIVE"
-        next_action = "STOP_NEGATIVE"
+        # near-miss retry: a challenger that came within striking distance
+        # deserves one more roll under the same config (quiz variance ~+-4pp)
+        near_miss = any(h >= baseline + 0.005 for h in state["fitnessHistory"][1:])
+        next_action = "RETRY" if near_miss else "STOP_NEGATIVE"
     else:
         verdict = "REGRESSION"
         next_action = "ESCALATE"

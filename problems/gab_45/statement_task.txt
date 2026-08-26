@@ -1,0 +1,2 @@
+Find optimal corridors to connect dwindling mountain lion populations.
+Your task is to evaluate mountain lion habitat suitability by calculating terrain ruggedness from elevation data. The analysis applies focal statistics with a 3x3 moving window to measure terrain variation, followed by rescaling to standardize the ruggedness values. The results are saved in the geodatabase.

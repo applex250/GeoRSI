@@ -1,0 +1,88 @@
+EXPERT TOOLCHAIN:
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/Temperature.geojson"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/CensusBlock.geojson"
+    }
+  },
+  {
+    "tool": "ordinary_kriging",
+    "arguments": {
+      "points_geojson_path": "dataset/Temperature.geojson",
+      "value_property": "TemperatureF",
+      "grid_bounds": [
+        547865.7558000004,
+        273075.7083999999,
+        587617.1856000004,
+        311161.2719999999
+      ],
+      "nx": 100,
+      "ny": 100,
+      "variogram_model": "spherical",
+      "output_name": "krig_Temperature.tif"
+    }
+  },
+  {
+    "tool": "zonal_statistics",
+    "arguments": {
+      "raster_path": "output/krig_Temperature.tif",
+      "polygons_path": "dataset/CensusBlock.geojson",
+      "output_name": "agg_CensusBlock_mean.geojson",
+      "band": 1,
+      "stats": [
+        "mean"
+      ]
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "output/agg_CensusBlock_mean.geojson"
+    }
+  },
+  {
+    "tool": "filter_features_by_expression",
+    "arguments": {
+      "input_path": "output/agg_CensusBlock_mean.geojson",
+      "output_name": "filter_agg_CensusBlock_mean.geojson",
+      "expression": "prediction_mean > 60 and Block_Groups_Over65Density > 100000"
+    }
+  },
+  {
+    "tool": "create_multilayer_map",
+    "arguments": {
+      "layers": [
+        {
+          "data": "output/agg_CensusBlock_mean.geojson",
+          "style": {
+            "column": "prediction_mean",
+            "cmap": "OrRd",
+            "alpha": 0.9,
+            "label": "Heat Distribution"
+          }
+        },
+        {
+          "data": "output/filter_agg_CensusBlock_mean.geojson",
+          "style": {
+            "facecolor": "none",
+            "edgecolor": "blue",
+            "linewidth": 2,
+            "label": "High Risk Areas (>60F, Dense Elderly)"
+          }
+        }
+      ],
+      "output_name": "interpolated_urban_heat.png",
+      "title": "Highlighted Heat Blocks (60F+) on Elders (Age 65+)"
+    }
+  }
+]
+EXPECTED PRODUCT(S): interpolated_urban_heat.png
+INTERMEDIATE LAYERS: agg_CensusBlock_mean.geojson
+filter_agg_CensusBlock_mean.geojson

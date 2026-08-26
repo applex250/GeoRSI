@@ -1,0 +1,2 @@
+nbrdelta_nbr_G_2014_nbr_G_2015_burndisplay.tif
+nbrdelta_nbr_G_2014_nbr_G_2015_burnscar.geojson

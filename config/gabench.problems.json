@@ -1,0 +1,176 @@
+{
+  "suite": "gabench",
+  "problems": [
+    {
+      "id": "gabench_01"
+    },
+    {
+      "id": "gabench_02"
+    },
+    {
+      "id": "gabench_03"
+    },
+    {
+      "id": "gabench_04"
+    },
+    {
+      "id": "gabench_05"
+    },
+    {
+      "id": "gabench_06"
+    },
+    {
+      "id": "gabench_07"
+    },
+    {
+      "id": "gabench_08"
+    },
+    {
+      "id": "gabench_09"
+    },
+    {
+      "id": "gabench_10"
+    },
+    {
+      "id": "gabench_11"
+    },
+    {
+      "id": "gabench_12"
+    },
+    {
+      "id": "gabench_13"
+    },
+    {
+      "id": "gabench_14"
+    },
+    {
+      "id": "gabench_15"
+    },
+    {
+      "id": "gabench_16"
+    },
+    {
+      "id": "gabench_17"
+    },
+    {
+      "id": "gabench_18"
+    },
+    {
+      "id": "gabench_19"
+    },
+    {
+      "id": "gabench_20"
+    },
+    {
+      "id": "gabench_21"
+    },
+    {
+      "id": "gabench_22"
+    },
+    {
+      "id": "gabench_23"
+    },
+    {
+      "id": "gabench_24"
+    },
+    {
+      "id": "gabench_25"
+    },
+    {
+      "id": "gabench_26"
+    },
+    {
+      "id": "gabench_27"
+    },
+    {
+      "id": "gabench_28"
+    },
+    {
+      "id": "gabench_29"
+    },
+    {
+      "id": "gabench_30"
+    },
+    {
+      "id": "gabench_31"
+    },
+    {
+      "id": "gabench_32"
+    },
+    {
+      "id": "gabench_33"
+    },
+    {
+      "id": "gabench_34"
+    },
+    {
+      "id": "gabench_35"
+    },
+    {
+      "id": "gabench_36"
+    },
+    {
+      "id": "gabench_37"
+    },
+    {
+      "id": "gabench_38"
+    },
+    {
+      "id": "gabench_39"
+    },
+    {
+      "id": "gabench_40"
+    },
+    {
+      "id": "gabench_41"
+    },
+    {
+      "id": "gabench_42"
+    },
+    {
+      "id": "gabench_43"
+    },
+    {
+      "id": "gabench_44"
+    },
+    {
+      "id": "gabench_45"
+    },
+    {
+      "id": "gabench_46"
+    },
+    {
+      "id": "gabench_47"
+    },
+    {
+      "id": "gabench_48"
+    },
+    {
+      "id": "gabench_49"
+    },
+    {
+      "id": "gabench_50"
+    },
+    {
+      "id": "gabench_51"
+    },
+    {
+      "id": "gabench_52"
+    },
+    {
+      "id": "gabench_53"
+    },
+    {
+      "id": "gabench_54"
+    },
+    {
+      "id": "gabench_55"
+    },
+    {
+      "id": "gabench_56"
+    },
+    {
+      "id": "gabench_57"
+    }
+  ]
+}

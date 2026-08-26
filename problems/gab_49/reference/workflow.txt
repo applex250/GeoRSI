@@ -1,0 +1,4 @@
+1. Load data
+2. Join tabular data to spatial data
+3. Add calculated fields
+4. Save maps

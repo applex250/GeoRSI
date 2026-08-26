@@ -1,0 +1,48 @@
+[
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/point3d.shp"
+    }
+  },
+  {
+    "tool": "get_vector_info",
+    "arguments": {
+      "vector_path": "dataset/buildings.shp"
+    }
+  },
+  {
+    "tool": "extract_control_points",
+    "arguments": {
+      "input_path": "dataset/point3d.shp",
+      "observer_id": 0,
+      "target_id": 2,
+      "id_field": "FID"
+    }
+  },
+  {
+    "tool": "extract_obstacle_vertices",
+    "arguments": {
+      "input_path": "dataset/buildings.shp",
+      "output_name": "building_points.json"
+    }
+  },
+  {
+    "tool": "check_line_of_sight",
+    "arguments": {
+      "observer": [
+        -13278.191700000316,
+        6712896.986199997,
+        36.0
+      ],
+      "target": [
+        -13440.065900001675,
+        6712930.1426,
+        160.0
+      ],
+      "obstacles_path": "./output\\building_points.json",
+      "output_name": "los_stats.json",
+      "distance_threshold": 2.0
+    }
+  }
+]

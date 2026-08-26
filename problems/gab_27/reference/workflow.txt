@@ -1,0 +1,6 @@
+1. Load dataset
+2. Reclassify (vulnerable areas)
+3. Reclassify (land cover)
+4. Calculate risk zones
+5. Conditional Evaluation the high risk zones
+6. Conditional Evaluation the undeveloped areas

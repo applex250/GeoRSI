@@ -1,0 +1,27 @@
+[
+  {
+    "tool": "get_raster_info",
+    "arguments": {
+      "raster_path": "dataset/Elevation.tif"
+    }
+  },
+  {
+    "tool": "compute_ruggedness",
+    "arguments": {
+      "input_path": "dataset/Elevation.tif",
+      "window_size": 3,
+      "output_name": "rugged_Elevation.tif"
+    }
+  },
+  {
+    "tool": "visualize_raster",
+    "arguments": {
+      "input_path": "./output\\rugged_Elevation.tif",
+      "output_name": "ruggedness.png",
+      "cmap": "viridis",
+      "title": "Ruggedness",
+      "legend": true,
+      "legend_label": "Ruggedness"
+    }
+  }
+]

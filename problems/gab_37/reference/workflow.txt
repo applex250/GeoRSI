@@ -1,0 +1,6 @@
+1. Processing Twitter/X Data
+2. Retrieve All Weather-related Data
+3. Assign All the Collected Social Media Data to Counties in the US
+4. Calculate the The Heat Exposure values in Each County
+5. Calculate the Number of Posts in Each County
+6. Visualization
