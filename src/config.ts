@@ -78,6 +78,8 @@ export interface Config {
 	/** OpenRouter gateway (optional; key in api_key_or.txt) */
 	openrouter_base_url?: string;
 	inner_model: string;
+	/** default inner for quiz-type problems when set (task-to-model routing) */
+	quiz_inner_model?: string;
 	outer_model: string;
 	generations: number;
 	proposals: number;
@@ -162,6 +164,7 @@ export function loadConfig(path?: string): Config {
 		local_base_url: String(raw.local_base_url ?? "http://172.27.116.56:8080/v1"),
 		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
 		inner_model: inner,
+		quiz_inner_model: typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : undefined,
 		outer_model: outer,
 		generations: num(raw.generations, 4),
 		proposals: num(raw.proposals, 3),

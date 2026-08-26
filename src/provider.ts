@@ -204,6 +204,16 @@ export function currentModelRuntime(): ModelRuntime {
 	return cached.modelRuntime;
 }
 
+/** Resolve any whitelisted model on the cached runtime (task-to-model routing). */
+export function resolveModel(id: string): Model<any> {
+	if (!cached) throw new Error("pi runtime not initialized: call getPiRuntime() first");
+	if (!modelSpec(id)) throw new Error(`model "${id}" not in SUPPORTED_MODELS`);
+	const provider = modelSpec(id)!.endpoint === "local" ? "local" : modelSpec(id)!.endpoint === "openrouter" ? "openrouter" : "zen";
+	const m = cached.modelRuntime.getModel(provider, id);
+	if (!m) throw new Error(`model "${id}" not found on provider "${provider}"`);
+	return m;
+}
+
 export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime> {
 	if (cached) return cached;
 	const apiKey = loadApiKey(root);

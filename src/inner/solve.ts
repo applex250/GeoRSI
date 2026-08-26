@@ -24,6 +24,7 @@ import { composeSystemPrompt, type Scaffold } from "../scaffold.js";
 import { loadKnowledge, selectKnowledge, renderKnowledge, recordUsage } from "../knowledge.js";
 import { protectedManifest, scanTextForBreaches, scanWorkspaceForBreaches, verifyManifest } from "../guard.js";
 import { PiHarness, toolOutput } from "../piharness.js";
+import { resolveModel } from "../provider.js";
 import { recall, renderMemory, type MemoryStore } from "../memory.js";
 
 export interface EpisodeResult {
@@ -109,7 +110,7 @@ export interface SolveOpts {
 }
 
 export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
-	const { problem, evalCtx, scaffold, model, workspace } = opts;
+	const { problem, evalCtx, scaffold, workspace } = opts;
 	// per-problem overrides (quiz batches, long-job problems) win over config
 	const cfg: Config = { ...opts.cfg, ...problem.overrides } as Config;
 	const log = opts.log ?? (() => {});
@@ -123,6 +124,17 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 
 	// knowledge-base routing (deterministic; see src/knowledge.ts): pick the
 	// proven lessons tagged for this problem's regions, inject into the prompt
+	// task-to-model routing: quiz batches may run a different (cheaper/faster)
+	// inner than the suite default; per-problem override wins over the
+	// quiz-wide default
+	const routedInner =
+		problem.overrides.inner_model ??
+		(problem.overrides.type === "quiz" && cfg.quiz_inner_model ? cfg.quiz_inner_model : undefined);
+	const inner = routedInner ? resolveModel(routedInner) : opts.model;
+	if (routedInner && routedInner !== (opts.model as { id?: string }).id) {
+		log(`[route] ${problem.id}: inner -> ${routedInner}`);
+	}
+
 	const kbSel = selectKnowledge(loadKnowledge(), { genre: problem.genre, id: problem.id });
 	if (kbSel.nodes.length > 0) {
 		log(`[knowledge] ${problem.id}: ${kbSel.nodes.map((n) => n.id).join(",")} (store ${kbSel.version})`);
@@ -143,6 +155,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	}
 	mkdirSync(join(workspace, "solutions"), { recursive: true });
 
+	const isQuiz = problem.overrides.type === "quiz";
 	const st: SubmitState = {
 		answer: null,
 		publicHistory: [],
@@ -392,6 +405,25 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				try {
 					const parsed = JSON.parse(readFileSync(af, "utf8")) as Record<string, unknown>;
 					answer = parsed.answers && typeof parsed.answers === "object" ? (parsed.answers as Record<string, unknown>) : parsed;
+					// coverage gate: fast models sometimes final-submit a nearly
+					// empty sheet (measured: 15/100 answers -> fitness 0.13,
+					// which alone sank an adversarial verification). Refuse the
+					// FIRST final attempt under 50% coverage — no eval budget
+					// spent, the agent is sent back to answer.
+					if (isQuiz && params.final && st.submits === 0) {
+						const quizPath = join(workspace, "data", "quiz.jsonl");
+						if (existsSync(quizPath)) {
+							const total = readFileSync(quizPath, "utf8").split(/\r?\n/).filter((x) => x.trim()).length;
+							const covered = Object.keys(answer ?? {}).length;
+							if (total > 0 && covered / total < 0.5) {
+								return toolOutput(
+									`submission refused: only ${covered}/${total} questions answered (${Math.round((covered / total) * 100)}%). ` +
+										"Unanswered questions score ZERO. Keep answering and submit again when at least ~90% are answered. " +
+										"This refusal did not consume a submission.",
+								);
+							}
+						}
+					}
 				} catch (e) {
 					return toolOutput(`error: answers file is not valid JSON: ${(e as Error).message}`);
 				}
@@ -440,7 +472,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	const memBlock = renderMemory(memItems);
 
 	const harness = new PiHarness({
-		model,
+		model: inner,
 		thinkingLevel: "low",
 		cwd: workspace,
 		systemPrompt: composeSystemPrompt(scaffold, problem.genre) + renderKnowledge(kbSel),
@@ -507,7 +539,6 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			}
 			let nudge: string;
 			const budgetLeft = cfg.eval_cap - st.submits;
-			const isQuiz = problem.overrides.type === "quiz";
 			if (isQuiz && st.submits === 0) {
 				// batch-friendly escalation: early turns point at the task,
 				// later turns get concrete batch instructions (large one-shot

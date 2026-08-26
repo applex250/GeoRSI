@@ -15,7 +15,7 @@
  *   - budget stop + stagnation stop
  *   - held-out final exam with the champion scaffold
  */
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
@@ -120,6 +120,46 @@ async function evaluateScaffold(
 		}
 	}
 	return { mean, detail };
+}
+
+/** Champion tips outlive their run: accepted tips become knowledge nodes
+ * tagged with the suite's genres, so future runs (any model) inherit them. */
+function promoteChampionTipsToKnowledge(runName: string, gen: number, champion: Scaffold, problems: Problem[]): void {
+	try {
+		const genres = [...new Set(problems.map((p) => p.genre))];
+		const tips = champion.tips
+			.map((t) => (typeof t === "string" ? { text: t, genres: undefined as string[] | undefined } : t))
+			.filter((t) => t.text?.trim());
+		if (tips.length === 0) return;
+		const path = join(ROOT, "knowledge", "nodes.jsonl");
+		const existing = new Set<string>();
+		for (const line of readFileSync(path, "utf8").split("\n")) {
+			if (!line.trim()) continue;
+			try {
+				existing.add(JSON.parse(line).text as string);
+			} catch {
+				/* torn tail */
+			}
+		}
+		const fresh = tips.filter((t) => !existing.has(t.text));
+		if (fresh.length === 0) return;
+		const stamp = Date.now().toString(36);
+		const lines = fresh.map((t, i) =>
+			JSON.stringify({
+				id: `tip_${stamp}_${i}`,
+				text: t.text.slice(0, 400),
+				tags: t.genres?.length ? t.genres : genres,
+				scope: t.genres?.length || genres.length === 1 ? "regional" : "generic",
+				stats: { uses: 0, wins: 0, fitness_sum: 0 },
+				origin: { run: runName, gen },
+				status: "active",
+			}),
+		);
+		appendFileSync(path, lines.join("\n") + "\n");
+		console.log(`[knowledge] promoted ${fresh.length} champion tip(s) from g${gen} of ${runName}`);
+	} catch (e) {
+		console.error(`[knowledge] promotion failed: ${(e as Error).message}`);
+	}
 }
 
 export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDir: string }> {
@@ -382,6 +422,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				state.bestFitness = avg;
 				state.stagnation = 0;
 				if (bestFinding) bestFinding.accepted = true;
+				promoteChampionTipsToKnowledge(opts.runName, gen, best.child, problems);
 				journal.append({
 					kind: "accept",
 					ts: nowTs(),

@@ -33,6 +33,9 @@ export interface ProblemOverride {
 	patience?: number;
 	script_timeout_s?: number;
 	job_timeout_s?: number;
+	/** per-problem inner model override (task-to-model routing, e.g. quiz
+	 * batches -> the cheap fast Pareto winner instead of the heavy default) */
+	inner_model?: string;
 }
 
 export interface Problem {
