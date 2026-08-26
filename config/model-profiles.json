@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-26-mm3",
+  "version": "2026-08-26-mm3-vision-fix",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -159,7 +159,7 @@
       "api_style": "chat-completions",
       "stability_class": "B-free-tier-clean",
       "latency_class": "fast",
-      "vision_raw_api": false,
+      "vision_raw_api": true,
       "reasoning": {
         "style": "reasoning_effort",
         "mandatory": false,
@@ -178,7 +178,8 @@
         "plain_latency_s": 2.5,
         "burst": "6/6, median 2.2s (no 429s observed)",
         "json_discipline": "exact single object",
-        "stream_vs_nonstream": "identical total (12.7s); streaming kept as conn-drop fallback only"
+        "stream_vs_nonstream": "identical total (12.7s); streaming kept as conn-drop fallback only",
+        "vision": "4/4 on 320x240 scene + big-red correct (RETRACTED earlier no-vision verdict: the 8x8 test image was too small to survive ingestion - keep probe images >=256px)"
       }
     }
   }
