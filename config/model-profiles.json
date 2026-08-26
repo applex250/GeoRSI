@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-26-mm3-vision-fix",
+  "version": "2026-08-26-sweep",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -125,7 +125,7 @@
     "stealth/ox-alpha": {
       "endpoint": "openrouter",
       "api_style": "chat-completions",
-      "stability_class": "C-rate-limited-free-tier",
+      "stability_class": "B-free-tier",
       "latency_class": "medium",
       "vision_raw_api": true,
       "input_modalities_official": [
@@ -152,7 +152,14 @@
       },
       "special": {
         "reasoning_details_passthrough": "message.reasoning_details is a list; pass back unmodified on assistant messages for inter-turn reasoning continuity (verified)"
-      }
+      },
+      "sweep_2026_08_26": {
+        "suite": "k2_c006+gkmc_c003 (unseen)",
+        "mean_acc": 0.885,
+        "total_tokens": 114939,
+        "note": "quiz-batch inner sweep; stealth/ox Pareto-dominates all 5 models (best acc AND lowest tokens)"
+      },
+      "inner_role": "quiz batches: YES (Pareto king, 1-turn submits); open analysis/gbx: NO (tool-loop stall measured)"
     },
     "minimax/minimax-m3:free": {
       "endpoint": "openrouter",
@@ -180,6 +187,12 @@
         "json_discipline": "exact single object",
         "stream_vs_nonstream": "identical total (12.7s); streaming kept as conn-drop fallback only",
         "vision": "4/4 on 320x240 scene + big-red correct (RETRACTED earlier no-vision verdict: the 8x8 test image was too small to survive ingestion - keep probe images >=256px)"
+      },
+      "sweep_2026_08_26": {
+        "suite": "k2_c006+gkmc_c003 (unseen)",
+        "mean_acc": 0.83,
+        "total_tokens": 496920,
+        "note": "quiz-batch inner sweep; stealth/ox Pareto-dominates all 5 models (best acc AND lowest tokens)"
       }
     }
   }

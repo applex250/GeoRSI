@@ -34,6 +34,11 @@ export const KNOWLEDGE_CHAR_BUDGET = 6000;
 export const WIN_LINE = 0.6;
 
 function kbPath(): string {
+	// per-lane override for provider-parallel runs: each lane gets a COPY of
+	// the store (stats accumulate independently, merged back afterwards) so
+	// read-modify-write never races across lanes
+	const envPath = process.env.RSILAB_KB_PATH;
+	if (envPath) return envPath;
 	return join(ROOT, "knowledge", "nodes.jsonl");
 }
 
