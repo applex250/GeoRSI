@@ -27,6 +27,11 @@ for i in $(seq 1 "$MAX_ITER"); do
   RSILAB_JUDGE_CACHE="F:/rsi-lab/problems/_shared/judge_cache_${RUN}.jsonl" \
   RSILAB_KB_PATH="F:/rsi-lab/${LANE_KB}" \
     npx tsx src/run.ts rsi --config "$CFG" --run-name "$RUN" > "runs/${RUN}.log" 2>&1
+  # segfault/abnormal death gets exactly one clean retry (state persists via resume)
+  if grep -q "Segmentation fault" "runs/${RUN}.log" 2>/dev/null && ! grep -q "DONE best=" "runs/${RUN}.log" 2>/dev/null; then
+    echo "- segfault detected, retrying once with --resume" | tee -a "$SUMMARY"
+    npx tsx src/run.ts rsi --config "$CFG" --run-name "$RUN" --resume >> "runs/${RUN}.log" 2>&1
+  fi
 
   python scripts/run_verdict.py "$RUN" > "runs/${TAG}/verdict-iter${i}.json"
   VERDICT=$(python -c "import json;print(json.load(open('runs/${TAG}/verdict-iter${i}.json',encoding='utf-8'))['verdict'])")

@@ -22,7 +22,9 @@ const PROTECTED_PATTERNS = [
 	"judge_cache",
 	"rsi-lab-private",
 	"RSILAB_JUDGE_KEY",
-	"eval.py", // tampering target: rewriting this problem's grader voids fitness
+	// NOTE: grader-tamper detection intentionally NOT a string pattern here -
+	// agents name their own helper scripts "*eval.py" (false positives), and
+	// the protectedManifest sha256 check catches actual tampering exactly.
 ] as const;
 
 const SCAN_EXTS = new Set([".py", ".txt", ".json", ".md", ".log", ".sh", ".cmd"]);
