@@ -62,7 +62,7 @@ def norm_id(s):
 
 
 # ---------------------------------------------------------------- earthse ---
-def read_earthse(kinds):
+def read_earthse(kinds, subject_regex=None):
     import pandas as pd
 
     items = []
@@ -72,6 +72,8 @@ def read_earthse(kinds):
             continue
         path = os.path.join(BM, "EarthSE", f"{split}-00000-of-00001.parquet")
         df = pd.read_parquet(path)
+        if subject_regex:
+            df = df[df["subject"].str.contains(subject_regex, regex=True, na=False)]
         for _, row in df.iterrows():
             q = str(row["question"])
             ans = str(row["answer"]).strip()
@@ -293,12 +295,12 @@ def read_mgq():
 
 
 # ------------------------------------------------------------------ build ---
-def build(src, kinds, chunk, suite, dev_size, seed, limit):
+def build(src, kinds, chunk, suite, dev_size, seed, limit, subject_regex=None):
     rng = random.Random(seed)
     extra = ""
     data_files = []
     if src == "earthse":
-        items = read_earthse(kinds)
+        items = read_earthse(kinds, subject_regex)
     elif src == "k2":
         items = read_k2(kinds)
     elif src == "mapqa":
@@ -381,6 +383,7 @@ if __name__ == "__main__":
     ap.add_argument("--dev-size", type=int, default=20)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--limit", type=int, default=2000, help="sample cap for stepgame")
+    ap.add_argument("--subject-regex", default=None, help="earthse only: keep rows whose subject matches")
     a = ap.parse_args()
     kinds = set(a.kinds.split(","))
-    build(a.src, kinds, a.chunk, a.suite, a.dev_size, a.seed, a.limit)
+    build(a.src, kinds, a.chunk, a.suite, a.dev_size, a.seed, a.limit, a.subject_regex)

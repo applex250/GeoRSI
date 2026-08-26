@@ -194,6 +194,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 	}
 
 	const findings: FindingRow[] = rebuildFindings(runDir);
+	const suiteSummary = buildSuiteSummary(problems);
 	emit({
 		type: "run_start",
 		runName: opts.runName,
@@ -244,6 +245,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 					historySummary: summarizeHistory(state.fitnessHistory, findings),
 					feedback,
 					goalSteer: steer,
+					suiteSummary,
 				});
 				if (p) proposals.push(p);
 				else log(`  [propose ${k + 1}] invalid/empty proposal`);
@@ -454,6 +456,25 @@ function defaultGoalText(cfg: Config): string {
 	return `Raise the mean private fitness of a geoscience research agent across the training suite ` +
 		`${cfg.problems.filter((p) => !p.heldout).map((p) => p.id).join(", ")} over ${cfg.generations} generations, ` +
 		`without overfitting (held-out fitness must follow).`;
+}
+
+/** Describe what the suite actually contains so the outer model proposes
+ * task-relevant edits. The stale hardcoded description ("quantitative
+ * problems") misdirected every proposal in the k2evo runs of 2026-08-25 —
+ * estimator-robustness tips for MCQ quiz batches. */
+function buildSuiteSummary(problems: Problem[]): string {
+	return problems
+		.map((p) => {
+			const o = p.overrides ?? ({} as Problem["overrides"]);
+			if (o.type === "quiz") {
+				return `- ${p.id}: quiz batch, scope key "${p.genre}" — the agent answers a JSONL question sheet (mcq/tf/fill/value) in one episode and submits an answers file; strategy space: answering discipline, batching, verification, time allocation`;
+			}
+			if (o.judge) {
+				return `- ${p.id}: open analysis task, scope key "${p.genre}" — the agent works with python on data/ and submits results graded against a hidden reference`;
+			}
+			return `- ${p.id}: quantitative analysis task, scope key "${p.genre}"`;
+		})
+		.join("\n");
 }
 
 function summarizeHistory(history: number[], findings: FindingRow[]): string {

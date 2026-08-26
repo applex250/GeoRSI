@@ -1,0 +1,21 @@
+{
+  "suite": "geol",
+  "problems": [
+    {
+      "id": "geol_c001"
+    },
+    {
+      "id": "geol_c002"
+    },
+    {
+      "id": "geol_c003"
+    },
+    {
+      "id": "geol_c004"
+    },
+    {
+      "id": "geol_c005",
+      "heldout": true
+    }
+  ]
+}

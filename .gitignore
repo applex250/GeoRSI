@@ -22,5 +22,5 @@ api_key_or.txt
 problems/*/data/
 
 # derived LLM-judge disk cache (same submission -> same score)
-problems/_shared/judge_cache.jsonl
+problems/_shared/judge_cache*.jsonl
 

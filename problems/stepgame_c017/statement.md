@@ -11,6 +11,11 @@
    Write it with the write tool (you may build it up in parts across turns with the edit tool).
 4. Call the submit tool with `answers_file: "answers.json"` (and final=true when done).
 
+Batch discipline (recommended): work in batches of 15-20 questions — answer a
+batch, merge it into answers.json, then continue. Do not try to solve the whole
+sheet in one pass. Once ~90% of questions are answered, submit: partial
+submissions score partially and unanswered questions count as wrong.
+
 ## Grading
 public score = accuracy on a hidden calibration slice (a number, never the answers);
 private score = accuracy on all questions. Partial answers score partially —

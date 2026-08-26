@@ -33,6 +33,9 @@ export interface ProposeContext {
 	historySummary: string;
 	feedback: string;
 	goalSteer: string;
+	/** what the suite ACTUALLY contains (genres, task shapes) — proposals must
+	 * target the real tasks, not a stale problem-type description */
+	suiteSummary: string;
 }
 
 export async function propose(
@@ -51,7 +54,11 @@ export async function propose(
 		parameters: Type.Object({
 			edits: Type.Array(
 				Type.Union([
-					Type.Object({ op: Type.Literal("add_tip"), text: Type.String() }),
+					Type.Object({
+						op: Type.Literal("add_tip"),
+						text: Type.String(),
+						genres: Type.Optional(Type.Array(Type.String(), { description: "scope keys from the suite list; omit ONLY for universal discipline tips — cross-genre tips measured harmful" })),
+					}),
 					Type.Object({ op: Type.Literal("delete_tip"), index: Type.Integer() }),
 					Type.Object({ op: Type.Literal("replace_tip"), index: Type.Integer(), text: Type.String() }),
 					Type.Object({ op: Type.Literal("prompt_append"), text: Type.String() }),
@@ -78,15 +85,17 @@ export async function propose(
 
 	const prompt =
 		`You are improving the strategy of an autonomous geoscience research agent.\n` +
-		`The agent solves quantitative geoscience problems (data analysis in python, scored against hidden truth).\n` +
-		`Fitness = mean private score over a suite of problems, in [0,1].\n\n` +
+		`THE SUITE THE AGENT IS SCORED ON (propose edits that target THESE tasks):\n${ctx.suiteSummary}\n` +
+		`Fitness = mean private score over this suite, in [0,1].\n\n` +
 		`CURRENT SCAFFOLD (JSON):\n${scaffoldJson}\n\n` +
 		(ctx.historySummary ? `RECENT GENERATION RESULTS:\n${ctx.historySummary}\n\n` : "") +
 		(ctx.goalSteer ? `GOAL STEERING:\n${ctx.goalSteer}\n\n` : "") +
 		(ctx.feedback ? `OPERATOR FEEDBACK:\n${ctx.feedback}\n\n` : "") +
-		`IMPROVEMENT ANGLE: ${angle}\n\n` +
-		`Propose AT MOST 3 small, surgical edits via the propose_edits tool. ` +
-		`Prefer replacing a weak tip over adding noise. Each tip must be under 30 words.`;
+			`IMPROVEMENT ANGLE: ${angle}\n\n` +
+			`Propose AT MOST 3 small, surgical edits via the propose_edits tool. ` +
+			`Prefer replacing a weak tip over adding noise. Each tip must be under 30 words. ` +
+			`Scope task-specific tips with genres (exact scope keys from the suite list above) — ` +
+			`unscoped tips are injected into EVERY task and cross-genre transfer has measured negative.`;
 
 	const harness = new PiHarness({
 		model,

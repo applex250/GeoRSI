@@ -1,0 +1,86 @@
+{"qid": "es_mul_45", "answer": "B", "dev": true}
+{"qid": "es_tru_429", "answer": "True", "dev": true}
+{"qid": "es_tru_22", "answer": "True", "dev": true}
+{"qid": "es_mul_15", "answer": "A", "dev": true}
+{"qid": "es_mul_433", "answer": "A", "dev": true}
+{"qid": "es_tru_203", "answer": "True", "dev": true}
+{"qid": "es_fil_63", "answer": "10.9", "dev": true}
+{"qid": "es_fil_620", "answer": "-2.6", "dev": true}
+{"qid": "es_tru_497", "answer": "True", "dev": true}
+{"qid": "es_mul_767", "answer": "B", "dev": true}
+{"qid": "es_mul_261", "answer": "B", "dev": true}
+{"qid": "es_tru_453", "answer": "False", "dev": true}
+{"qid": "es_mul_489", "answer": "A", "dev": true}
+{"qid": "es_tru_447", "answer": "True", "dev": true}
+{"qid": "es_fil_127", "answer": "0.3", "dev": true}
+{"qid": "es_mul_18", "answer": "B", "dev": true}
+{"qid": "es_fil_390", "answer": "2.5", "dev": true}
+{"qid": "es_mul_422", "answer": "C", "dev": true}
+{"qid": "es_tru_314", "answer": "True", "dev": true}
+{"qid": "es_fil_469", "answer": "1.5", "dev": true}
+{"qid": "es_fil_762", "answer": "geological department of the british museum (natural history), south kensington", "dev": false}
+{"qid": "es_fil_569", "answer": "4", "dev": false}
+{"qid": "es_fil_357", "answer": "2°", "dev": false}
+{"qid": "es_fil_482", "answer": "310.7", "dev": false}
+{"qid": "es_mul_278", "answer": "D", "dev": false}
+{"qid": "es_mul_35", "answer": "B", "dev": false}
+{"qid": "es_fil_13", "answer": "overpressured compartments", "dev": false}
+{"qid": "es_mul_658", "answer": "C", "dev": false}
+{"qid": "es_tru_503", "answer": "True", "dev": false}
+{"qid": "es_tru_386", "answer": "True", "dev": false}
+{"qid": "es_tru_220", "answer": "True", "dev": false}
+{"qid": "es_tru_229", "answer": "True", "dev": false}
+{"qid": "es_mul_150", "answer": "B", "dev": false}
+{"qid": "es_fil_536", "answer": "205", "dev": false}
+{"qid": "es_fil_565", "answer": "al khlata formation", "dev": false}
+{"qid": "es_mul_405", "answer": "B", "dev": false}
+{"qid": "es_mul_273", "answer": "B", "dev": false}
+{"qid": "es_mul_106", "answer": "B", "dev": false}
+{"qid": "es_mul_237", "answer": "C", "dev": false}
+{"qid": "es_tru_442", "answer": "True", "dev": false}
+{"qid": "es_tru_455", "answer": "True", "dev": false}
+{"qid": "es_mul_350", "answer": "D", "dev": false}
+{"qid": "es_fil_268", "answer": "448,820", "dev": false}
+{"qid": "es_fil_457", "answer": "10", "dev": false}
+{"qid": "es_tru_248", "answer": "True", "dev": false}
+{"qid": "es_fil_87", "answer": "chondrites, cylindrichnus, skolithos", "dev": false}
+{"qid": "es_tru_303", "answer": "True", "dev": false}
+{"qid": "es_fil_89", "answer": "20", "dev": false}
+{"qid": "es_mul_684", "answer": "B", "dev": false}
+{"qid": "es_tru_522", "answer": "False", "dev": false}
+{"qid": "es_fil_625", "answer": "euxinic, phosphoria rocks, structural", "dev": false}
+{"qid": "es_mul_634", "answer": "B", "dev": false}
+{"qid": "es_fil_738", "answer": "radiometric mineral ages, microstructures", "dev": false}
+{"qid": "es_fil_493", "answer": "irsl sar", "dev": false}
+{"qid": "es_mul_380", "answer": "C", "dev": false}
+{"qid": "es_tru_357", "answer": "False", "dev": false}
+{"qid": "es_tru_236", "answer": "True", "dev": false}
+{"qid": "es_tru_446", "answer": "True", "dev": false}
+{"qid": "es_fil_201", "answer": "25", "dev": false}
+{"qid": "es_fil_228", "answer": "higher stress concentration, lateral compression", "dev": false}
+{"qid": "es_fil_47", "answer": "200", "dev": false}
+{"qid": "es_mul_559", "answer": "B", "dev": false}
+{"qid": "es_mul_152", "answer": "B", "dev": false}
+{"qid": "es_mul_695", "answer": "B", "dev": false}
+{"qid": "es_tru_250", "answer": "True", "dev": false}
+{"qid": "es_tru_6", "answer": "True", "dev": false}
+{"qid": "es_fil_697", "answer": "fuzzy", "dev": false}
+{"qid": "es_mul_595", "answer": "C", "dev": false}
+{"qid": "es_mul_121", "answer": "C", "dev": false}
+{"qid": "es_tru_24", "answer": "True", "dev": false}
+{"qid": "es_fil_581", "answer": "heat flow", "dev": false}
+{"qid": "es_fil_23", "answer": "seismic techniques", "dev": false}
+{"qid": "es_fil_765", "answer": "the lack of thorough bibliographic references", "dev": false}
+{"qid": "es_mul_697", "answer": "D", "dev": false}
+{"qid": "es_fil_404", "answer": "stress state", "dev": false}
+{"qid": "es_tru_367", "answer": "True", "dev": false}
+{"qid": "es_fil_374", "answer": "different tectonic levels", "dev": false}
+{"qid": "es_fil_749", "answer": "electrostatic charging", "dev": false}
+{"qid": "es_tru_515", "answer": "True", "dev": false}
+{"qid": "es_mul_463", "answer": "B", "dev": false}
+{"qid": "es_fil_384", "answer": "0.09945", "dev": false}
+{"qid": "es_fil_163", "answer": "0.5", "dev": false}
+{"qid": "es_mul_164", "answer": "D", "dev": false}
+{"qid": "es_fil_294", "answer": "the horizontal component of the delta-front migration vector becomes zero", "dev": false}
+{"qid": "es_mul_694", "answer": "A", "dev": false}
+{"qid": "es_fil_367", "answer": "1410", "dev": false}

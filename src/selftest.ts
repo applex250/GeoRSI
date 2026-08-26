@@ -248,6 +248,21 @@ export async function selftest(): Promise<boolean> {
 	console.log("== genres ==");
 	check("genre guess", guessGenre("quake_b") === "seismology" && guessGenre("flood_rp") === "hydrology" && guessGenre("poro_perm") === "petrophysics");
 
+	console.log("== scoped tips ==");
+	const { applyEdits: applyEdits2, composeSystemPrompt: compose2 } = await import("./scaffold.js");
+	const SEED2 = SEED_SCAFFOLD;
+	const scoped = applyEdits2(SEED2, [
+		{ op: "add_tip", text: "spatial-solver discipline", genres: ["quiz-stepgame"] },
+		{ op: "add_tip", text: "universal discipline" },
+	]);
+	const forStep = compose2(scoped, "quiz-stepgame");
+	const forK2 = compose2(scoped, "quiz-k2");
+	check("scoped tip injected for its genre", forStep.includes("spatial-solver discipline"));
+	check("scoped tip hidden from other genres", !forK2.includes("spatial-solver discipline"));
+	check("universal tip injected everywhere", forStep.includes("universal discipline") && forK2.includes("universal discipline"));
+	const legacy = compose2({ ...SEED2, tips: ["plain old tip"] }, "quiz-k2");
+	check("legacy string tips still universal", legacy.includes("plain old tip"));
+
 	rmSync(tmp, { recursive: true, force: true });
 	console.log(`\n${passed} passed, ${failed} failed`);
 	return failed === 0;

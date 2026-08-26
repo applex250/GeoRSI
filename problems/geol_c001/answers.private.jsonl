@@ -1,0 +1,86 @@
+{"qid": "es_fil_709", "answer": "wall thickness", "dev": true}
+{"qid": "es_mul_719", "answer": "D", "dev": true}
+{"qid": "es_tru_443", "answer": "True", "dev": true}
+{"qid": "es_tru_3", "answer": "True", "dev": true}
+{"qid": "es_mul_452", "answer": "B", "dev": true}
+{"qid": "es_fil_434", "answer": "glass-rich", "dev": true}
+{"qid": "es_mul_52", "answer": "C", "dev": true}
+{"qid": "es_fil_131", "answer": "uncompahgre fault", "dev": true}
+{"qid": "es_fil_399", "answer": "1,000 feet", "dev": true}
+{"qid": "es_fil_355", "answer": "h", "dev": true}
+{"qid": "es_mul_335", "answer": "B", "dev": true}
+{"qid": "es_mul_263", "answer": "B", "dev": true}
+{"qid": "es_tru_459", "answer": "True", "dev": true}
+{"qid": "es_mul_700", "answer": "B", "dev": true}
+{"qid": "es_tru_20", "answer": "False", "dev": true}
+{"qid": "es_mul_129", "answer": "B", "dev": true}
+{"qid": "es_mul_219", "answer": "B", "dev": true}
+{"qid": "es_fil_583", "answer": "0", "dev": true}
+{"qid": "es_fil_61", "answer": "transpressive", "dev": true}
+{"qid": "es_mul_467", "answer": "B", "dev": true}
+{"qid": "es_mul_20", "answer": "A", "dev": false}
+{"qid": "es_tru_122", "answer": "True", "dev": false}
+{"qid": "es_fil_716", "answer": "greenland", "dev": false}
+{"qid": "es_tru_0", "answer": "True", "dev": false}
+{"qid": "es_mul_665", "answer": "A", "dev": false}
+{"qid": "es_fil_123", "answer": "1.0 to 5.9", "dev": false}
+{"qid": "es_tru_472", "answer": "True", "dev": false}
+{"qid": "es_tru_411", "answer": "True", "dev": false}
+{"qid": "es_tru_2", "answer": "True", "dev": false}
+{"qid": "es_mul_608", "answer": "C", "dev": false}
+{"qid": "es_tru_263", "answer": "True", "dev": false}
+{"qid": "es_fil_420", "answer": "rigid contact force", "dev": false}
+{"qid": "es_fil_521", "answer": "2 km", "dev": false}
+{"qid": "es_tru_394", "answer": "True", "dev": false}
+{"qid": "es_mul_766", "answer": "B", "dev": false}
+{"qid": "es_mul_780", "answer": "B", "dev": false}
+{"qid": "es_tru_488", "answer": "True", "dev": false}
+{"qid": "es_mul_285", "answer": "B", "dev": false}
+{"qid": "es_tru_209", "answer": "True", "dev": false}
+{"qid": "es_mul_550", "answer": "B", "dev": false}
+{"qid": "es_fil_520", "answer": "silica, flints, oxide of iron", "dev": false}
+{"qid": "es_mul_800", "answer": "C", "dev": false}
+{"qid": "es_tru_510", "answer": "True", "dev": false}
+{"qid": "es_tru_276", "answer": "True", "dev": false}
+{"qid": "es_fil_281", "answer": "1", "dev": false}
+{"qid": "es_mul_210", "answer": "C", "dev": false}
+{"qid": "es_mul_190", "answer": "A", "dev": false}
+{"qid": "es_tru_489", "answer": "True", "dev": false}
+{"qid": "es_mul_227", "answer": "D", "dev": false}
+{"qid": "es_tru_42", "answer": "True", "dev": false}
+{"qid": "es_fil_249", "answer": "temperature, kinetics", "dev": false}
+{"qid": "es_fil_302", "answer": "egm96 gravity potential", "dev": false}
+{"qid": "es_tru_324", "answer": "True", "dev": false}
+{"qid": "es_mul_681", "answer": "B", "dev": false}
+{"qid": "es_tru_63", "answer": "True", "dev": false}
+{"qid": "es_mul_23", "answer": "B", "dev": false}
+{"qid": "es_tru_245", "answer": "True", "dev": false}
+{"qid": "es_fil_491", "answer": "c-axis", "dev": false}
+{"qid": "es_fil_53", "answer": "1,000, 1%", "dev": false}
+{"qid": "es_fil_332", "answer": "13", "dev": false}
+{"qid": "es_tru_377", "answer": "True", "dev": false}
+{"qid": "es_tru_37", "answer": "True", "dev": false}
+{"qid": "es_mul_160", "answer": "C", "dev": false}
+{"qid": "es_tru_396", "answer": "True", "dev": false}
+{"qid": "es_tru_146", "answer": "True", "dev": false}
+{"qid": "es_fil_676", "answer": "115.71", "dev": false}
+{"qid": "es_fil_189", "answer": "270", "dev": false}
+{"qid": "es_fil_655", "answer": "h_eff", "dev": false}
+{"qid": "es_mul_395", "answer": "A", "dev": false}
+{"qid": "es_fil_44", "answer": "geochronological", "dev": false}
+{"qid": "es_mul_183", "answer": "A", "dev": false}
+{"qid": "es_tru_259", "answer": "True", "dev": false}
+{"qid": "es_mul_255", "answer": "B", "dev": false}
+{"qid": "es_mul_404", "answer": "B", "dev": false}
+{"qid": "es_mul_492", "answer": "B", "dev": false}
+{"qid": "es_tru_465", "answer": "True", "dev": false}
+{"qid": "es_mul_115", "answer": "B", "dev": false}
+{"qid": "es_tru_509", "answer": "True", "dev": false}
+{"qid": "es_mul_647", "answer": "D", "dev": false}
+{"qid": "es_mul_330", "answer": "B", "dev": false}
+{"qid": "es_fil_737", "answer": "0.9", "dev": false}
+{"qid": "es_fil_336", "answer": "willow creek, maurice", "dev": false}
+{"qid": "es_mul_258", "answer": "B", "dev": false}
+{"qid": "es_fil_451", "answer": "50", "dev": false}
+{"qid": "es_tru_313", "answer": "True", "dev": false}
+{"qid": "es_tru_404", "answer": "False", "dev": false}

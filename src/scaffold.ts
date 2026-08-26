@@ -5,11 +5,18 @@
  * notes). Evolving data instead of code removes any compile/injection
  * surface: an LLM proposal either applies cleanly or is rejected, and any
  * model can safely rewrite it. (Pattern proven by OpenRSI_self.)
+ *
+ * Tips may be plain strings (universal discipline — injected everywhere) or
+ * scoped objects `{ text, genres }` injected only when the problem's genre
+ * matches. Scoping exists because cross-genre transfer measured NEGATIVE on
+ * geoevo-1 (stepgame 0.79 -> 0.52 while estimator-style tips were attached).
  */
+
+export type TipSpec = string | { text: string; genres?: string[] };
 
 export interface Scaffold {
 	system_prompt: string;
-	tips: string[];
+	tips: TipSpec[];
 	/** optional domain notes keyed by problem genre, injected when matching */
 	domain_knowledge: Record<string, string[]>;
 	/** soft hint for how many public submissions the agent may spend */
@@ -34,7 +41,7 @@ export const SEED_SCAFFOLD: Scaffold = {
 };
 
 export type EditOp =
-	| { op: "add_tip"; text: string }
+	| { op: "add_tip"; text: string; genres?: string[] }
 	| { op: "delete_tip"; index: number }
 	| { op: "replace_tip"; index: number; text: string }
 	| { op: "prompt_append"; text: string }
@@ -58,9 +65,14 @@ export function applyEdits(s: Scaffold, edits: unknown[], lr = 3): Scaffold {
 		const text = typeof e.text === "string" ? e.text.slice(0, 400) : "";
 		const idx = Number(e.index);
 		switch (e.op) {
-			case "add_tip":
-				if (text) c.tips.push(text);
+			case "add_tip": {
+				if (!text) break;
+				const genres = Array.isArray(e.genres)
+					? e.genres.filter((g): g is string => typeof g === "string" && !!g).map((g) => g.slice(0, 32))
+					: undefined;
+				c.tips.push(genres && genres.length > 0 ? { text, genres } : text);
 				break;
+			}
 			case "delete_tip":
 				if (Number.isInteger(idx) && idx >= 0 && idx < c.tips.length) c.tips.splice(idx, 1);
 				break;
@@ -86,11 +98,19 @@ export function applyEdits(s: Scaffold, edits: unknown[], lr = 3): Scaffold {
 	return c;
 }
 
+/** Does a tip apply to this genre? Plain strings are universal discipline. */
+export function tipAppliesTo(tip: TipSpec, genre?: string): boolean {
+	if (typeof tip === "string") return true;
+	if (!tip.genres || tip.genres.length === 0) return true;
+	return genre != null && tip.genres.includes(genre);
+}
+
 /** Compose the final system prompt handed to the inner agent. */
 export function composeSystemPrompt(s: Scaffold, genre?: string): string {
 	let p = s.system_prompt;
-	if (s.tips.length > 0) {
-		p += "\n\nStrategy notes (learned, in priority order):\n" + s.tips.map((t) => `- ${t}`).join("\n");
+	const tips = s.tips.filter((t) => tipAppliesTo(t, genre));
+	if (tips.length > 0) {
+		p += "\n\nStrategy notes (learned, in priority order):\n" + tips.map((t) => `- ${typeof t === "string" ? t : t.text}`).join("\n");
 	}
 	const domain = genre ? (s.domain_knowledge[genre] ?? []) : [];
 	if (domain.length > 0) {
