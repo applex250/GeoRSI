@@ -3,5 +3,6 @@
   "max_turns": 12,
   "eval_cap": 2,
   "episode_timeout_s": 900,
-  "eval_timeout_s": 60
+  "eval_timeout_s": 60,
+  "self_graded": true
 }

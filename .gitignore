@@ -24,3 +24,4 @@ problems/*/data/
 # derived LLM-judge disk cache (same submission -> same score)
 problems/_shared/judge_cache*.jsonl
 
+knowledge/nodes-lane-*.jsonl

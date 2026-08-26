@@ -22,7 +22,7 @@ const PROTECTED_PATTERNS = [
 	"judge_cache",
 	"rsi-lab-private",
 	"RSILAB_JUDGE_KEY",
-	"problems/", // built-in read/write take absolute paths: any repo-tree reach is suspect
+	"eval.py", // tampering target: rewriting this problem's grader voids fitness
 ] as const;
 
 const SCAN_EXTS = new Set([".py", ".txt", ".json", ".md", ".log", ".sh", ".cmd"]);

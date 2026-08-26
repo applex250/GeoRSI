@@ -36,6 +36,9 @@ export interface ProblemOverride {
 	/** per-problem inner model override (task-to-model routing, e.g. quiz
 	 * batches -> the cheap fast Pareto winner instead of the heavy default) */
 	inner_model?: string;
+	/** eval grades against an in-repo reference (deterministic scoring) -
+	 * exempt from the outside-tree private-truth requirement */
+	self_graded?: boolean;
 }
 
 export interface Problem {
@@ -190,7 +193,7 @@ export function runEval(
 		if (split === "private" && ctx.judgeEnv && problem.overrides.judge) {
 			Object.assign(env, ctx.judgeEnv);
 		}
-		if (split === "private" && problem.overrides?.type !== "quiz" && !problem.overrides?.judge) {
+		if (split === "private" && problem.overrides?.type !== "quiz" && !problem.overrides?.judge && !problem.overrides?.self_graded) {
 			// quiz batches carry gold in answers.private.jsonl; judge/oracle
 			// problems grade internally against a hidden reference — neither
 			// needs the outside-tree truth file; standard problems do

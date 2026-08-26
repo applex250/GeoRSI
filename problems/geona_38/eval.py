@@ -9,6 +9,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--submission", required=True)
+    ap.add_argument("--split", default="private")
     a = ap.parse_args()
     try:
         sub = json.load(open(a.submission, encoding="utf-8"))

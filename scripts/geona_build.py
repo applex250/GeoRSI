@@ -108,6 +108,7 @@ def main(n, suite):
         with open(os.path.join(pdir, "problem.json"), "w", encoding="utf-8") as f:
             json.dump({
                 "genre": "geona",
+                "self_graded": True,
                 "max_turns": 12,
                 "eval_cap": 2,
                 "episode_timeout_s": 900,
@@ -133,6 +134,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--submission", required=True)
+    ap.add_argument("--split", default="private")
     a = ap.parse_args()
     try:
         sub = json.load(open(a.submission, encoding="utf-8"))
