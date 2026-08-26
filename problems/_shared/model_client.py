@@ -83,6 +83,37 @@ def resolve_thinking(model_id, wanted="low", budget_tokens=None):
     return level, extra, note
 
 
+def _is_conn_drop(e):
+    txt = str(e).lower()
+    return "remote" in txt or "eof" in txt or "reset" in txt or "timed out" in txt or "timeout" in txt
+
+
+def _stream_complete(base, key, body, timeout):
+    """SSE streaming completion — resilience fallback for long generations."""
+    payload = dict(body)
+    payload["stream"] = True
+    req = urllib.request.Request(base + "/chat/completions", data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}",
+                 "User-Agent": UA, "Accept": "text/event-stream"})
+    buf = []
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        for raw in r:
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line.startswith("data: ") or line == "data: [DONE]":
+                continue
+            try:
+                d = json.loads(line[6:])
+            except Exception:
+                continue
+            piece = ((d.get("choices") or [{}])[0].get("delta") or {}).get("content") or ""
+            if piece:
+                buf.append(piece)
+    text = "".join(buf).strip()
+    if not text:
+        raise RuntimeError("stream produced no content")
+    return text
+
+
 def complete(model_id, messages, level="low", budget_tokens=None, max_tokens=4000, timeout=180):
     """The one method. Returns the assistant text; raises on final failure."""
     prof = _load_profiles()["models"][model_id]
@@ -121,6 +152,14 @@ def complete(model_id, messages, level="low", budget_tokens=None, max_tokens=400
             last_err = e
             if note:
                 last_err = RuntimeError(f"{note}; {e}")
+            # stream fallback: long generations on free tiers get killed by
+            # idle timeouts (measured RemoteDisconnected at ~60s); streaming
+            # keeps bytes flowing so the same request survives
+            if prof["api_style"] == "chat-completions" and _is_conn_drop(e) and not body.get("stream"):
+                try:
+                    return _stream_complete(base, key, body, timeout)
+                except Exception as se:  # noqa: BLE001
+                    last_err = se
             if attempt < retries - 1:
                 time.sleep(backoffs[min(attempt, len(backoffs) - 1)])
     raise RuntimeError(f"complete({model_id!r}) failed after {retries} attempts: {last_err}")

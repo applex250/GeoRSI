@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-25-openrouter",
+  "version": "2026-08-26-mm3",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -152,6 +152,33 @@
       },
       "special": {
         "reasoning_details_passthrough": "message.reasoning_details is a list; pass back unmodified on assistant messages for inter-turn reasoning continuity (verified)"
+      }
+    },
+    "minimax/minimax-m3:free": {
+      "endpoint": "openrouter",
+      "api_style": "chat-completions",
+      "stability_class": "B-free-tier-clean",
+      "latency_class": "fast",
+      "vision_raw_api": false,
+      "reasoning": {
+        "style": "reasoning_effort",
+        "mandatory": false,
+        "levels_accepted": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "also_accepts": [
+          "reasoning:{enabled:true}"
+        ],
+        "reasoning_details_appear_with_params": true,
+        "quality_floor": "low"
+      },
+      "measured": {
+        "plain_latency_s": 2.5,
+        "burst": "6/6, median 2.2s (no 429s observed)",
+        "json_discipline": "exact single object",
+        "stream_vs_nonstream": "identical total (12.7s); streaming kept as conn-drop fallback only"
       }
     }
   }

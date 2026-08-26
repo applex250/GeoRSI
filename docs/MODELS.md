@@ -85,3 +85,13 @@ quiz 批量任务 12 轮零提交：唯一产物是"枚举题号"脚本，从未
 - **ox-alpha-free（zen）**：晚间接手后 14 轮零工具调用（同日中午还正常）——源端代理行为间歇性退化，inner 使用前需先跑 emitcheck 类小探针
 - **stealth/ox-alpha（OpenRouter）**：gbx 快题 5 轮零产物——免费档限速+强制推理开销压垮代理循环，**仅任 outer 备选/judge，不当 inner**
 - 结论：inner 可靠序列当前为 **mimo-v2.5 > ox-alpha-free（需探针确认）**
+
+### minimax/minimax-m3:free（2026-08-26 接入，OpenRouter 第二模型）
+- **速度**：~2.5s（琐碎题），长生成 12.7s/4300 字符——免费档里最快
+- **稳定性**：6/6 零 429（免费档中最干净；密钥已轮换为第二把）
+- **推理**：默认自带思考（`reasoning` 字段）；effort 风格 low/medium/high 全收；参数出现时附 `reasoning_details`
+- **JSON 纪律**：精确单对象
+- **视觉**：官方声明 image+video 输入，**红方块探针答错（White）→ 判定不可用**
+- **stream 决策（实测依据）**：流式与非流式总耗时完全相同（12.7s vs 12.7s，生成速度在服务端）；采纳方案 = **默认非流式 + 断连自动降级流式**（`model_client._stream_complete`，针对长生成空闲超时断连，此前实测过 60s RemoteDisconnected）
+- 上下文 1M / maxOutput 按我们统一 131k 上限（官方免费档标称 943k，防御性收紧）
+- 角色建议：免费档 outer 备选 / 轻量批量任务；inner 待代理行为实测（stealth/ox 的教训：单轮探针好≠代理循环行）

@@ -144,7 +144,7 @@ export async function selftest(): Promise<boolean> {
 	check("findings escapes pipes", fmd.includes("adds L-moment estimator tip / pipe") && fmd.includes("ACCEPTED"));
 
 	console.log("== supported model list ==");
-	check("6 models fixed (4 gateway + 1 local + 1 openrouter)", SUPPORTED_MODELS.length === 6);
+	check("7 models fixed (4 gateway + 1 local + 2 openrouter)", SUPPORTED_MODELS.length === 7);
 	const muse = modelSpec("muse-spark-1.2-contributor");
 	check("muse is proxy + responses", muse?.route === "proxy" && muse?.api === "openai-responses");
 	check("hy3/ox-alpha/mimo direct chat", ["hy3", "ox-alpha-free", "mimo-v2.5"].every((id) => modelSpec(id)?.route === "direct" && modelSpec(id)?.api === "openai-completions"));

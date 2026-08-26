@@ -64,6 +64,7 @@ export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
 	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter free tier (429 under burst); reasoning mandatory; text+image+video input; quality flaky above medium effort" },
+	{ id: "minimax/minimax-m3:free", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter free; reasoning model (params optional); fast (~2.5s); advertises image+video input but vision FAILED our red-square probe; cleanest free-tier stability (6/6)" },
 ];
 
 export function modelSpec(id: string): ModelSpec | undefined {
