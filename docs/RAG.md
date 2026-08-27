@@ -58,3 +58,33 @@ LLM/embedding 检索留待第二阶段——先用确定性方案拿基线。
 seed / universal-tip / scoped-tip 分数不包含 RAG 增益。RAG 已通过无 LLM
 自检验证加载、区域路由、字符预算和反污染标记；下一阶段应单独做
 `RAG off/on` 对照，不能把 scope tip 结果当作 RAG 结果。
+
+## 首次 off/on 对照（2026-08-28 凌晨，mimo-v2.5 内核）
+
+glm 通道当晚断裂（OpenRouter 402 余额墙 → 网关 401，见 MODELS.md），对照
+改在 mimo-v2.5 上进行。两臂同夜、同 env、同 slice（`*_scope_mimo_5`，与
+scope pilot 同分布同题）、串行执行、隔离 KB/judge 缓存；`RSILAB_REQUEST_MAX_TOKENS=32768`
+（mimo 单轮"推理+脚本+答案表"在 16384 闸下会 `stopReason=length` 报死）。
+seed scaffold（A 臂、无 tips），`rag_budget_chars=2400`。
+
+| 任务 | off fitness | off 用时 | on fitness | on 用时 |
+|---|---:|---:|---:|---:|
+| stepgame_5 | 0.8000 | 920s | **1.0000** | **174s** |
+| mapqa_5 | 0.2000 | 1500s(触顶) | 0.2000 | 986s |
+| k2_5 | 1.0000 | 51s | 1.0000 | 43s |
+| **均值** | **0.6667** | 2471s | **0.7333** | 1203s |
+
+解读（谨慎）：
+
+1. 分数差 +0.0667 = stepgame 多对 1 题（每任务仅 3 道 private 题），**不具
+   统计显著性**；方向与 scoped-tip 臂一致但量级在噪声带内。
+2. **稳定的信号是效率**：总用时 2471s → 1203s（约减半），stepgame 单题
+   920s → 174s。检索注入的参考材料看起来让 inner 跳过了大量探索性脚本。
+   在按墙钟计费/限流的场景，这本身就是收益。
+3. 反污染链路完整：struct_selftest 断言（qid/题面/选项表三重比对）通过，
+   episode 日志 `[rag]` 行只出现 authored 语料。
+4. 下一步：多样本（≥3 episodes/格）+ glm 恢复后重跑，区分"知识增益"与
+   "聚焦效应"；再考虑接入 GIS 开放题（agent-evo5 wave1）。
+
+复现：`config/scope-pilot5-A-mimo-off.json` / `config/scope-pilot5-A-mimo-rag.json`，
+run 产物 `runs/rag-mimo2-off` / `runs/rag-mimo2-on`。
