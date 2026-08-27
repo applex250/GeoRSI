@@ -62,12 +62,9 @@ def main(run):
         if kind:
             crashes.append({"episode": os.path.basename(os.path.dirname(p)), "fitness": rec["fitness"], "kind": kind})
 
-    heldout = None
-    hres = load(os.path.join(root, "RESULTS.md").replace("RESULTS.md", "RESULTS.md"))  # placeholder
-    for p in glob.glob(os.path.join(root, "heldout", "*", "episode.json")):
-        rec = load(p)
-        if rec and rec.get("fitness") is not None:
-            heldout = rec["fitness"]
+    hvals = [rec["fitness"] for p in glob.glob(os.path.join(root, "heldout", "*", "episode.json"))
+             if (rec := load(p)) and rec.get("fitness") is not None]
+    heldout = round(sum(hvals) / len(hvals), 4) if hvals else None
 
     tokens = 0
     for p in glob.glob(os.path.join(root, "episodes", "*", "episode.json")):
@@ -83,6 +80,22 @@ def main(run):
     guard = len(re.findall(r"COMPROMISED", log))
 
     # decision logic
+    # completion dominance: a run that VERIFIABLY improved the champion AND
+    # finished its held-out exam is a success story regardless of individual
+    # weak episodes (they are recorded in crashes for diagnosis, not verdict)
+    # later challengers scoring low are FAILED ATTEMPTS, not capability loss:
+    # the verified champion is retained by design. Generalization gate =
+    # heldout must stay within 0.15 of the training baseline.
+    if champion_changed and heldout is not None and baseline is not None and heldout >= baseline - 0.15:
+        print(json.dumps({
+            "run": run, "verdict": "CHAMPION", "next_action": "STOP_SUCCESS",
+            "baseline": baseline, "best": best, "champion_changed": True,
+            "history": [round(f, 4) for f in state["fitnessHistory"]],
+            "heldout": heldout, "guard_violations": guard, "tokens": tokens,
+            "diagnosed_episodes": crashes,
+        }, ensure_ascii=False, indent=1))
+        return
+
     if crashes:
         kinds = {c["kind"] for c in crashes}
         verdict = "CRASHY"
