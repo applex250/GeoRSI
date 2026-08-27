@@ -206,6 +206,9 @@ structure, gold isolation and grader units (no LLM). See
 honest boundaries (quiz fitness is knowledge-bounded; public-score probing
 risk is mitigated, not eliminated).
 
+Agent evolution coverage and the remaining `CRASHY/ESCALATE` boundary are
+tracked in [`docs/AGENT-EVO.md`](docs/AGENT-EVO.md).
+
 ## Knowledge base (cross-run memory)
 
 `knowledge/nodes.jsonl` stores every proven lesson as a node tagged with the

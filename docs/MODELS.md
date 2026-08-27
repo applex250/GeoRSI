@@ -61,6 +61,9 @@
 - TypeScript：`src/models.ts` → `resolveThinking(model, wanted)`（等级钳制+参数翻译）、`assertVisionAllowed(model)`、`chatDirect(...)`（直连统一方法，带退避重试）
 - Python：`problems/_shared/model_client.py` → `complete(model, messages, level=...)`（同一档案、同一适配规则；judge.py 接线在演化 run 结束后切换，避免中途改评分路径）
 - 接线点：`PiHarness` 用 `resolveThinking` 在会话创建前钳制 thinkingLevel 并记录降级；provider 按 profiles 输出 models.json 的能力位
+- Judge：`problems/_shared/judge.py` 默认发送 `reasoning_effort=low`（可由
+  `RSILAB_JUDGE_REASONING_EFFORT` 覆盖），避免推理模型把 `max_tokens` 全部耗在
+  隐式思考而返回空的可见裁决；该规则不改变缓存键，只影响新请求。
 
 ## 六、OpenRouter：z-ai/glm-5.3-flash（2026-08-27 接入）
 

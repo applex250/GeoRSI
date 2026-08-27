@@ -556,6 +556,9 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		const quizFirstPass = isQuiz
 			? "QUIZ FIRST-PASS CONTRACT: read data/quiz.jsonl once, make a best-effort answer for every item, write answers.json, and call submit with answers_file=\"answers.json\" and final=false in this first turn. Use compact answers and no long per-question explanation. A complete imperfect sheet is better than spending the turn on an unfinished derivation. Refine only after a public score.\n"
 			: "";
+		const openFirstPass = !isQuiz
+			? "OPEN-TASK FIRST-PASS CONTRACT: inspect the statement and available data/tools, perform only the minimum checks needed to form a valid answer, and submit a complete best-effort artifact in this first turn with final=false. Do not spend the whole turn on exploratory narration or repeated analysis; an imperfect valid submission creates feedback for refinement.\n"
+			: "";
 		const initial =
 			`${problem.statement}\n\n` +
 			`Environment: you are in a scratch workspace; the dataset is in data/. ` +
@@ -564,6 +567,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			`use start_job instead: it runs detached in the background and the system wakes you ` +
 			`when it finishes (hours are fine). Budget your time: a complete analysis in 2-4 scripts is ideal.\n` +
 			quizFirstPass +
+			openFirstPass +
 			`You may submit up to ${cfg.eval_cap} times; public scores guide your iteration. ` +
 			`Finish by calling submit with final=true.\n` +
 			(memBlock ? `\n${memBlock}\n` : "");

@@ -55,9 +55,20 @@ def _call(prompt, max_tokens=2000):
     key = os.environ["RSILAB_JUDGE_KEY"]
     last_err = None
     for attempt in range(5):
-        body = json.dumps(
-            {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens, "temperature": 0}
-        ).encode()
+        # Reasoning models can spend the entire completion budget on hidden
+        # reasoning when no effort is specified, leaving an empty visible
+        # answer. Judges need a short, parseable verdict, so default to low
+        # effort; callers can override this for a controlled comparison.
+        body = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+        }
+        effort = os.environ.get("RSILAB_JUDGE_REASONING_EFFORT", "low").strip()
+        if effort and model != "muse-spark-1.2-contributor":
+            body["reasoning_effort"] = effort
+        body = json.dumps(body).encode()
         # the zen gateway sits behind Cloudflare and rejects non-browser user agents
         req = urllib.request.Request(
             base + "/chat/completions",

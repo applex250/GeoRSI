@@ -93,6 +93,9 @@ solve_src = open(os.path.join(ROOT, "src", "inner", "solve.ts"), encoding="utf-8
 strips = len(re.findall(r'startsWith\("RSILAB_JUDGE"\)', solve_src))
 if strips < 2:
     bad(f"solve.ts agent-side env strips found {strips}/2 (run_python + start_job)")
+judge_src = open(os.path.join(ROOT, "problems", "_shared", "judge.py"), encoding="utf-8").read()
+if "RSILAB_JUDGE_REASONING_EFFORT" not in judge_src or '"reasoning_effort"' not in judge_src:
+    bad("judge.py must set a bounded reasoning effort for parseable verdicts")
 tpl = open(os.path.join(ROOT, "problems", "_shared", "quiz_eval_template.py"), encoding="utf-8").read()
 if "__main__" not in tpl:
     bad("quiz_eval_template.py missing __main__ guard (regression)")
