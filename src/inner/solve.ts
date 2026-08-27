@@ -407,8 +407,17 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		}),
 		execute: async (_id, params) => {
 			if (st.submits >= cfg.eval_cap) {
+				// budget is spent, but final=true is still meaningful: it ends
+				// the episode cleanly instead of leaving the nudge loop to burn
+				// max_turns on submit attempts we would refuse anyway
+				if (params.final) {
+					st.finished = true;
+					return toolOutput(
+						`finalized. Submission budget (${cfg.eval_cap}) was already spent; the best recorded answer stands as the episode answer.`,
+					);
+				}
 				return toolOutput(
-					`submission budget exhausted (${cfg.eval_cap}). No further public evaluation was run; continue with the best answer already recorded.`,
+					`submission budget exhausted (${cfg.eval_cap}). Call submit with final=true to end the episode; the best answer already recorded will be graded.`,
 				);
 			}
 			// quiz batches submit via a file (a 100-item map is too big for one tool arg)

@@ -25,6 +25,19 @@ export interface MemoryStore {
 	items: MemoryItem[];
 }
 
+/** Create a read-only-in-practice snapshot for fair candidate evaluation. */
+export function snapshotMemory(store: MemoryStore): MemoryStore {
+	return {
+		dir: store.dir,
+		items: store.items.map((item) => ({ ...item })),
+	};
+}
+
+/** Empty episodic context for an independent exam or hold-out evaluation. */
+export function emptyMemory(dir: string): MemoryStore {
+	return { dir, items: [] };
+}
+
 export function openMemory(runDir: string): MemoryStore {
 	const dir = join(runDir, "memory");
 	mkdirSync(dir, { recursive: true });

@@ -9,6 +9,7 @@
  *  - On resume we rebuild in-memory state from state.json and cross-check the
  *    journal tail; a missing snapshot replays from the journal alone.
  */
+import { createHash } from "node:crypto";
 import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Scaffold } from "./scaffold.js";
@@ -88,14 +89,7 @@ export function loadRunState(dir: string): RunState | null {
 
 /** Fingerprint of the run-defining config: mismatched resume is refused. */
 export function fingerprint(parts: unknown[]): string {
-	const s = JSON.stringify(parts);
-	// FNV-1a: stable, dependency-free
-	let h = 0x811c9dc5;
-	for (let i = 0; i < s.length; i++) {
-		h ^= s.charCodeAt(i);
-		h = Math.imul(h, 0x01000193) >>> 0;
-	}
-	return h.toString(16);
+	return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 16);
 }
 
 /** Read the last non-empty lines of a jsonl file (for board summaries). */

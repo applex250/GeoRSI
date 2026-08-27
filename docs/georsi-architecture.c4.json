@@ -1,0 +1,222 @@
+{
+  "title": "GeoRSI Architecture",
+  "levels": [
+    {
+      "name": "System Context",
+      "elements": [
+        {
+          "id": "operator",
+          "type": "person",
+          "label": "Operator",
+          "desc": "Chooses a benchmark, starts runs, and steers or stops research"
+        },
+        {
+          "id": "georsi",
+          "type": "system",
+          "label": "GeoRSI",
+          "tech": "TypeScript + Python",
+          "desc": "Self-evolving geoscience agent with evaluation, memory, and guardrails",
+          "children": "Containers"
+        },
+        {
+          "id": "model_providers",
+          "type": "external",
+          "label": "Model Providers",
+          "tech": "OpenAI-compatible APIs",
+          "desc": "Inner solver and outer proposer/critic models"
+        },
+        {
+          "id": "benchmark_packs",
+          "type": "external",
+          "label": "Benchmark Packs",
+          "tech": "Local problem directories",
+          "desc": "Statements, public data, graders, and hidden evaluation assets"
+        }
+      ],
+      "relations": [
+        { "from": "operator", "to": "georsi", "label": "starts / steers / inspects" },
+        { "from": "georsi", "to": "model_providers", "label": "model calls" },
+        { "from": "georsi", "to": "benchmark_packs", "label": "loads task data and graders" }
+      ]
+    },
+    {
+      "name": "Containers",
+      "elements": [
+        {
+          "id": "cli_tui",
+          "type": "container",
+          "label": "CLI / TUI",
+          "tech": "src/run.ts + src/tui",
+          "desc": "Commands, terminal dashboard, replay, and run controls"
+        },
+        {
+          "id": "pi_extension",
+          "type": "container",
+          "label": "Pi Research Extension",
+          "tech": "extensions/georsi.ts",
+          "desc": "Chat-facing start, status, feedback, pause, resume, and stop controls"
+        },
+        {
+          "id": "rsi_orchestrator",
+          "type": "container",
+          "label": "RSI Orchestrator",
+          "tech": "src/rsi.ts",
+          "desc": "Goal check, propose, critique, evaluate, verify, accept, and held-out exam",
+          "children": "Orchestrator Components"
+        },
+        {
+          "id": "inner_solver",
+          "type": "container",
+          "label": "Inner Solver",
+          "tech": "src/inner/solve.ts",
+          "desc": "Runs one isolated episode with file, Python, job, and submit tools",
+          "children": "Solver Components"
+        },
+        {
+          "id": "model_runtime",
+          "type": "container",
+          "label": "Model Runtime",
+          "tech": "src/provider.ts + src/piharness.ts",
+          "desc": "Model adapters, proxy/local routing, reasoning profiles, retries, and token accounting"
+        },
+        {
+          "id": "eval_guard",
+          "type": "container",
+          "label": "Evaluation and Guard",
+          "tech": "src/bench/eval.ts + src/guard.ts",
+          "desc": "Public feedback, private fitness, judge isolation, integrity hashes, and anti-cheat scans"
+        },
+        {
+          "id": "experience",
+          "type": "database",
+          "label": "Experience Stores",
+          "tech": "memory.jsonl + knowledge/nodes.jsonl",
+          "desc": "Run memory, scoped strategy nodes, usage statistics, and probation knowledge"
+        },
+        {
+          "id": "rag",
+          "type": "container",
+          "label": "Authored RAG",
+          "tech": "src/retrieval.ts + rag/corpus",
+          "desc": "Optional deterministic region-routed domain references; benchmark truth is excluded"
+        },
+        {
+          "id": "artifacts",
+          "type": "database",
+          "label": "Run Artifacts",
+          "tech": "runs/<name>",
+          "desc": "Journal, state, variants, episodes, board reports, logs, and control file"
+        },
+        {
+          "id": "problem_registry",
+          "type": "container",
+          "label": "Problem Registry",
+          "tech": "problems/ + config/*.json",
+          "desc": "Benchmark adapters, per-problem overrides, suite files, and model routing metadata"
+        }
+      ],
+      "relations": [
+        { "from": "cli_tui", "to": "rsi_orchestrator", "label": "runs / resumes" },
+        { "from": "pi_extension", "to": "cli_tui", "label": "spawns engine and streams events" },
+        { "from": "pi_extension", "to": "artifacts", "label": "status and control files" },
+        { "from": "rsi_orchestrator", "to": "model_runtime", "label": "outer model calls" },
+        { "from": "rsi_orchestrator", "to": "inner_solver", "label": "evaluates scaffolds" },
+        { "from": "rsi_orchestrator", "to": "experience", "label": "promotes accepted tips" },
+        { "from": "rsi_orchestrator", "to": "artifacts", "label": "journals state and reports" },
+        { "from": "inner_solver", "to": "model_runtime", "label": "inner model calls" },
+        { "from": "inner_solver", "to": "eval_guard", "label": "public submit and final private eval" },
+        { "from": "inner_solver", "to": "experience", "label": "recalls memory and records usage" },
+        { "from": "inner_solver", "to": "rag", "label": "optional region retrieval" },
+        { "from": "inner_solver", "to": "problem_registry", "label": "loads statement and data" },
+        { "from": "inner_solver", "to": "artifacts", "label": "episode workspace and logs" },
+        { "from": "eval_guard", "to": "problem_registry", "label": "runs graders and reads hidden truth" },
+        { "from": "eval_guard", "to": "artifacts", "label": "records fitness and guard results" }
+      ]
+    },
+    {
+      "name": "Orchestrator Components",
+      "elements": [
+        {
+          "id": "goal_component",
+          "type": "component",
+          "label": "Goal and Feedback",
+          "tech": "src/goal.ts",
+          "desc": "Goal plan, trend checks, and operator feedback"
+        },
+        {
+          "id": "proposal_component",
+          "type": "component",
+          "label": "Proposal Engine",
+          "tech": "src/outer/improve.ts",
+          "desc": "Produces bounded, causal scaffold edits through a strict tool schema"
+        },
+        {
+          "id": "critique_component",
+          "type": "component",
+          "label": "Critique Panel",
+          "tech": "src/outer/critique.ts",
+          "desc": "Parallel critics prune proposals before expensive episodes"
+        },
+        {
+          "id": "verification_component",
+          "type": "component",
+          "label": "Adversarial Verification",
+          "tech": "src/rsi.ts",
+          "desc": "Fresh re-evaluation and acceptance threshold for champion changes"
+        },
+        {
+          "id": "report_component",
+          "type": "component",
+          "label": "Board and Reports",
+          "tech": "src/board.ts",
+          "desc": "Leaderboard, findings, and machine-readable run summaries"
+        }
+      ],
+      "relations": [
+        { "from": "goal_component", "to": "proposal_component", "label": "steers" },
+        { "from": "proposal_component", "to": "critique_component", "label": "submits proposals" },
+        { "from": "critique_component", "to": "verification_component", "label": "surviving challenger" },
+        { "from": "verification_component", "to": "report_component", "label": "accept/reject result" }
+      ]
+    },
+    {
+      "name": "Solver Components",
+      "elements": [
+        {
+          "id": "prompt_component",
+          "type": "component",
+          "label": "Prompt Assembly",
+          "tech": "scaffold + knowledge + memory + RAG",
+          "desc": "Builds the task-specific system prompt"
+        },
+        {
+          "id": "tool_component",
+          "type": "component",
+          "label": "Tool Loop",
+          "tech": "Pi tools + Python jobs",
+          "desc": "Read, write, run Python, background jobs, and submit"
+        },
+        {
+          "id": "submission_component",
+          "type": "component",
+          "label": "Submission Controller",
+          "tech": "solve.ts",
+          "desc": "Coverage checks, public score feedback, patience, and finalization"
+        },
+        {
+          "id": "episode_component",
+          "type": "component",
+          "label": "Episode Finalizer",
+          "tech": "solve.ts + guard.ts",
+          "desc": "Private evaluation, integrity verification, breach scan, and episode record"
+        }
+      ],
+      "relations": [
+        { "from": "prompt_component", "to": "tool_component", "label": "guides" },
+        { "from": "tool_component", "to": "submission_component", "label": "submit calls" },
+        { "from": "submission_component", "to": "episode_component", "label": "best answer" },
+        { "from": "episode_component", "to": "prompt_component", "label": "memory feedback" }
+      ]
+    }
+  ]
+}

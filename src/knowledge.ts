@@ -33,7 +33,7 @@ export const KNOWLEDGE_CHAR_BUDGET = 6000;
 /** a "win" is coarse on purpose: episodes that reached basic competence */
 export const WIN_LINE = 0.6;
 
-function kbPath(): string {
+export function knowledgePath(): string {
 	// per-lane override for provider-parallel runs: each lane gets a COPY of
 	// the store (stats accumulate independently, merged back afterwards) so
 	// read-modify-write never races across lanes
@@ -43,7 +43,7 @@ function kbPath(): string {
 }
 
 export function loadKnowledge(): KnowledgeNode[] {
-	const p = kbPath();
+	const p = knowledgePath();
 	if (!existsSync(p)) return [];
 	const out: KnowledgeNode[] = [];
 	for (const line of readFileSync(p, "utf8").split(/\r?\n/)) {
@@ -142,7 +142,7 @@ export function recordUsage(ids: string[], fitness: number): void {
 		touched = true;
 	}
 	if (!touched) return;
-	const p = kbPath();
+	const p = knowledgePath();
 	const tmp = p + ".tmp";
 	writeFileSync(tmp, nodes.map((n) => JSON.stringify(n)).join("\n") + "\n", "utf8");
 	renameSync(tmp, p);

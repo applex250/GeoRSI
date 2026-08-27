@@ -13,6 +13,7 @@ import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
 import { solveEpisode } from "./inner/solve.js";
 import { openMemory } from "./memory.js";
 import { writeTextAtomic } from "./journal.js";
+import { meanWithFailures } from "./metrics.js";
 
 export interface ExamProblemResult {
 	problem: string;
@@ -45,6 +46,8 @@ export async function runExam(
 	const memory = openMemory(runDir);
 
 	const results: ExamProblemResult[] = [];
+	const repeats = Math.max(1, Math.floor(cfg.episodes_per_problem || 1));
+	for (let repeat = 0; repeat < repeats; repeat++) {
 	for (const p of problems) {
 		log(`[exam] ${p.id}${p.heldout ? " (held-out)" : ""} ...`);
 		const res = await solveEpisode({
@@ -53,10 +56,11 @@ export async function runExam(
 			evalCtx,
 			scaffold,
 			model: inner,
-			workspace: join(runDir, "exam", p.id),
+			workspace: join(runDir, "exam", repeats === 1 ? p.id : `r${repeat + 1}-${p.id}`),
 			memory,
 			log,
-			tag: `exam-${p.id}`,
+			tag: repeats === 1 ? `exam-${p.id}` : `exam-r${repeat + 1}-${p.id}`,
+			persistKnowledgeUsage: false,
 		});
 		results.push({
 			problem: p.id,
@@ -71,9 +75,10 @@ export async function runExam(
 			`[exam] ${p.id}: fitness=${res.fitness?.toFixed(4) ?? "ERR"} public=${res.bestPublic?.toFixed(4) ?? "—"} (${Math.round(res.secs)}s)`,
 		);
 	}
+	}
 
-	const trainMean = meanOf(results.filter((r) => !r.heldout).map((r) => r.fitness));
-	const heldoutMean = meanOf(results.filter((r) => r.heldout).map((r) => r.fitness));
+	const trainMean = meanWithFailures(results.filter((r) => !r.heldout).map((r) => r.fitness));
+	const heldoutMean = meanWithFailures(results.filter((r) => r.heldout).map((r) => r.fitness));
 	const summary = `train=${trainMean?.toFixed(4) ?? "ERR"} heldout=${heldoutMean?.toFixed(4) ?? "—"}`;
 
 	const md =
@@ -106,6 +111,8 @@ export async function runHeldoutExam(
 	const memory = openMemory(runDir);
 
 	const results: ExamProblemResult[] = [];
+	const repeats = Math.max(1, Math.floor(cfg.episodes_per_problem || 1));
+	for (let repeat = 0; repeat < repeats; repeat++) {
 	for (const p of problems) {
 		log(`[heldout] ${p.id} ...`);
 		const res = await solveEpisode({
@@ -114,9 +121,10 @@ export async function runHeldoutExam(
 			evalCtx,
 			scaffold: champion,
 			model: inner,
-			workspace: join(runDir, "heldout", p.id),
+			workspace: join(runDir, "heldout", repeats === 1 ? p.id : `r${repeat + 1}-${p.id}`),
 			memory,
-			tag: `heldout-${p.id}`,
+			tag: repeats === 1 ? `heldout-${p.id}` : `heldout-r${repeat + 1}-${p.id}`,
+			persistKnowledgeUsage: false,
 		});
 		results.push({
 			problem: p.id,
@@ -129,7 +137,8 @@ export async function runHeldoutExam(
 		});
 		log(`[heldout] ${p.id}: fitness=${res.fitness?.toFixed(4) ?? "ERR"}`);
 	}
-	const heldoutMean = meanOf(results.map((r) => r.fitness));
+	}
+	const heldoutMean = meanWithFailures(results.map((r) => r.fitness));
 	const md =
 		`# Held-out Exam (champion, gen ${champion.generation})\n\n` +
 		`| problem | fitness | error |\n|---|---|---|\n` +
@@ -143,12 +152,6 @@ export async function runHeldoutExam(
 		heldoutMean,
 		summary: `heldout=${heldoutMean?.toFixed(4) ?? "—"}`,
 	};
-}
-
-function meanOf(xs: (number | null)[]): number | null {
-	const v = xs.filter((x): x is number => x != null);
-	if (v.length === 0) return null;
-	return v.reduce((a, b) => a + b, 0) / v.length;
 }
 
 export { SEED_SCAFFOLD };

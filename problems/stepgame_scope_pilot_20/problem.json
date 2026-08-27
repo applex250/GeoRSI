@@ -1,0 +1,9 @@
+{
+  "type": "quiz",
+  "genre": "quiz-stepgame",
+  "max_turns": 8,
+  "eval_cap": 2,
+  "episode_timeout_s": 900,
+  "patience": 2,
+  "eval_timeout_s": 900
+}

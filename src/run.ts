@@ -220,7 +220,13 @@ async function main() {
 			: join(ROOT, "runs", runName, "control.json");
 		mkdirSync(join(controlPath, ".."), { recursive: true });
 		controller.attachControlFile(controlPath);
-		const { state } = await runRsi({ cfg, runName, resume, gensOverride: gens, controller });
+		let runCfg = cfg;
+		if (args.scaffold && existsSync(String(args.scaffold))) {
+			runCfg = { ...cfg, seed_scaffold: JSON.parse(readFileSync(String(args.scaffold), "utf8")) as Scaffold };
+		} else if (args.scaffold) {
+			console.warn(`[run] --scaffold path not found: ${args.scaffold} — starting from SEED_SCAFFOLD instead`);
+		}
+		const { state } = await runRsi({ cfg: runCfg, runName, resume, gensOverride: gens, controller });
 		controller.detachControlFile();
 		console.log(`champion generation=${state.generation} best=${state.bestFitness?.toFixed(4) ?? "—"} tokens=${TOKENS.total}`);
 		process.exit(0);

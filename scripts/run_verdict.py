@@ -51,7 +51,20 @@ def main(run):
         return
     baseline = state["fitnessHistory"][0] if state["fitnessHistory"] else None
     best = state.get("bestFitness")
-    champion_changed = bool(state["champion"].get("tips")) or (best != baseline and best is not None and baseline is not None and best > baseline)
+    accepts = []
+    try:
+        with open(os.path.join(root, "board.jsonl"), encoding="utf-8") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                if rec.get("kind") == "accept":
+                    accepts.append(rec)
+    except Exception:
+        pass
+    # Seed scaffolds may already contain tips. Only an explicit accept record
+    # proves that this run changed the champion; presence of tips is not proof.
+    champion_changed = bool(accepts)
 
     crashes = []
     for p in glob.glob(os.path.join(root, "episodes", "*", "episode.json")) + glob.glob(os.path.join(root, "heldout", "*", "episode.json")):
@@ -62,8 +75,10 @@ def main(run):
         if kind:
             crashes.append({"episode": os.path.basename(os.path.dirname(p)), "fitness": rec["fitness"], "kind": kind})
 
-    hvals = [rec["fitness"] for p in glob.glob(os.path.join(root, "heldout", "*", "episode.json"))
-             if (rec := load(p)) and rec.get("fitness") is not None]
+    heldout_recs = [rec for p in glob.glob(os.path.join(root, "heldout", "*", "episode.json"))
+                    if (rec := load(p))]
+    # A missing held-out score is a failed held-out task, not missing data.
+    hvals = [(rec.get("fitness") if rec.get("fitness") is not None else 0) for rec in heldout_recs]
     heldout = round(sum(hvals) / len(hvals), 4) if hvals else None
 
     tokens = 0
@@ -90,6 +105,7 @@ def main(run):
         print(json.dumps({
             "run": run, "verdict": "CHAMPION", "next_action": "STOP_SUCCESS",
             "baseline": baseline, "best": best, "champion_changed": True,
+            "accepts": len(accepts),
             "history": [round(f, 4) for f in state["fitnessHistory"]],
             "heldout": heldout, "guard_violations": guard, "tokens": tokens,
             "diagnosed_episodes": crashes,
@@ -108,8 +124,23 @@ def main(run):
         # challengers above baseline but verification never cleared the bar =
         # plateau at ceiling, not regression. Near-miss (within striking
         # distance) earns one more roll under the same config.
-        near_miss = any(h >= baseline + 0.005 for h in state["fitnessHistory"][1:])
-        if not champion_changed and best is not None and best >= baseline:
+        # history records champion values per gen; challenger means live in
+        # board.jsonl episode records - those are the real near-miss signal
+        challenger_means = []
+        try:
+            for _line in open(os.path.join(root, "board.jsonl"), encoding="utf-8"):
+                if not _line.strip():
+                    continue
+                try:
+                    _r = json.loads(_line)
+                except Exception:
+                    continue
+                if _r.get("kind") == "episode" and _r.get("role") == "challenger" and _r.get("fitness") is not None:
+                    challenger_means.append(float(_r["fitness"]))
+        except FileNotFoundError:
+            pass
+        near_miss = baseline is not None and any(m >= baseline + 0.005 for m in challenger_means)
+        if not champion_changed and baseline is not None and best is not None and best >= baseline:
             verdict = "PLATEAU_NEAR_MISS"
             next_action = "RETRY"
         elif near_miss:
@@ -126,6 +157,7 @@ def main(run):
         "baseline": baseline,
         "best": best,
         "champion_changed": champion_changed,
+        "accepts": len(accepts),
         "history": [round(f, 4) for f in state["fitnessHistory"]],
         "heldout": heldout,
         "guard_violations": guard,
