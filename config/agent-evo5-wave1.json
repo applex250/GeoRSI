@@ -1,0 +1,109 @@
+{
+  "base_url": "https://opencode.ai/zen/go/v1",
+  "local_base_url": "http://172.27.116.56:8080/v1",
+  "inner_model": "mimo-v2.5",
+  "outer_model": "hy3",
+  "generations": 3,
+  "proposals": 3,
+  "critics": 1,
+  "survivors": 1,
+  "max_turns": 12,
+  "episode_timeout_s": 900,
+  "eval_cap": 6,
+  "patience": 3,
+  "stagnation_limit": 3,
+  "cost_cap_tokens": 50000000,
+  "stall_s": 240,
+  "episodes_per_problem": 1,
+  "python_cmd": "python",
+  "private_truth_dir": "../rsi-lab-private",
+  "problems": [
+    {
+      "id": "geona_03",
+      "weight": 1
+    },
+    {
+      "id": "geona_17",
+      "weight": 1
+    },
+    {
+      "id": "geona_31",
+      "weight": 1
+    },
+    {
+      "id": "geona_45",
+      "weight": 1
+    },
+    {
+      "id": "gabench_05",
+      "weight": 1
+    },
+    {
+      "id": "gabench_19",
+      "weight": 1
+    },
+    {
+      "id": "gabench_33",
+      "weight": 1
+    },
+    {
+      "id": "gabench_47",
+      "weight": 1
+    },
+    {
+      "id": "gab_07",
+      "weight": 1
+    },
+    {
+      "id": "gab_19",
+      "weight": 1
+    },
+    {
+      "id": "gab_31",
+      "weight": 1
+    },
+    {
+      "id": "gab_43",
+      "weight": 1
+    },
+    {
+      "id": "gbx_003",
+      "weight": 1
+    },
+    {
+      "id": "gbx_011",
+      "weight": 1
+    },
+    {
+      "id": "gbx_019",
+      "weight": 1
+    },
+    {
+      "id": "gbx_027",
+      "weight": 1
+    },
+    {
+      "id": "geona_59",
+      "weight": 1,
+      "heldout": true
+    },
+    {
+      "id": "gabench_51",
+      "weight": 1,
+      "heldout": true
+    },
+    {
+      "id": "gab_49",
+      "weight": 1,
+      "heldout": true
+    },
+    {
+      "id": "gbx_033",
+      "weight": 1,
+      "heldout": true
+    }
+  ],
+  "script_timeout_s": 120,
+  "job_timeout_s": 14400,
+  "job_poll_s": 30
+}

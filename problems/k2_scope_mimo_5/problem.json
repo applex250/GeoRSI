@@ -1,0 +1,9 @@
+{
+  "type": "quiz",
+  "genre": "quiz-k2",
+  "max_turns": 4,
+  "eval_cap": 2,
+  "episode_timeout_s": 1500,
+  "patience": 2,
+  "eval_timeout_s": 1500
+}

@@ -90,6 +90,18 @@ quiz 批量任务 12 轮零提交：唯一产物是"枚举题号"脚本，从未
 - **z-ai/glm-5.3-flash**：标准 `quake_b` Pi probe 成功；quiz/scoped 任务仍需 fresh baseline
 - 结论：inner 可靠性暂按 **mimo-v2.5（已知） + GLM fresh baseline（当前候选）** 管理
 
+### z-ai/glm-5.3-flash 通道中断（2026-08-27 深夜实测）
+- **402 余额墙**：scope-final 三臂（22:25–22:38）在 glm 上全部成功；约一小时后
+  rag-on 臂（prompt 略大）被 OpenRouter 预检拒绝——"requested up to 16384 tokens,
+  but can only afford 6958"（`limit_source=openrouter_credits`）。余额将尽时，
+  prompt+max_tokens 的预检先于小 prompt 失败，表现为"更大的请求先死"。
+- **随后 401 ModelError "not supported"**：同一 key 小请求复测 glm 返回 401
+  （mimo-v2.5 / hy3 同刻正常）。glm 在 zen 网关上的可用性当晚发生翻转，原因在
+  供应商侧。
+- **处置**：当夜 RAG 对照双臂与 RSI 探针改道 `mimo-v2.5`（zen 原生路由，16k
+  headroom 探针通过）；glm 恢复（充值 OpenRouter credits 或网关回滚）前不再选它
+  做 inner。scope-final 三臂结论不受影响（其 glm 会话当时全部真实完成）。
+
 ### minimax/minimax-m3:free（2026-08-26 接入，OpenRouter 第二模型）
 - **速度**：~2.5s（琐碎题），长生成 12.7s/4300 字符——免费档里最快
 - **稳定性**：6/6 零 429（免费档中最干净；密钥已轮换为第二把）

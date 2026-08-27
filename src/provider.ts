@@ -130,8 +130,13 @@ export async function preflightLocal(cfg: Config, modelId: string): Promise<void
 	}
 }
 
-/** Protective per-request output cap (well under every model's advertised max). */
-const REQUEST_MAX_TOKENS = 16384;
+/**
+ * Protective per-request output cap (well under every model's advertised max).
+ * Env override for slow reasoning kernels whose one full quiz first-pass turn
+ * (reasoning + code + answer sheet) legitimately exceeds the default: seen as
+ * `stopReason=length` -> "empty assistant response" on mimo-v2.5, 2026-08-27.
+ */
+const REQUEST_MAX_TOKENS = Number.parseInt(process.env.RSILAB_REQUEST_MAX_TOKENS ?? "", 10) || 16384;
 
 /** Whether this model tolerates reasoning parameters (profile-driven). */
 function reasoningParamSupported(id: string): boolean {

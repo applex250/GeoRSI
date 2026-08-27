@@ -7,6 +7,8 @@ Covers the A/B-tier integration invariants:
 - judge cache: every line parses, keys unique (determinism precondition —
   adversarial re-eval must hit the same cached judgment)
 - env isolation: solve.ts strips RSILAB_JUDGE* from agent-side spawns
+- rag corpus: manifest provenance complete; no benchmark qid/question/option
+  text may appear in the retrieval corpus (contamination guard)
 
 Prints STRUCT_OK when everything passes.
 """
@@ -123,7 +125,67 @@ if os.path.exists(kb_path):
 else:
     bad("knowledge/nodes.jsonl missing")
 
-# 6. model profiles (unified calling layer data) -------------------------------
+# 6. RAG corpus: provenance + anti-contamination ------------------------------
+# The retrieval corpus must be project-authored reference material only. It
+# must never contain benchmark questions, option lists or qids — otherwise the
+# inner model could memorize the benchmark through the retrieval channel.
+corpus_root = os.path.join(ROOT, "rag", "corpus")
+corpus_n = 0
+corpus_text = ""
+manifest_path = os.path.join(corpus_root, "manifest.json")
+try:
+    manifest = json.load(open(manifest_path, encoding="utf-8"))
+    found = set()
+    for sub in sorted(glob.glob(os.path.join(corpus_root, "*", "*.md"))):
+        rel = os.path.relpath(sub, corpus_root).replace("\\", "/")[:-3]
+        found.add(rel)
+        corpus_text += open(sub, encoding="utf-8").read() + "\n"
+        corpus_n += 1
+    missing_files = set(manifest) - found
+    unlisted = found - set(manifest)
+    if missing_files:
+        bad(f"rag manifest lists missing docs: {sorted(missing_files)[:3]}")
+    if unlisted:
+        bad(f"rag corpus files not in manifest: {sorted(unlisted)[:3]}")
+    for doc_id, meta in manifest.items():
+        if not isinstance(meta, dict) or not meta.get("region") or not meta.get("source"):
+            bad(f"rag manifest entry {doc_id}: missing region/source provenance")
+        if not meta.get("license") and "derived" not in meta:
+            bad(f"rag manifest entry {doc_id}: neither license nor derived flag set")
+    if corpus_n and not corpus_text.strip():
+        bad("rag corpus files exist but total text is empty")
+except Exception as e:  # noqa: BLE001
+    bad(f"rag corpus/manifest broken: {e}")
+
+if corpus_n:
+    norm = lambda s: " ".join(s.split()).lower()  # noqa: E731
+    hay = norm(corpus_text)
+    leaked = 0
+    for d in quiz_dirs:
+        pid = os.path.basename(d)
+        try:
+            qs = [json.loads(l) for l in open(os.path.join(d, "data", "quiz.jsonl"), encoding="utf-8") if l.strip()]
+        except Exception:
+            continue  # quiz-dir structural problems are reported in section 1
+        for rec in qs:
+            qid = str(rec.get("qid", ""))
+            if qid and len(qid) >= 4 and qid in corpus_text:
+                bad(f"rag corpus contains benchmark qid {qid} ({pid})")
+                leaked += 1
+            q = norm(str(rec.get("question", "")))
+            if len(q) >= 40 and q in hay:
+                bad(f"rag corpus contains question text from {pid} ({qid})")
+                leaked += 1
+            opts = rec.get("options")
+            if isinstance(opts, list) and len(opts) >= 3:
+                j = norm(" | ".join(str(o) for o in opts))
+                if len(j) >= 40 and j in hay:
+                    bad(f"rag corpus contains option list from {pid} ({qid})")
+                    leaked += 1
+        if leaked >= 10:
+            break
+
+# 7. model profiles (unified calling layer data) -------------------------------
 prof_path = os.path.join(ROOT, "config", "model-profiles.json")
 try:
     profs = json.load(open(prof_path, encoding="utf-8"))
