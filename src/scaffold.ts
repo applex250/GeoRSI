@@ -108,11 +108,11 @@ export function tipAppliesTo(tip: TipSpec, genre?: string): boolean {
 /** Compose the final system prompt handed to the inner agent. */
 export function composeSystemPrompt(s: Scaffold, genre?: string): string {
 	let p = s.system_prompt;
-	const tips = s.tips.filter((t) => tipAppliesTo(t, genre));
+	const tips = (s.tips ?? []).filter((t) => tipAppliesTo(t, genre));
 	if (tips.length > 0) {
 		p += "\n\nStrategy notes (learned, in priority order):\n" + tips.map((t) => `- ${typeof t === "string" ? t : t.text}`).join("\n");
 	}
-	const domain = genre ? (s.domain_knowledge[genre] ?? []) : [];
+	const domain = genre ? ((s.domain_knowledge ?? {})[genre] ?? []) : [];
 	if (domain.length > 0) {
 		p += `\n\nDomain notes (${genre}):\n` + domain.map((t) => `- ${t}`).join("\n");
 	}

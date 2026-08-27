@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-26-sweep",
+  "version": "2026-08-27-ox-retired",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -79,7 +79,8 @@
           "high"
         ],
         "status": "source recovered late 2026-08-25 (stab 4/4, json 2/2); reasoning levels still need clean re-probe"
-      }
+      },
+      "status": "RETIRED 2026-08-27: gateway returns 401 ModelError (model not found)"
     },
     "dsv4f": {
       "endpoint": "local",
@@ -159,7 +160,10 @@
         "total_tokens": 114939,
         "note": "quiz-batch inner sweep; stealth/ox Pareto-dominates all 5 models (best acc AND lowest tokens)"
       },
-      "inner_role": "quiz batches: YES (Pareto king, 1-turn submits); open analysis/gbx: NO (tool-loop stall measured)"
+      "inner_role": "quiz batches: YES (Pareto king, 1-turn submits); open analysis/gbx: NO (tool-loop stall measured)",
+      "measured": {
+        "gateway_probe_2026_08_27": "sweep 0.885@115k; retest k2 -0.09 variance"
+      }
     },
     "minimax/minimax-m3:free": {
       "endpoint": "openrouter",

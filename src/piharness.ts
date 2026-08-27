@@ -18,7 +18,7 @@ import { AgentSession, createAgentSession, DefaultResourceLoader, SessionManager
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
 import { resolveThinking, type ThinkingLevel } from "./models.js";
 
@@ -82,6 +82,8 @@ export class PiHarness {
 	private disposed = false;
 	/** session stats are cumulative; only the per-prompt delta is new usage */
 	private lastSessionTokens = 0;
+	/** env-gated raw event diagnostics (RSILAB_PROMPT_DIAG=1) */
+	private _diagPath: string | null = null;
 
 	constructor(opts: HarnessOpts) {
 		this.opts = opts;
@@ -89,6 +91,7 @@ export class PiHarness {
 
 	async init(): Promise<void> {
 		mkdirSync(this.opts.cwd, { recursive: true });
+		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(this.opts.cwd, "prompt_diag.jsonl") : null;
 		// per-model compatibility (config/model-profiles.json): clamp the
 		// requested thinking level to what THIS model accepts before the
 		// session is built — e.g. ox-alpha-free rejects "high", muse must
@@ -152,6 +155,22 @@ export class PiHarness {
 		this.session = session;
 		session.subscribe((event) => {
 			this.lastEventTs = Date.now();
+			if (this._diagPath) {
+				try {
+					appendFileSync(
+						this._diagPath,
+						JSON.stringify({
+							ts: Date.now(),
+							type: (event as { type?: string }).type,
+							err: (event as { error?: unknown }).error
+								? String((event as { error?: { message?: string } }).error?.message ?? "").slice(0, 300)
+								: undefined,
+						}) + "\n",
+					);
+				} catch {
+					/* diagnostics must never break the stream */
+				}
+			}
 			if (event.type === "message_update") {
 				const ev = (event as { assistantMessageEvent?: { type?: string; delta?: string } }).assistantMessageEvent;
 				if (!ev) return;
