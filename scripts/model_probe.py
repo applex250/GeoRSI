@@ -24,10 +24,12 @@ import zlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ZEN = "https://opencode.ai/zen/go/v1"
 LOCAL = "http://172.27.116.56:8080/v1"
+OPENROUTER = "https://openrouter.ai/api/v1"
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 
 KEY = open(os.path.join(ROOT, "api_key.txt"), encoding="utf-8").read().strip()
 LKEY = open(os.path.join(ROOT, "api_key_local.txt"), encoding="utf-8").read().strip()
+OKEY = open(os.path.join(ROOT, "api_key_or.txt"), encoding="utf-8").read().strip()
 
 def render_scene_b64():
     img = Image.new("RGB", (320, 240), "white")
@@ -59,10 +61,11 @@ def vision_probe():
 
 MODELS = [
     ("hy3", ZEN, KEY),
-    ("ox-alpha-free", ZEN, KEY),
     ("mimo-v2.5", ZEN, KEY),
     ("dsv4f", LOCAL, LKEY),
     ("muse-spark-1.2-contributor", ZEN, KEY),  # proxy-routed; Responses API upstream
+    ("z-ai/glm-5.3-flash", OPENROUTER, OKEY),
+    ("minimax/minimax-m3:free", OPENROUTER, OKEY),
 ]
 
 

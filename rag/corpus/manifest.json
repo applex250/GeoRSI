@@ -1,0 +1,7 @@
+{
+  "gis_tooling/shapefile-integrity": {"region":"gis_tooling","source":"GeoRSI authored GIS cookbook, 2026-08-27","license":"project-authored","derived":false},
+  "gis_tooling/crs-workflow": {"region":"gis_tooling","source":"GeoRSI authored GIS cookbook, 2026-08-27","license":"project-authored","derived":false},
+  "map_projection/utm-distance": {"region":"map_projection","source":"GeoRSI authored geospatial methods notes, 2026-08-27","license":"project-authored","derived":false},
+  "spatial_reasoning/directions": {"region":"spatial_reasoning","source":"GeoRSI authored spatial reasoning notes, 2026-08-27","license":"project-authored","derived":false},
+  "geoscience_formulas/unit-checks": {"region":"geoscience_formulas","source":"GeoRSI authored quantitative geoscience notes, 2026-08-27","license":"project-authored","derived":false}
+}

@@ -1,0 +1,2 @@
+# Shapefile integrity
+A shapefile is a family of files, not only the .shp member. Keep .shp, .shx, and .dbf together; .prj is needed to interpret coordinates, while .cpg or an explicit encoding handles non-ASCII attributes. Before analysis, verify that the sidecars exist, the attribute table has the expected columns, and the geometry count is nonzero. A successful file open is not proof that attributes or coordinate reference information survived.

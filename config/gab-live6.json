@@ -1,7 +1,7 @@
 {
   "base_url": "https://opencode.ai/zen/go/v1",
   "local_base_url": "http://172.27.116.56:8080/v1",
-  "inner_model": "ox-alpha-free",
+  "inner_model": "mimo-v2.5",
   "outer_model": "hy3",
   "generations": 4,
   "proposals": 3,

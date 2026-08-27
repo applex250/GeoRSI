@@ -4,7 +4,10 @@ Self-evolving geoscience research system on the **pi agent harness**
 (`@earendil-works/pi-coding-agent`). An outer evolution loop rewrites the
 strategy of an inner research agent; the inner agent does real quantitative
 geoscience (writes code, runs it, submits answers) and is scored against
-hidden truth. See `docs/DESIGN.md` for the full design rationale.
+hidden truth. See `docs/DESIGN.md` for the original design rationale and
+`docs/ARCHITECTURE-REVIEW.md` for the current convergence target, audit
+findings, and generalization roadmap. The editable architecture overview is
+`docs/georsi-architecture.drawio`.
 
 ## The research agent (pi chat + `/research`)
 
@@ -72,7 +75,7 @@ outer loop selects on private scores.
 
 ## Gateway models (fixed support list)
 
-Verified 2026-08-24/25 and pinned in `src/config.ts` (`SUPPORTED_MODELS`);
+Verified 2026-08-27 and pinned in `src/config.ts` (`SUPPORTED_MODELS`);
 `loadConfig` rejects anything else. Per-model reasoning-parameter quirks,
 vision bits and stability notes live in **`config/model-profiles.json`** —
 the machine-readable single source of truth consumed by `src/models.ts`
@@ -82,15 +85,16 @@ methodology and role assignments is **`docs/MODELS.md`**.
 
 | model | endpoint | route | API | ctx / max-out | role |
 |---|---|---|---|---|---|
-| `mimo-v2.5` | zen | direct | chat/completions | 1m / 128k | inner researcher (**default**; heavy reasoner) |
+| `mimo-v2.5` | zen | direct | chat/completions | 1m / 128k | inner researcher; heavy fallback |
 | `hy3` | zen | direct | chat/completions | 256k / 128k | outer proposer (**default**) |
-| `ox-alpha-free` | zen | direct | chat/completions | 1m / 128k | fastest inner alternative |
-| `stealth/ox-alpha` | openrouter | direct | chat/completions | 1m / 131k | free backup (429 under burst; reasoning mandatory; text+image+video raw API) |
+| `z-ai/glm-5.3-flash` | openrouter | direct | chat/completions | 1m / 131k | current quiz/agent inner candidate; mandatory reasoning |
+| `minimax/minimax-m3:free` | openrouter | direct | chat/completions | 1m / 131k | free fallback; fast and multimodal |
+| `ox-alpha-free` / `stealth/ox-alpha` | retired | — | — | — | historical aliases; rejected at config load |
 | `muse-spark-1.2-contributor` | zen | **proxy** | **responses** | — | region-locked; auto-proxy via undici `EnvHttpProxyAgent` when selected |
 | `dsv4f` | **campus local** | direct | chat/completions | 256k / 64k | free local deepseek; server downtime is normal — preflighted at boot, fails fast with a switch hint |
 
 Switch models at runtime from the research agent chat: `/research model`
-(shows current + list), `/research model inner ox-alpha-free`,
+(shows current + list), `/research model inner z-ai/glm-5.3-flash`,
 `/research model outer hy3` — effective on the next run.
 
 Local server: `local_base_url` in config.json (default
@@ -122,7 +126,7 @@ they exceed `job_timeout_s`. Knobs in config.json:
 and runs the evolution loop in the same process:
 
 ```
-┌ GeoRSI ─ rsi-20260824 · 1h23m │ inner ox-alpha-free / outer hy3
+┌ GeoRSI ─ rsi-20260827 · 1h23m │ inner z-ai/glm-5.3-flash / outer hy3
 │ gen 2/4 │ champion 0.8678 │ stag 0/3 │ tokens 14.1M │ heldout — │ running
 │ suite quake_b 0.960 │ flood_rp 0.950 │ climate_trend 0.700
 │ ⠋ gen 2: eval survivor 1/1 — inject canonical estimators
@@ -181,6 +185,10 @@ registers live in `config/<suite>.problems.json`; point `config.json`'s
     python scripts/quiz_build.py --src gkmc      --chunk 100 --suite gkmc
     python scripts/quiz_build.py --src stepgame  --chunk 100 --suite stepgame --limit 2000
     python scripts/quiz_build.py --src mgq       --chunk 60  --suite mgq
+
+For a bounded routing pilot, `scripts/quiz_slice.py` creates deterministic
+small slices from an existing chunk. The completed 2026-08-27 seed/unscoped/
+scoped comparison is documented in [`docs/SCOPE-PILOT.md`](docs/SCOPE-PILOT.md).
 
 Judge/oracle problems (no quiz template):
 

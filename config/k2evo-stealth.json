@@ -35,5 +35,5 @@
   "script_timeout_s": 120,
   "job_timeout_s": 14400,
   "job_poll_s": 30,
-  "quiz_inner_model": "stealth/ox-alpha"
+  "quiz_inner_model": "z-ai/glm-5.3-flash"
 }

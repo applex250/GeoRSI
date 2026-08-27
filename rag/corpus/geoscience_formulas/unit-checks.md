@@ -1,0 +1,2 @@
+# Quantitative unit checks
+Before calculating, write the dimensional form of the requested quantity and convert all inputs to one unit system. Keep at least one unrounded intermediate value, then round only at the reporting boundary. For rates, distinguish a per-year value from a cumulative amount; for density, divide the quantity by area in matching units. A second calculation using a rearranged formula or a small independent sample is a cheap check against a sign, scale, or decimal-place error.

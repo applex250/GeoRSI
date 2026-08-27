@@ -79,7 +79,10 @@ export function retrieve(
 	const picked: DocBlock[] = [];
 	let used = 0;
 	for (const { d } of scored) {
-		if (used + d.text.length > budgetChars && picked.length > 0) break;
+		if (used + d.text.length > budgetChars) {
+			if (picked.length === 0) continue;
+			break;
+		}
 		picked.push(d);
 		used += d.text.length;
 	}
@@ -90,4 +93,29 @@ export function renderRetrieved(docs: DocBlock[]): string {
 	if (docs.length === 0) return "";
 	const lines = docs.map((d) => `- [${d.id}] ${d.text}`);
 	return "\n\nReference material retrieved for this task:\n" + lines.join("\n");
+}
+
+/** Map task metadata to authored corpus regions. No benchmark text/gold is used. */
+export function regionsForTask(genre: string | undefined, problemId: string): string[] {
+	const g = (genre ?? "").toLowerCase();
+	const regions = new Set<string>();
+	if (g.includes("stepgame") || g.includes("spatial")) regions.add("spatial_reasoning");
+	if (g.includes("mapqa") || g.includes("projection") || g.includes("mgq")) regions.add("map_projection");
+	if (g.includes("gab") || g.includes("geoanalyst") || g.includes("gabench") || g.includes("geobench") || g.includes("geona")) {
+		regions.add("gis_tooling");
+	}
+	if (g.includes("quiz") || problemId.startsWith("earthse_") || problemId.startsWith("k2_")) {
+		regions.add("geoscience_formulas");
+	}
+	return [...regions];
+}
+
+/** Extract stable, low-noise terms for deterministic keyword retrieval. */
+export function queryTermsFromStatement(statement: string): string[] {
+	const seen = new Set<string>();
+	for (const word of statement.toLowerCase().match(/[a-z][a-z0-9_-]{2,}/g) ?? []) {
+		if (!seen.has(word)) seen.add(word);
+		if (seen.size >= 40) break;
+	}
+	return [...seen];
 }

@@ -19,22 +19,26 @@ export interface ProblemSpec {
 }
 
 /**
- * Fixed model support list (verified 2026-08-24):
+ * Fixed model support list (verified 2026-08-27):
  *
  * GATEWAY (opencode.ai/zen/go/v1):
  *   hy3                       direct  chat/completions  ctx 256k / max-out 128k
- *   ox-alpha-free             direct  chat/completions  ctx 1m   / max-out 128k
  *   mimo-v2.5                 direct  chat/completions  ctx 1m   / max-out 128k
  *   muse-spark-1.2-contributor proxy  RESPONSES api     region-locked direct (403);
  *                                   works via local proxy + /v1/responses; chat endpoint
  *                                   unsupported (500); must NOT request reasoning params
  *                                   (gateway 400 reasoning.effort) -> reasoning:false.
+ *   ox-alpha-free and stealth/ox-alpha are retained as retired historical ids.
  *
  * LOCAL (campus server, config `local_base_url`):
  *   dsv4f                     direct  chat/completions  ctx 256k / max-out 64k
  *                                   The server is turned off regularly — that is
  *                                   EXPECTED. provider.ts preflights it when selected
  *                                   and fails fast with a switch-model hint.
+ *
+ * OPENROUTER:
+ *   z-ai/glm-5.3-flash       chat/completions ctx 1m / max-out 128k
+ *   minimax/minimax-m3:free  chat/completions ctx 1m / max-out 128k
  *
  * Proxy routing: node's NODE_USE_ENV_PROXY is defeated because importing
  * pi-coding-agent swaps globalThis.fetch; instead provider.ts installs an
@@ -54,17 +58,20 @@ export interface ModelSpec {
 	contextWindow: number;
 	/** provider-advertised max output, tokens (informational; we cap lower) */
 	maxOutput: number;
+	/** provider no longer serves this id; retained only for historical reports */
+	retired?: boolean;
 	note: string;
 }
 
 export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "hy3", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 262144, maxOutput: 131072, note: "fast, strong proposer (outer, default)" },
-	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
+	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
-	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter free tier (429 under burst); reasoning mandatory; text+image+video input; quality flaky above medium effort" },
+	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: OpenRouter testing alias returned 404 and points to z-ai/glm-5.3-flash" },
 	{ id: "minimax/minimax-m3:free", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter free; reasoning model (params optional); fast (~2.5s); vision VERIFIED 4/4 on standard scene; cleanest free-tier stability (6/6)" },
+	{ id: "z-ai/glm-5.3-flash", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter live replacement for stealth/ox-alpha; mandatory reasoning; multimodal; verified 2026-08-27" },
 ];
 
 export function modelSpec(id: string): ModelSpec | undefined {
@@ -80,6 +87,10 @@ export interface Config {
 	inner_model: string;
 	/** default inner for quiz-type problems when set (task-to-model routing) */
 	quiz_inner_model?: string;
+	/** enable deterministic authored RAG retrieval at episode start */
+	rag_enabled?: boolean;
+	/** max chars of retrieved material per episode */
+	rag_budget_chars?: number;
 	outer_model: string;
 	generations: number;
 	proposals: number;
@@ -152,11 +163,15 @@ export function loadConfig(path?: string): Config {
 	const inner = String(raw.inner_model ?? "mimo-v2.5");
 	const outer = String(raw.outer_model ?? "hy3");
 	for (const [role, id] of [["inner_model", inner], ["outer_model", outer]] as const) {
-		if (!modelSpec(id)) {
+		const spec = modelSpec(id);
+		if (!spec) {
 			throw new Error(
 				`config.json: ${role} "${id}" is not in the supported gateway list: ` +
 					SUPPORTED_MODELS.map((m) => `${m.id} (${m.route}, ${m.api})`).join(", "),
 			);
+		}
+		if (spec.retired) {
+			throw new Error(`config.json: ${role} "${id}" is retired by the provider; choose mimo-v2.5, hy3, minimax/minimax-m3:free, z-ai/glm-5.3-flash, or another live profile`);
 		}
 	}
 	return {
@@ -165,6 +180,8 @@ export function loadConfig(path?: string): Config {
 		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
 		inner_model: inner,
 		quiz_inner_model: typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : undefined,
+		rag_enabled: raw.rag_enabled === true,
+		rag_budget_chars: num(raw.rag_budget_chars, 2400),
 		outer_model: outer,
 		generations: num(raw.generations, 4),
 		proposals: num(raw.proposals, 3),

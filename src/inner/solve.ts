@@ -26,6 +26,7 @@ import { protectedManifest, scanTextForBreaches, scanWorkspaceForBreaches, verif
 import { PiHarness, toolOutput } from "../piharness.js";
 import { resolveModel } from "../provider.js";
 import { recall, renderMemory, type MemoryStore } from "../memory.js";
+import { queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "../retrieval.js";
 
 export interface EpisodeResult {
 	problemId: string;
@@ -37,6 +38,8 @@ export interface EpisodeResult {
 	secs: number;
 	error: string | null;
 	workspace: string;
+	/** knowledge nodes injected into this episode, for deferred accounting */
+	knowledgeIds: string[];
 }
 
 interface SubmitState {
@@ -104,6 +107,8 @@ export interface SolveOpts {
 	onAgentDelta?: (kind: "thinking" | "text", delta: string) => void;
 	/** tool call lifecycle for live display */
 	onToolEvent?: (ev: { phase: "start" | "end"; tool: string; detail: string; isError?: boolean }) => void;
+	/** disable global knowledge-stat writes during isolated candidate evaluation */
+	persistKnowledgeUsage?: boolean;
 	/** cooperative pause/stop gate (checked between turns) */
 	controller?: import("../loopctl.js").RunController;
 	tag: string;
@@ -138,6 +143,13 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	const kbSel = selectKnowledge(loadKnowledge(), { genre: problem.genre, id: problem.id });
 	if (kbSel.nodes.length > 0) {
 		log(`[knowledge] ${problem.id}: ${kbSel.nodes.map((n) => n.id).join(",")} (store ${kbSel.version})`);
+	}
+	const ragRegions = cfg.rag_enabled ? regionsForTask(problem.genre, problem.id) : [];
+	const ragDocs = ragRegions.length > 0
+		? retrieve(ragRegions, queryTermsFromStatement(problem.statement), cfg.rag_budget_chars)
+		: [];
+	if (ragDocs.length > 0) {
+		log(`[rag] ${problem.id}: ${ragDocs.map((d) => d.id).join(",")} regions=${ragRegions.join(",")}`);
 	}
 
 	// integrity manifest of everything private grading depends on (eval.py,
@@ -394,6 +406,11 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			final: Type.Optional(Type.Boolean({ description: "true when you are done improving" })),
 		}),
 		execute: async (_id, params) => {
+			if (st.submits >= cfg.eval_cap) {
+				return toolOutput(
+					`submission budget exhausted (${cfg.eval_cap}). No further public evaluation was run; continue with the best answer already recorded.`,
+				);
+			}
 			// quiz batches submit via a file (a 100-item map is too big for one tool arg)
 			let answer = params.answer ?? {};
 			if (params.answers_file) {
@@ -506,7 +523,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		model: inner,
 		thinkingLevel: "low",
 		cwd: workspace,
-		systemPrompt: composeSystemPrompt(scaffold, problem.genre) + renderKnowledge(kbSel),
+		systemPrompt: composeSystemPrompt(scaffold, problem.genre) + renderKnowledge(kbSel) + renderRetrieved(ragDocs),
 		customTools: [runPy, submit, startJob, jobStatus, killJobTool],
 		onAgentDelta: opts.onAgentDelta,
 		onToolEvent: (ev) => {
@@ -527,13 +544,17 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 
 	try {
 		await harness.init();
+		const quizFirstPass = isQuiz
+			? "QUIZ FIRST-PASS CONTRACT: read data/quiz.jsonl once, make a best-effort answer for every item, write answers.json, and call submit with answers_file=\"answers.json\" and final=false in this first turn. Use compact answers and no long per-question explanation. A complete imperfect sheet is better than spending the turn on an unfinished derivation. Refine only after a public score.\n"
+			: "";
 		const initial =
 			`${problem.statement}\n\n` +
 			`Environment: you are in a scratch workspace; the dataset is in data/. ` +
 			`There is NO shell — write scripts to files (write tool) and execute them with the ` +
 			`run_python tool (quick scripts) — for computations longer than a couple of minutes ` +
 			`use start_job instead: it runs detached in the background and the system wakes you ` +
-			`when it finishes (hours are fine). Budget your time: a complete analysis in 2-4 scripts is ideal. ` +
+			`when it finishes (hours are fine). Budget your time: a complete analysis in 2-4 scripts is ideal.\n` +
+			quizFirstPass +
 			`You may submit up to ${cfg.eval_cap} times; public scores guide your iteration. ` +
 			`Finish by calling submit with final=true.\n` +
 			(memBlock ? `\n${memBlock}\n` : "");
@@ -543,9 +564,10 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		tokens += out.tokens;
 		turns += 1;
 		if (out.error) lastError = out.error;
+		let canContinue = !out.error && !out.aborted;
 
 		const deadline = t0 + cfg.episode_timeout_s * 1000;
-		for (let turn = 2; turn <= cfg.max_turns && !st.finished; turn++) {
+		for (let turn = 2; turn <= cfg.max_turns && !st.finished && !lastError && canContinue; turn++) {
 			await opts.controller?.waitIfPaused();
 			if (opts.controller?.stopRequested) {
 				log(`  [${opts.tag}] stop requested; finalizing current episode`);
@@ -607,6 +629,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			tokens += out.tokens;
 			turns += 1;
 			if (out.error) lastError = out.error;
+			canContinue = !out.error && !out.aborted;
 		}
 	} finally {
 		harness.dispose();
@@ -645,6 +668,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		secs: (Date.now() - t0) / 1000,
 		error,
 		workspace,
+		knowledgeIds: kbSel.nodes.map((n) => n.id),
 	};
 	let breaches = scanWorkspaceForBreaches(workspace);
 	breaches.push(...scanTextForBreaches(toolCallLog.join("\n")));
@@ -660,7 +684,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			.map((b) => `${b.file}:${b.pattern}`)
 			.join(", ")})`;
 		log(`[guard] ${problem.id}: COMPROMISED — ${result.error}`);
-	} else if (result.fitness != null) {
+	} else if (result.fitness != null && opts.persistKnowledgeUsage !== false) {
 		recordUsage(
 			kbSel.nodes.map((n) => n.id),
 			result.fitness,

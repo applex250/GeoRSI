@@ -125,7 +125,7 @@ export async function preflightLocal(cfg: Config, modelId: string): Promise<void
 			`local model "${modelId}" is unreachable at ${cfg.local_base_url} (${(e as Error).message}). ` +
 				`The campus server is turned off regularly — this is expected. ` +
 				`Switch inner_model/outer_model in config.json to a gateway model ` +
-				`(hy3 / ox-alpha-free / mimo-v2.5) and retry.`,
+				`(hy3 / mimo-v2.5 / z-ai/glm-5.3-flash) and retry.`,
 		);
 	}
 }
@@ -166,7 +166,7 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 			apiKey: apiKey,
 			// provider-level default; per-model `api` above still wins
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "zen").map(mk),
+			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "zen" && !m.retired).map(mk),
 		},
 	};
 	if (orApiKey) {
@@ -175,7 +175,7 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 			baseUrl: cfg.openrouter_base_url ?? "https://openrouter.ai/api/v1",
 			apiKey: orApiKey,
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "openrouter").map(mk),
+			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "openrouter" && !m.retired).map(mk),
 		};
 	}
 	if (localApiKey) {
@@ -184,7 +184,7 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 			baseUrl: cfg.local_base_url,
 			apiKey: localApiKey,
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "local").map(mk),
+			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "local" && !m.retired).map(mk),
 		};
 	}
 	return { providers };

@@ -1,0 +1,2 @@
+# Metric distance and UTM
+For a compact regional analysis, UTM coordinates provide meter units and are appropriate for Euclidean distance, buffering, and line length. Select the zone from the study area's longitude and use the correct northern or southern hemisphere EPSG. For long or global distances, use a geodesic calculation instead. Always report the unit and the CRS used; a numeric result without those two labels is not reproducible.

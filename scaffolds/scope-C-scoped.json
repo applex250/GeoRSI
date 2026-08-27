@@ -7,25 +7,28 @@
   {
    "text": "Quiz batches: read all questions, triage by difficulty, answer every item (no blanks), then one verification pass for contradictions and formatting.",
    "genres": [
-    "quiz-earthse",
+    "quiz-stepgame",
+    "quiz-mapqa",
     "quiz-k2",
-    "quiz-gkmc"
+    "quiz-earthse"
    ]
   },
   {
    "text": "Stop when budget is 80% spent: finalize and submit. Never exceed compute budget; a complete low-confidence answer beats a partial draft.",
    "genres": [
-    "quiz-earthse",
+    "quiz-stepgame",
+    "quiz-mapqa",
     "quiz-k2",
-    "quiz-gkmc"
+    "quiz-earthse"
    ]
   },
   {
    "text": "Before submitting, run a verification pass: no blank answers, units/format correct, and independently re-derive a random 10% to catch systematic errors.",
    "genres": [
-    "quiz-earthse",
+    "quiz-stepgame",
+    "quiz-mapqa",
     "quiz-k2",
-    "quiz-gkmc"
+    "quiz-earthse"
    ]
   },
   {

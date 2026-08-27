@@ -31,7 +31,7 @@ export interface ReasoningProfile {
 }
 
 export interface ModelProfile {
-	endpoint: "zen" | "local";
+	endpoint: "zen" | "local" | "openrouter";
 	api_style: "chat-completions" | "responses";
 	stability_class: string;
 	vision_raw_api: boolean;

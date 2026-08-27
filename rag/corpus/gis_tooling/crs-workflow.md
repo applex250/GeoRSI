@@ -1,0 +1,2 @@
+# Coordinate reference system workflow
+Keep geographic coordinates (longitude/latitude) for storage and display, but reproject to a suitable projected CRS before distances, buffers, areas, or lengths. Check the CRS and axis order explicitly after every read and transformation. For a local study area, choose a metric CRS appropriate to its zone; do not interpret degree distances as meters. After a spatial join, inspect row counts and geometry validity because an incorrect CRS can produce plausible-looking but meaningless overlays.

@@ -51,3 +51,10 @@ LLM/embedding 检索留待第二阶段——先用确定性方案拿基线。
 - 不抓取需要授权的内容
 - 不为"提高 benchmark 分数"定向收录 benchmark 配套材料
 - 不在无赛制确认前引入推理时网络检索依赖
+
+## 与 scope 实验的关系
+
+2026-08-27 的 scope tip pilot 将 `rag_enabled` 显式设为 `false`，因此其
+seed / universal-tip / scoped-tip 分数不包含 RAG 增益。RAG 已通过无 LLM
+自检验证加载、区域路由、字符预算和反污染标记；下一阶段应单独做
+`RAG off/on` 对照，不能把 scope tip 结果当作 RAG 结果。

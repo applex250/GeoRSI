@@ -1,0 +1,2 @@
+# Multi-step spatial directions
+Represent each relation as a vector on a 2-D grid: left=(-1,0), right=(1,0), above=(0,1), below=(0,-1), and diagonal relations combine the two components. Build a graph from the statements, propagate coordinates from an arbitrary origin, and compute the queried object's displacement. Reduce the displacement by sign to a direction class; if both coordinates are zero, report overlap. This prevents a verbal left/right reversal in multi-hop chains.

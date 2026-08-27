@@ -1,0 +1,29 @@
+{
+  "base_url": "https://opencode.ai/zen/go/v1",
+  "local_base_url": "http://172.27.116.56:8080/v1",
+  "inner_model": "z-ai/glm-5.3-flash",
+  "outer_model": "hy3",
+  "generations": 1,
+  "proposals": 1,
+  "critics": 1,
+  "survivors": 1,
+  "max_turns": 4,
+  "episode_timeout_s": 600,
+  "eval_cap": 2,
+  "patience": 2,
+  "stagnation_limit": 2,
+  "cost_cap_tokens": 1000000,
+  "stall_s": 180,
+  "episodes_per_problem": 1,
+  "python_cmd": "python",
+  "private_truth_dir": "../rsi-lab-private",
+  "rag_enabled": false,
+  "problems": [
+    { "id": "stepgame_scope_micro_5" },
+    { "id": "mapqa_scope_micro_5" },
+    { "id": "k2_scope_micro_5" }
+  ],
+  "script_timeout_s": 120,
+  "job_timeout_s": 1800,
+  "job_poll_s": 10
+}

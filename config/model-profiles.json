@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-27-ox-retired",
+  "version": "2026-08-27-ox-retired-glm53-live",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -161,9 +161,43 @@
         "note": "quiz-batch inner sweep; stealth/ox Pareto-dominates all 5 models (best acc AND lowest tokens)"
       },
       "inner_role": "quiz batches: YES (Pareto king, 1-turn submits); open analysis/gbx: NO (tool-loop stall measured)",
+      "status": "RETIRED 2026-08-27: OpenRouter returned HTTP 404 and directed callers to z-ai/glm-5.3-flash",
       "measured": {
         "gateway_probe_2026_08_27": "sweep 0.885@115k; retest k2 -0.09 variance"
       }
+    },
+    "z-ai/glm-5.3-flash": {
+      "endpoint": "openrouter",
+      "api_style": "chat-completions",
+      "stability_class": "B-paid-tier",
+      "latency_class": "fast",
+      "vision_raw_api": true,
+      "input_modalities_official": [
+        "text",
+        "image",
+        "video"
+      ],
+      "context_length_official": 1310720,
+      "top_provider_context_length": 1048576,
+      "pricing": "paid low-cost tier (catalog verified 2026-08-27)",
+      "reasoning": {
+        "style": "reasoning_effort",
+        "mandatory": true,
+        "levels_accepted": [
+          "low",
+          "high",
+          "max"
+        ],
+        "levels_rejected": [],
+        "quality_floor": "low",
+        "default_level": "max"
+      },
+      "measured": {
+        "catalog": "live model id verified 2026-08-27",
+        "plain_probe": "200 OK; content OK with max_tokens=256; reasoning_tokens present",
+        "low_probe": "200 OK; content OK with reasoning.effort=low; compact response"
+      },
+      "inner_role": "candidate replacement for quiz batches and agent tasks; establish a fresh baseline before promotion"
     },
     "minimax/minimax-m3:free": {
       "endpoint": "openrouter",

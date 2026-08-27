@@ -61,6 +61,67 @@ function resultTail(result: unknown): string {
 	return text.replace(/\r?\n/g, " ⏎ ").slice(-240);
 }
 
+interface MessageLike {
+	role?: unknown;
+	content?: unknown;
+	stopReason?: unknown;
+	rawStopReason?: unknown;
+	errorMessage?: unknown;
+	usage?: unknown;
+	provider?: unknown;
+	model?: unknown;
+}
+
+function messageParts(message: MessageLike | undefined): Record<string, unknown>[] {
+	return Array.isArray(message?.content)
+		? (message.content.filter((part): part is Record<string, unknown> => !!part && typeof part === "object") as Record<string, unknown>[])
+		: [];
+}
+
+function assistantMessageSummary(message: unknown): Record<string, unknown> {
+	const m = (message && typeof message === "object" ? message : {}) as MessageLike;
+	const parts = messageParts(m);
+	const contentTypes = parts.map((p) => String(p.type ?? "unknown"));
+	const textChars = parts.reduce((n, p) => {
+		const text = typeof p.text === "string" ? p.text : "";
+		return n + text.length;
+	}, 0);
+	const toolNames = parts
+		.filter((p) => p.type === "toolCall")
+		.map((p) => String(p.name ?? "?"));
+	return {
+		role: m.role,
+		contentTypes,
+		textChars,
+		toolNames,
+		stopReason: m.stopReason,
+		rawStopReason: m.rawStopReason,
+		errorMessage: typeof m.errorMessage === "string" ? m.errorMessage.slice(0, 300) : undefined,
+		usage: m.usage,
+		provider: m.provider,
+		model: m.model,
+	};
+}
+
+function lastAssistantMessage(messages: readonly unknown[]): MessageLike | undefined {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const message = messages[i];
+		if (message && typeof message === "object" && (message as MessageLike).role === "assistant") {
+			return message as MessageLike;
+		}
+	}
+	return undefined;
+}
+
+function hasUsableAssistantContent(message: MessageLike | undefined): boolean {
+	const parts = messageParts(message);
+	return parts.some((p) => {
+		if (p.type === "toolCall") return true;
+		if (p.type === "text" || p.type === "thinking") return typeof p.text === "string" && p.text.length > 0;
+		return false;
+	});
+}
+
 export interface PromptOutcome {
 	aborted: boolean;
 	timedOut: boolean;
@@ -157,14 +218,21 @@ export class PiHarness {
 			this.lastEventTs = Date.now();
 			if (this._diagPath) {
 				try {
+					const e = event as {
+						type?: string;
+						message?: unknown;
+						messages?: unknown[];
+						error?: unknown;
+					};
 					appendFileSync(
 						this._diagPath,
 						JSON.stringify({
 							ts: Date.now(),
-							type: (event as { type?: string }).type,
-							err: (event as { error?: unknown }).error
-								? String((event as { error?: { message?: string } }).error?.message ?? "").slice(0, 300)
-								: undefined,
+							type: e.type,
+							eventKeys: Object.keys(e),
+							err: e.error ? String(e.error).slice(0, 300) : undefined,
+							message: e.message ? assistantMessageSummary(e.message) : undefined,
+							messageCount: Array.isArray(e.messages) ? e.messages.length : undefined,
 						}) + "\n",
 					);
 				} catch {
@@ -232,6 +300,16 @@ export class PiHarness {
 		} finally {
 			clearTimeout(wall);
 			clearInterval(stall);
+		}
+
+		const assistant = lastAssistantMessage(this.session.messages);
+		if (!error && !timedOut && !stalled && !hasUsableAssistantContent(assistant)) {
+			const detail = typeof assistant?.errorMessage === "string"
+				? assistant.errorMessage.slice(0, 300)
+				: typeof assistant?.stopReason === "string"
+					? `stopReason=${assistant.stopReason}`
+					: "no text or tool call";
+			error = `empty assistant response: ${detail}`;
 		}
 
 		let tokens = 0;

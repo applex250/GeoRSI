@@ -12,6 +12,8 @@ import { openMemory, addMemory, recall, renderMemory, defaultObservation } from 
 import { deterministicTrend } from "./goal.js";
 import { renderLeaderboard, renderFindings } from "./board.js";
 import { loadConfig, SUPPORTED_MODELS, modelSpec } from "./config.js";
+import { loadCorpus, queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "./retrieval.js";
+import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
 import { execFileSync } from "node:child_process";
 
 let passed = 0;
@@ -144,12 +146,14 @@ export async function selftest(): Promise<boolean> {
 	check("findings escapes pipes", fmd.includes("adds L-moment estimator tip / pipe") && fmd.includes("ACCEPTED"));
 
 	console.log("== supported model list ==");
-	check("7 models fixed (4 gateway + 1 local + 2 openrouter)", SUPPORTED_MODELS.length === 7);
+	check("8 models fixed (4 gateway + 1 local + 3 openrouter)", SUPPORTED_MODELS.length === 8);
 	const muse = modelSpec("muse-spark-1.2-contributor");
 	check("muse is proxy + responses", muse?.route === "proxy" && muse?.api === "openai-responses");
 	check("hy3/ox-alpha/mimo direct chat", ["hy3", "ox-alpha-free", "mimo-v2.5"].every((id) => modelSpec(id)?.route === "direct" && modelSpec(id)?.api === "openai-completions"));
 	const dsv4f = modelSpec("dsv4f");
 	check("dsv4f is local endpoint", dsv4f?.endpoint === "local" && dsv4f?.route === "direct" && dsv4f?.contextWindow === 262144 && dsv4f?.maxOutput === 65536);
+	const glm = modelSpec("z-ai/glm-5.3-flash");
+	check("GLM 5.3 Flash is openrouter chat", glm?.endpoint === "openrouter" && glm?.route === "direct" && glm?.api === "openai-completions");
 	check("context windows set on all models", SUPPORTED_MODELS.every((m) => m.contextWindow > 0 && m.maxOutput > 0));
 	const badCfgPath = join(tmp, "bad-config.json");
 	writeFileSync(badCfgPath, JSON.stringify({ inner_model: "deepseek-v4-flash", problems: [{ id: "quake_b" }] }));
@@ -160,9 +164,31 @@ export async function selftest(): Promise<boolean> {
 		rejected = (e as Error).message.includes("not in the supported gateway list");
 	}
 	check("config rejects unsupported model", rejected);
+	const retiredCfgPath = join(tmp, "retired-model.json");
+	writeFileSync(retiredCfgPath, JSON.stringify({ inner_model: "ox-alpha-free", problems: [{ id: "quake_b" }] }));
+	let retiredRejected = false;
+	try {
+		loadConfig(retiredCfgPath);
+	} catch (e) {
+		retiredRejected = (e as Error).message.includes("retired by the provider");
+	}
+	check("config rejects provider-retired model", retiredRejected);
+	const retiredOpenRouterPath = join(tmp, "retired-openrouter-model.json");
+	writeFileSync(retiredOpenRouterPath, JSON.stringify({ inner_model: "stealth/ox-alpha", problems: [{ id: "quake_b" }] }));
+	let retiredOpenRouterRejected = false;
+	try {
+		loadConfig(retiredOpenRouterPath);
+	} catch (e) {
+		retiredOpenRouterRejected = (e as Error).message.includes("retired by the provider");
+	}
+	check("config rejects retired OpenRouter alias", retiredOpenRouterRejected);
 	const goodCfg = loadConfig(join(process.cwd(), "config.json"));
 	check("config models are supported", !!modelSpec(goodCfg.inner_model) && !!modelSpec(goodCfg.outer_model));
 	check("local_base_url present", /^http:\/\/.+\/v1$/.test(goodCfg.local_base_url));
+	check("RAG disabled by default", goodCfg.rag_enabled === false && goodCfg.rag_budget_chars === 2400);
+	check("fitness mean keeps failed tasks in denominator", meanWithFailures([1, null]) === 0.5);
+	check("weighted fitness honors failed task weight", weightedFitnessMean([{ fitness: 1, weight: 1 }, { fitness: null, weight: 3 }]) === 0.25);
+	check("submit budget is positive", goodCfg.eval_cap > 0);
 
 	console.log("== quiz grader (python) ==");
 	const graderOut = execFileSync("python", ["scripts/quiz_selftest.py"], { encoding: "utf-8", timeout: 60_000 });
@@ -193,12 +219,38 @@ export async function selftest(): Promise<boolean> {
 		`tags=${ktags.join(",")} picked=${ksel1.nodes.map((n) => n.id).join(",")}`,
 	);
 
+	console.log("== RAG ==");
+	const corpus = loadCorpus();
+	check("RAG corpus loads", corpus.length >= 5, `got ${corpus.length}`);
+	check(
+		"RAG corpus metadata complete",
+		corpus.every((d) => d.id && d.region && d.source && d.license),
+	);
+	check(
+		"RAG corpus excludes benchmark truth markers",
+		corpus.every((d) => !/(answers\.private|reasoning_chain|gold answer|private truth)/i.test(d.text)),
+	);
+	const k2Regions = regionsForTask("quiz-k2", "k2_c008");
+	const stepRegions = regionsForTask("quiz-stepgame", "stepgame_c005");
+	check("RAG routes K2 to formula region", k2Regions.includes("geoscience_formulas"));
+	check("RAG routes StepGame to spatial region", stepRegions.includes("spatial_reasoning"));
+	const terms = queryTermsFromStatement("Use UTM coordinates to measure distance");
+	check("RAG query terms are normalized", terms.includes("utm") && terms.includes("coordinates"));
+	const mapDocs = retrieve(["map_projection"], ["utm", "coordinates"], 900);
+	const mapChars = mapDocs.reduce((n, d) => n + d.text.length, 0);
+	check("RAG retrieval is region-scoped", mapDocs.length > 0 && mapDocs.every((d) => d.region === "map_projection"));
+	check("RAG retrieval respects char budget", mapChars <= 900, `${mapChars} chars`);
+	check("RAG render non-empty", renderRetrieved(mapDocs).includes("Reference material retrieved"));
+	check("RAG skips an oversized first document", retrieve(["map_projection"], ["utm"], 100).length === 0);
+
 	console.log("== model profiles ==");
 	const { loadProfiles, resolveThinking, assertVisionAllowed, getProfile } = await import("./models.js");
 	loadProfiles();
 	check("model profiles parse", !!getProfile("hy3") && !!getProfile("dsv4f"));
 	const oxA = getProfile("stealth/ox-alpha");
-	check("openrouter ox-alpha profiled", oxA.vision_raw_api === true && !!oxA.reasoning.mandatory);
+	check("retired OpenRouter alias profile preserved", oxA.vision_raw_api === true);
+	const glmProfile = getProfile("z-ai/glm-5.3-flash");
+	check("GLM 5.3 Flash profile loaded", glmProfile.vision_raw_api === true && !!glmProfile.reasoning.mandatory);
 	const rHy3Max = resolveThinking("hy3", "max");
 	check("hy3 max clamps to real ceiling xhigh", rHy3Max.level === "xhigh" && rHy3Max.clamped);
 	check("ox-alpha-free high clamps to trusted medium", resolveThinking("ox-alpha-free", "high").level === "medium");

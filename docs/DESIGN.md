@@ -71,12 +71,12 @@ npx tsx src/run.ts rsi --gens N    # 完整进化循环
 npx tsx src/run.ts rsi --resume    # 从 state.json 断点续跑
 ```
 
-## 网关模型支持（2026-08-24 实测固化，5 模型）
+## 网关模型支持（2026-08-27 实测固化，8 模型）
 
 | 模型 | 端点 | 路由 | API | 上下文/最大输出 | 用途 |
 |---|---|---|---|---|---|
 | hy3 | zen 网关 | 直连 | chat/completions | 256k / 128k | outer（默认；实跑产出冠军提案） |
-| ox-alpha-free | zen 网关 | 直连 | chat/completions | 1m / 128k | inner（默认；2.1 万 token 完成冒烟） |
+| z-ai/glm-5.3-flash | OpenRouter | 直连 | chat/completions | 1m / 128k | 当前 quiz/agent inner 候选；2026-08-27 fresh baseline |
 | mimo-v2.5 | zen 网关 | 直连 | chat/completions | 1m / 128k | 备用（重推理、慢） |
 | muse-spark-1.2-contributor | zen 网关 | **代理** | **responses** | — | 可选；直连 403，chat 端点 500 |
 | dsv4f | **校园本地** | 直连 | chat/completions | 256k / 64k | 免费 deepseek；服务器常关属正常 |
@@ -164,8 +164,9 @@ TuiAltScreen (pi-tui 全屏差分渲染 + Windows 原生 VT 支持)
 `src/models.ts` 与 Python 侧 `problems/_shared/model_client.py` 都从它读取：
 推理参数风格翻译（effort / 对象 / thinking_budget 三派）、等级钳制、视觉位、
 端点路由。`PiHarness` 在会话创建前钳制 thinkingLevel 并记录降级；provider 按
-profiles 输出 models.json 能力位。新增 OpenRouter 端点（stealth/ox-alpha，
-免费档限速、强制推理）。人类视图见 `docs/MODELS.md`。
+ profiles 输出 models.json 能力位。OpenRouter 的旧 `stealth/ox-alpha` alias
+ 已于 2026-08-27 退役，当前替代模型为 `z-ai/glm-5.3-flash`；人类视图见
+ `docs/MODELS.md`。
 
 ### 标签知识库（跨 run 进化记忆）
 
@@ -188,3 +189,9 @@ episode 结束后发生，不再中途污染评测。
 eval_cap 等），合并优先级高于全局配置——quiz 批量、长任务、GIS venv
 （`.gisenv/`）等特例不再需要改全局配置。
 
+### Scope tip pilot
+
+2026-08-27 在相同的 GLM-5.3 Flash、题集和预算下完成了 seed / universal-tip /
+scoped-tip 三臂 pilot。5/5/5 小样本均值分别为 0.6667 / 0.5333 / 0.6667；
+该结果只说明当前切片上 scoped tips 没有观察到额外增益，不能替代多 seed
+大样本复验。完整记录见 `docs/SCOPE-PILOT.md`。
