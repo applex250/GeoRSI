@@ -4,6 +4,7 @@
  * report. Used both as the final gate of an RSI run and standalone to
  * validate the system end-to-end.
  */
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
@@ -40,6 +41,7 @@ export async function runExam(
 	runDir: string,
 	log: (m: string) => void,
 ): Promise<ExamReport> {
+	mkdirSync(runDir, { recursive: true });
 	const { inner } = await getPiRuntime(cfg, ROOT);
 	const problems = loadProblems(cfg, ROOT, true);
 	const evalCtx = makeEvalContext(cfg, ROOT);
@@ -108,6 +110,7 @@ export async function runHeldoutExam(
 	log: (m: string) => void,
 ): Promise<ExamReport> {
 	const runDir = join(ROOT, "runs", runName);
+	mkdirSync(runDir, { recursive: true });
 	const { inner } = await getPiRuntime(cfg, ROOT);
 	const problems = loadProblems(cfg, ROOT, true).filter((p) => p.heldout);
 	const evalCtx = makeEvalContext(cfg, ROOT);
