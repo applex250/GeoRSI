@@ -7,13 +7,18 @@ import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, symlinkSync
 import { join } from "node:path";
 import { applyEdits, composeSystemPrompt, SEED_SCAFFOLD } from "./scaffold.js";
 import { Journal, atomicWriteJson, loadRunState, saveRunState, fingerprint, readJournalTail, type RunState } from "./journal.js";
-import { runEval, guessGenre, type Problem } from "./bench/eval.js";
+import { runEval, guessGenre, makeEvalContext, type Problem } from "./bench/eval.js";
 import { openMemory, addMemory, recall, renderMemory, defaultObservation } from "./memory.js";
 import { deterministicTrend } from "./goal.js";
+import { durableRunArtifacts } from "./rsi.js";
 import { renderLeaderboard, renderFindings } from "./board.js";
 import { loadConfig, SUPPORTED_MODELS, modelSpec } from "./config.js";
 import { loadCorpus, queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "./retrieval.js";
 import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
+import { examHasValidTrainingResult, type ExamProblemResult } from "./exam.js";
+import { resolveRequestMaxTokens } from "./provider.js";
+import { selectTopSurvivors } from "./outer/critique.js";
+import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
 let passed = 0;
@@ -79,14 +84,21 @@ export async function selftest(): Promise<boolean> {
 		fitnessHistory: [0.4, 0.5, 0.62],
 		stagnation: 0,
 		tokensUsed: 12345,
+		finalization: { heldoutCompleted: true, heldoutSummary: "heldout=0.8", completedAt: "now" },
 	};
 	saveRunState(tmp, st);
 	const st2 = loadRunState(tmp);
-	check("state roundtrip", st2?.bestFitness === 0.62 && st2?.champion.tips.length === 1);
+	check("state roundtrip", st2?.bestFitness === 0.62 && st2?.champion.tips.length === 1 && st2?.finalization?.heldoutCompleted === true);
 	check("no tmp files left", !existsSync(join(tmp, "state.json.tmp")));
 	check("fingerprint deterministic", fingerprint(["a", 1]) === fingerprint(["a", 1]) && fingerprint(["a", 1]) !== fingerprint(["a", 2]));
 	atomicWriteJson(join(tmp, "x.json"), { a: 1 });
 	check("atomicWriteJson works", JSON.parse(readFileSync(join(tmp, "x.json"), "utf8")).a === 1);
+	const existingRun = join(tmp, "existing-run");
+	mkdirSync(existingRun, { recursive: true });
+	writeFileSync(join(existingRun, "control.json"), "");
+	check("control-only run directory remains reusable", durableRunArtifacts(existingRun).length === 0);
+	writeFileSync(join(existingRun, "state.json"), "{}");
+	check("durable run artifacts block accidental fresh-name reuse", durableRunArtifacts(existingRun).includes("state.json"));
 
 	console.log("== eval protocol (python) ==");
 	const prob: Problem = {
@@ -124,6 +136,8 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(join(tmp, "bad.json"), "not json");
 	const bad = await runEval(prob, { pythonCmd: "python", privateTruthDir: truthDir, truthFile: (id) => join(truthDir, `${id}.txt`) }, join(tmp, "bad.json"), "public");
 	check("invalid submission -> null score", bad.score === null);
+	const absoluteTruthContext = makeEvalContext({ ...loadConfig(), private_truth_dir: truthDir }, process.cwd());
+	check("absolute private truth paths remain absolute", absoluteTruthContext.privateTruthDir === truthDir && absoluteTruthContext.truthFile("toy") === join(truthDir, "toy.txt"));
 
 	console.log("== memory ==");
 	const store = openMemory(tmp);
@@ -158,10 +172,40 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(emoooCfgPath, JSON.stringify({ inner_model: "mimo-v2.5-pro", inner_thinking_level: "xhigh", outer_model: "hy3", outer_thinking_level: "minimal", problems: [{ id: "quake_b" }] }));
 	const emoooCfg = loadConfig(emoooCfgPath);
 	check("config exposes emooo thinking levels", emoooCfg.inner_thinking_level === "xhigh" && emoooCfg.outer_thinking_level === "minimal");
+	const invalidThinkingPath = join(tmp, "invalid-thinking.json");
+	writeFileSync(invalidThinkingPath, JSON.stringify({ inner_thinking_level: "turbo", problems: [{ id: "quake_b" }] }));
+	let invalidThinkingRejected = false;
+	try {
+		loadConfig(invalidThinkingPath);
+	} catch (error) {
+		invalidThinkingRejected = String(error).includes("inner_thinking_level must be one of");
+	}
+	check("config rejects unknown thinking levels", invalidThinkingRejected);
+	const invalidProblemsPath = join(tmp, "invalid-problems.json");
+	writeFileSync(invalidProblemsPath, JSON.stringify({ problems: [{ id: "quake_b", weight: 0 }, { id: "quake_b" }] }));
+	let invalidProblemsRejected = false;
+	try {
+		loadConfig(invalidProblemsPath);
+	} catch (error) {
+		invalidProblemsRejected = /duplicate problem|weight must be/.test(String(error));
+	}
+	check("config rejects duplicate or non-positive weighted problems", invalidProblemsRejected);
+	const retiredQuizRoutePath = join(tmp, "retired-quiz-route.json");
+	writeFileSync(retiredQuizRoutePath, JSON.stringify({ quiz_inner_model: "ox-alpha-free", problems: [{ id: "quake_b" }] }));
+	let retiredQuizRouteRejected = false;
+	try {
+		loadConfig(retiredQuizRoutePath);
+	} catch (error) {
+		retiredQuizRouteRejected = String(error).includes("quiz_inner_model") && String(error).includes("retired");
+	}
+	check("config validates routed quiz model", retiredQuizRouteRejected);
+	check("request token cap rejects invalid overrides", resolveRequestMaxTokens("-1") === 16_384 && resolveRequestMaxTokens("1.5") === 16_384);
+	check("request token cap accepts positive integers", resolveRequestMaxTokens("8192") === 8192);
 	const dsv4f = modelSpec("dsv4f");
 	check("dsv4f is local endpoint", dsv4f?.endpoint === "local" && dsv4f?.route === "direct" && dsv4f?.contextWindow === 262144 && dsv4f?.maxOutput === 65536);
 	const glm = modelSpec("z-ai/glm-5.3-flash");
-	check("GLM 5.3 Flash is openrouter chat", glm?.endpoint === "openrouter" && glm?.route === "direct" && glm?.api === "openai-completions");
+	check("GLM 5.3 Flash is openrouter chat", glm?.endpoint === "openrouter" && glm?.route === "direct" && glm?.api === "openai-completions" && glm.thinkingLevelMap?.max === "max");
+	check("hy3 preserves verified xhigh in Pi model map", modelSpec("hy3")?.thinkingLevelMap?.xhigh === "xhigh");
 	check("context windows set on all models", SUPPORTED_MODELS.every((m) => m.contextWindow > 0 && m.maxOutput > 0));
 	const badCfgPath = join(tmp, "bad-config.json");
 	writeFileSync(badCfgPath, JSON.stringify({ inner_model: "deepseek-v4-flash", problems: [{ id: "quake_b" }] }));
@@ -196,7 +240,24 @@ export async function selftest(): Promise<boolean> {
 	check("RAG disabled by default", goodCfg.rag_enabled === false && goodCfg.rag_budget_chars === 2400);
 	check("fitness mean keeps failed tasks in denominator", meanWithFailures([1, null]) === 0.5);
 	check("weighted fitness honors failed task weight", weightedFitnessMean([{ fitness: 1, weight: 1 }, { fitness: null, weight: 3 }]) === 0.25);
+	const failedExam: ExamProblemResult[] = [{ problem: "quake_b", heldout: false, weight: 1, fitness: null, bestPublic: null, submits: 0, secs: 0, error: "failed", warnings: [], tokens: 0 }];
+	check("all-error standalone exam is not successful", !examHasValidTrainingResult(failedExam));
+	check("standalone exam succeeds only with valid training fitness", examHasValidTrainingResult([{ ...failedExam[0]!, fitness: 0 }]));
 	check("submit budget is positive", goodCfg.eval_cap > 0);
+	const proposalA = { angle: "a" } as Proposal;
+	const proposalB = { angle: "b" } as Proposal;
+	const proposalC = { angle: "c" } as Proposal;
+	const limited = selectTopSurvivors(
+		[proposalA, proposalB, proposalC],
+		[proposalA, proposalB, proposalC],
+		[
+			{ index: 0, quality: 6, keepVotes: 1 },
+			{ index: 1, quality: 9, keepVotes: 1 },
+			{ index: 2, quality: 7, keepVotes: 1 },
+		],
+		1,
+	);
+	check("survivor limit keeps the highest-quality proposal", limited.length === 1 && limited[0] === proposalB);
 
 	console.log("== quiz grader (python) ==");
 	const graderOut = execFileSync("python", ["scripts/quiz_selftest.py"], { encoding: "utf-8", timeout: 60_000 });
@@ -278,6 +339,13 @@ export async function selftest(): Promise<boolean> {
 	check("GLM 5.3 Flash profile loaded", glmProfile.vision_raw_api === true && !!glmProfile.reasoning.mandatory);
 	const emoooProfile = getProfile("mimo-v2.5-pro");
 	check("emooo profile records zai thinking levels", emoooProfile.endpoint === "emooo" && emoooProfile.api_style === "chat-completions" && emoooProfile.reasoning.thinking_format === "zai" && emoooProfile.reasoning.verified_disabled === true && emoooProfile.reasoning.verified_real_levels?.length === 5);
+	check(
+		"supported model registry matches profile endpoints and APIs",
+		SUPPORTED_MODELS.every((model) => {
+			const profile = getProfile(model.id);
+			return profile.endpoint === model.endpoint && profile.api_style === (model.api === "openai-responses" ? "responses" : "chat-completions");
+		}),
+	);
 	const rHy3Max = resolveThinking("hy3", "max");
 	check("hy3 max clamps to real ceiling xhigh", rHy3Max.level === "xhigh" && rHy3Max.clamped);
 	check("ox-alpha-free high clamps to trusted medium", resolveThinking("ox-alpha-free", "high").level === "medium");
@@ -324,11 +392,15 @@ export async function selftest(): Promise<boolean> {
 	mkdirSync(join(fakeProblem, "reference"), { recursive: true });
 	writeFileSync(join(fakeProblem, "eval.py"), "print(1)\n");
 	writeFileSync(join(fakeProblem, "reference", "solution.py"), "x = 1\n");
-	const manifest = protectedManifest(fakeProblem);
-	check("manifest hashes grading assets", Object.keys(manifest).length === 2);
+	const externalTruth = join(tmp, "external-truth.txt");
+	writeFileSync(externalTruth, "0.75\n");
+	const manifest = protectedManifest(fakeProblem, [externalTruth]);
+	check("manifest hashes grading assets", Object.keys(manifest).length === 3);
 	check("manifest verifies untouched dir", verifyManifest(fakeProblem, manifest).length === 0);
 	writeFileSync(join(fakeProblem, "eval.py"), "print(2)\n");
 	check("manifest detects eval.py tampering", verifyManifest(fakeProblem, manifest).includes("eval.py"));
+	writeFileSync(externalTruth, "0.8\n");
+	check("manifest detects external truth tampering", verifyManifest(fakeProblem, manifest).includes(externalTruth));
 	const toolBreaches = scanTextForBreaches("tool_execution_start read file=../../problems/k2_c001/answers.private.jsonl");
 	const policyBreaches = scanPythonExecutionPolicy(
 		"import subprocess\nimport urllib.request\nos.system('echo risky')",
@@ -369,15 +441,24 @@ export async function selftest(): Promise<boolean> {
 		interpreterBoundaryRejected = true;
 	}
 	check("strict Sandboxie rejects repo-local interpreters", interpreterBoundaryRejected);
-	const cleanEnv = sanitizeSandboxEnvironment({ RSILAB_API_KEY: "secret", OPENAI_API_KEY: "secret", AWS_ACCESS_KEY_ID: "secret", GITHUB_TOKEN: "secret", HTTP_PROXY: "proxy", SAFE_VALUE: "ok" });
-	check("agent environment strips credentials and proxies", !cleanEnv.RSILAB_API_KEY && !cleanEnv.OPENAI_API_KEY && !cleanEnv.AWS_ACCESS_KEY_ID && !cleanEnv.GITHUB_TOKEN && !cleanEnv.HTTP_PROXY && cleanEnv.SAFE_VALUE === "ok");
+	const cleanEnv = sanitizeSandboxEnvironment({ RSILAB_API_KEY: "secret", OPENAI_API_KEY: "secret", AWS_ACCESS_KEY_ID: "secret", GITHUB_TOKEN: "secret", HTTP_PROXY: "proxy", SSH_AUTH_SOCK: "pipe", KUBECONFIG: "config", SAFE_VALUE: "ok" });
+	check("agent environment strips credentials and proxies", !cleanEnv.RSILAB_API_KEY && !cleanEnv.OPENAI_API_KEY && !cleanEnv.AWS_ACCESS_KEY_ID && !cleanEnv.GITHUB_TOKEN && !cleanEnv.HTTP_PROXY && !cleanEnv.SSH_AUTH_SOCK && !cleanEnv.KUBECONFIG && cleanEnv.SAFE_VALUE === "ok");
 	const { createExchangeToolDefinitions, assertExchangeWorkspace } = await import("./workspace-tools.js");
 	const exchangeTools = createExchangeToolDefinitions(guardDir);
 	check(
 		"official pi tools are exchange-wrapped",
 		["read", "write", "edit", "ls", "grep"].every((name) => exchangeTools.some((tool) => tool.name === name)),
 	);
-	const { shouldAttachExchangeTools } = await import("./piharness.js");
+	const { shouldAttachExchangeTools, resolveHarnessThinking } = await import("./piharness.js");
+	check("Pi harness preserves emooo max clamp as xhigh", resolveHarnessThinking(modelSpec("mimo-v2.5-pro") as never, "max") === "xhigh");
+	check("Pi harness preserves GLM max", resolveHarnessThinking(modelSpec("z-ai/glm-5.3-flash") as never, "max") === "max");
+	let dsvDeepRejected = false;
+	try {
+		resolveHarnessThinking(modelSpec("dsv4f") as never, "max");
+	} catch (error) {
+		dsvDeepRejected = String(error).includes("thinking_budget") && String(error).includes("cannot serialize");
+	}
+	check("Pi harness rejects unsupported dsv4f budget translation", dsvDeepRejected);
 	check("inner harness opts into exchange tools", shouldAttachExchangeTools(undefined));
 	check("advisor harness with builtinTools=[] has no exchange tools", !shouldAttachExchangeTools([]));
 	check("exchange tool opt-in can be explicit", shouldAttachExchangeTools([], true) && !shouldAttachExchangeTools(undefined, false));
@@ -405,6 +486,33 @@ export async function selftest(): Promise<boolean> {
 		/* symlink creation may require elevated Windows developer settings */
 	}
 	check("official write tool rejects dangling symlinks", !danglingSupported || danglingRejected, danglingSupported ? "" : "symlink creation unavailable; skipped");
+	let existingReparseRejected = false;
+	try {
+		const target = join(guardDir, "inside-target.txt");
+		const link = join(guardDir, "inside-link.txt");
+		writeFileSync(target, "inside");
+		symlinkSync(target, link, "file");
+		const readTool = exchangeTools.find((tool) => tool.name === "read")!;
+		try {
+			await readTool.execute("selftest", { path: "inside-link.txt" }, undefined, undefined, undefined as never);
+		} catch {
+			existingReparseRejected = true;
+		}
+	} catch {
+		existingReparseRejected = true; // symlink creation unavailable is already covered above
+	}
+	check("official tools reject existing reparse components", existingReparseRejected);
+	const backgroundGuardTools = createExchangeToolDefinitions(guardDir, () => {
+		throw new Error("background job active");
+	});
+	let backgroundGuardRejected = false;
+	try {
+		const readTool = backgroundGuardTools.find((tool) => tool.name === "read")!;
+		await readTool.execute("selftest", { path: "clean.py" }, undefined, undefined, undefined as never);
+	} catch (error) {
+		backgroundGuardRejected = String(error).includes("background job active");
+	}
+	check("exchange operation guard can block concurrent background jobs", backgroundGuardRejected);
 	let overlapRejected = false;
 	try {
 		assertExchangeWorkspace(guardDir, guardDir, join(tmp, "private"));

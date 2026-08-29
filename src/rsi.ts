@@ -15,21 +15,24 @@
  *   - budget stop + stagnation stop
  *   - held-out final exam with the champion scaffold
  */
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
 import { getPiRuntime, TOKENS } from "./provider.js";
-import { loadProblems, type Problem } from "./bench/eval.js";
+import { loadProblems, makeEvalContext, type Problem } from "./bench/eval.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
 import { Journal, loadRunState, saveRunState, fingerprint, readJournalTail, atomicWriteJson, type RunState } from "./journal.js";
 import { solveEpisode, setBudgetExhausted } from "./inner/solve.js";
-import { propose, ANGLES } from "./outer/improve.js";
-import { critiquePanel } from "./outer/critique.js";
+import { propose, ANGLES, type Proposal } from "./outer/improve.js";
+import { critiquePanel, selectTopSurvivors } from "./outer/critique.js";
 import { makeGoalPlan, checkGoal, readFeedback, type GoalPlan } from "./goal.js";
 import { writeReports, type EpisodeRecord, type FindingRow } from "./board.js";
 import { openMemory } from "./memory.js";
 import { loadKnowledge, storeVersion } from "./knowledge.js";
+import { loadProfiles } from "./models.js";
+import { protectedManifest } from "./guard.js";
 import { runHeldoutExam } from "./exam.js";
 import type { RsiEvent } from "./tui/events.js";
 import { RunController } from "./loopctl.js";
@@ -51,44 +54,92 @@ function nowTs(): string {
 	return new Date().toISOString().replace("T", " ").slice(0, 19);
 }
 
+function gitSnapshot(): { commit: string | null; dirty: boolean | null } {
+	const commit = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", windowsHide: true });
+	const status = spawnSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8", windowsHide: true });
+	return {
+		commit: commit.status === 0 ? String(commit.stdout).trim() : null,
+		dirty: status.status === 0 ? String(status.stdout).trim().length > 0 : null,
+	};
+}
+
+export function durableRunArtifacts(runDir: string): string[] {
+	return ["state.json", "board.jsonl", "champion_scaffold.json", "memory"]
+		.filter((entry) => existsSync(join(runDir, entry)));
+}
+
 export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDir: string }> {
 	const { cfg } = opts;
 	const log = opts.log ?? ((m: string) => console.log(m));
 	const emit = opts.emit ?? (() => {});
 	const controller = opts.controller;
 	const runDir = join(ROOT, "runs", opts.runName);
+	const durableRunArtifactsFound = durableRunArtifacts(runDir);
+	if (!opts.resume && durableRunArtifactsFound.length > 0) {
+		throw new Error(
+			`run "${opts.runName}" already contains durable artifacts (${durableRunArtifactsFound.join(", ")}); ` +
+				`use --resume or choose a fresh run name instead of mixing experiments`,
+		);
+	}
 	mkdirSync(runDir, { recursive: true });
+	setBudgetExhausted(false);
+	if (!opts.resume) {
+		TOKENS.total = 0;
+		TOKENS.calls = 0;
+		TOKENS.failed = 0;
+	}
 
 	const allProblems = loadProblems(cfg, ROOT, true);
 	const problems = allProblems.filter((p) => !p.heldout);
 	const nGens = opts.gensOverride ?? cfg.generations;
 	const initialKnowledge = loadKnowledge();
+	const manifestEvalContext = makeEvalContext(cfg, ROOT);
 	const fp = fingerprint([
 		{ config: cfg, gens: nGens },
 		{ problems: allProblems.map((p) => ({ id: p.id, genre: p.genre, heldout: p.heldout, weight: p.weight, overrides: p.overrides })) },
 	]);
 	const manifestPath = join(runDir, "run-manifest.json");
-	if (!existsSync(manifestPath)) {
+	if (!opts.resume || !existsSync(manifestPath)) {
 		atomicWriteJson(manifestPath, {
-			version: 1,
+			version: 2,
 			fingerprint: fp,
 			createdAt: new Date().toISOString(),
 			node: process.version,
 			platform: `${process.platform}/${process.arch}`,
+			git: gitSnapshot(),
 			config: cfg,
 			generations: nGens,
-			problems: allProblems.map((p) => ({ id: p.id, genre: p.genre, heldout: p.heldout, weight: p.weight, overrides: p.overrides })),
+			problems: allProblems.map((problem) => ({
+				id: problem.id,
+				genre: problem.genre,
+				heldout: problem.heldout,
+				weight: problem.weight,
+				overrides: problem.overrides,
+				gradingAssets: protectedManifest(
+					problem.dir,
+					existsSync(manifestEvalContext.truthFile(problem.id)) ? [manifestEvalContext.truthFile(problem.id)] : [],
+				),
+			})),
 			seedScaffold: cfg.seed_scaffold ?? SEED_SCAFFOLD,
 			knowledgeVersion: storeVersion(initialKnowledge),
+			modelProfiles: { version: loadProfiles().version, fingerprint: fingerprint([loadProfiles()]) },
+			requestMaxTokens: process.env.RSILAB_REQUEST_MAX_TOKENS ?? "default",
+			evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
 			rag: { enabled: cfg.rag_enabled === true, budgetChars: cfg.rag_budget_chars ?? 2400 },
 		});
 	}
 
+	let state = loadRunState(runDir);
+	if (opts.resume && !state) throw new Error(`cannot resume run "${opts.runName}": state.json is missing or invalid`);
+	if (opts.resume && state && state.fingerprint !== fp) {
+		throw new Error(
+			`run fingerprint mismatch (config changed since the run started): refusing to resume. ` +
+				`Use a fresh run name instead.`,
+		);
+	}
 	const { inner, outer } = await getPiRuntime(cfg, ROOT);
 	const journal = new Journal(runDir);
 	const memory = openMemory(runDir);
-
-	let state = loadRunState(runDir);
 	let goalPlan: GoalPlan | null = null;
 
 	if (opts.resume && state && state.fingerprint === fp) {
@@ -97,14 +148,8 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		TOKENS.total = state.tokensUsed ?? 0;
 		goalPlan = (await readGoalPlan(runDir)) ?? (await makeGoalPlan(outer, defaultGoalText(cfg), 150_000, cfg.outer_thinking_level ?? "low"));
 	} else {
-		if (state && opts.resume) {
-			throw new Error(
-				`run fingerprint mismatch (config changed since the run started): refusing to resume. ` +
-					`Use a fresh run name or drop --resume.`,
-			);
-		}
 		if (state && !opts.resume) {
-			log(`note: run dir already has state; starting fresh run (old files kept)`);
+			throw new Error(`run "${opts.runName}" already has state; choose a fresh run name or use --resume`);
 		}
 		goalPlan = await makeGoalPlan(outer, defaultGoalText(cfg), 150_000, cfg.outer_thinking_level ?? "low");
 		await writeGoalPlan(runDir, goalPlan);
@@ -172,7 +217,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 			log("stop requested; saving state and exiting (resume with --resume).");
 			break;
 		}
-		if (TOKENS.total > cfg.cost_cap_tokens) {
+		if (TOKENS.total >= cfg.cost_cap_tokens) {
 			log("token budget exhausted; stopping.");
 			emit({ type: "budget_stop", tokens: TOKENS.total });
 			setBudgetExhausted(true);
@@ -183,7 +228,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 
 		const feedback = readFeedback(runDir);
 		let steer = "";
-		if (gen % 2 === 1 || state.fitnessHistory.length < 3) {
+		if ((gen % 2 === 1 || state.fitnessHistory.length < 3) && TOKENS.total < cfg.cost_cap_tokens) {
 			emit({ type: "phase", phase: `gen ${gen}: goal check` });
 			const verdict = await checkGoal(
 				outer,
@@ -201,8 +246,12 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 
 		// 1) propose (angle-rotated diversity)
 		emit({ type: "phase", phase: `gen ${gen}: proposing`, detail: `${cfg.proposals} angles` });
-		const proposals = [];
+		const proposals: Proposal[] = [];
 		for (let k = 0; k < cfg.proposals; k++) {
+			if (TOKENS.total >= cfg.cost_cap_tokens || controller?.stopRequested) {
+				setBudgetExhausted(TOKENS.total >= cfg.cost_cap_tokens);
+				break;
+			}
 			const angle = ANGLES[(gen + k) % ANGLES.length];
 			try {
 				const p = await propose(outer, state.champion, angle, {
@@ -229,6 +278,11 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		}
 
 		// 2) critique before compute
+		if (TOKENS.total >= cfg.cost_cap_tokens) {
+			setBudgetExhausted(true);
+			log("  token budget exhausted before critique; stopping generation");
+			break;
+		}
 		emit({ type: "phase", phase: `gen ${gen}: critique panel` });
 		const { survivors, scores } = await critiquePanel(
 			outer,
@@ -242,10 +296,12 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 			150_000,
 			cfg.outer_thinking_level ?? "low",
 		);
+		const rankedSurvivors = selectTopSurvivors(proposals, survivors, scores, cfg.survivors);
 		log(
-			`  [critique] qualities=[${scores.map((s) => s.quality.toFixed(1)).join(",")}] -> ${survivors.length}/${proposals.length} survive`,
+			`  [critique] qualities=[${scores.map((s) => s.quality.toFixed(1)).join(",")}] -> ${rankedSurvivors.length}/${proposals.length} selected (${survivors.length} passed)`,
 		);
 		for (const [i, p] of proposals.entries()) {
+			const selected = rankedSurvivors.includes(p);
 			emit({
 				type: "proposal",
 				generation: gen,
@@ -253,7 +309,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				mechanism: p.mechanism,
 				expected: p.expectedDelta,
 				quality: scores[i]?.quality ?? null,
-				survived: survivors.includes(p),
+				survived: selected,
 			});
 			journal.append({
 				kind: "proposal",
@@ -264,7 +320,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				expected_delta: p.expectedDelta,
 				edits: p.edits,
 				quality: scores[i]?.quality ?? null,
-				survived: survivors.includes(p),
+				survived: selected,
 			});
 		}
 
@@ -286,13 +342,16 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		// 3) evaluate survivors
 		let best: { mean: number; child: Scaffold; detail: EpisodeRecord[]; mechanism: string; learning: EvaluationLearning } | null = null;
 		let bestFinding: FindingRow | null = null;
-		for (const [i, p] of survivors.entries()) {
+		for (const [i, p] of rankedSurvivors.entries()) {
 			await controller?.waitIfPaused();
-			if (controller?.stopRequested) break;
+			if (controller?.stopRequested || TOKENS.total >= cfg.cost_cap_tokens) {
+				if (TOKENS.total >= cfg.cost_cap_tokens) setBudgetExhausted(true);
+				break;
+			}
 			const child = p.child;
 			child.generation = gen;
-			log(`  [eval survivor ${i + 1}/${survivors.length}] ${p.mechanism.slice(0, 80)}`);
-			emit({ type: "phase", phase: `gen ${gen}: eval survivor ${i + 1}/${survivors.length}`, detail: p.mechanism.slice(0, 90) });
+			log(`  [eval survivor ${i + 1}/${rankedSurvivors.length}] ${p.mechanism.slice(0, 80)}`);
+			emit({ type: "phase", phase: `gen ${gen}: eval survivor ${i + 1}/${rankedSurvivors.length}`, detail: p.mechanism.slice(0, 90) });
 			const evaluation = await evaluateScaffold({
 				cfg,
 				problems,
@@ -325,7 +384,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				detail,
 				tokens: TOKENS.total,
 			});
-			if (mean != null && (!best || mean > best.mean)) {
+			if (!evaluation.cancelled && mean != null && (!best || mean > best.mean)) {
 				best = { mean, child, detail, mechanism: p.mechanism, learning: evaluation.learning };
 				bestFinding = finding;
 			}
@@ -334,7 +393,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		// 4) adversarial verification: fresh re-eval; avg of 2 must beat champion
 		if (controller?.stopRequested) {
 			log("stop requested; skipping verification.");
-		} else if (best && state.bestFitness != null && best.mean > state.bestFitness) {
+		} else if (best && state.bestFitness != null && best.mean > state.bestFitness && TOKENS.total < cfg.cost_cap_tokens) {
 			log(`  [verify] challenger ${best.mean.toFixed(4)} > champion ${state.bestFitness.toFixed(4)}: fresh re-eval`);
 			emit({ type: "phase", phase: `gen ${gen}: adversarial verify` });
 			const verification = await evaluateScaffold({
@@ -350,7 +409,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				log,
 			});
 			const v = verification;
-			const avg = v.mean != null ? (best.mean + v.mean) / 2 : null;
+			const avg = !v.cancelled && v.mean != null ? (best.mean + v.mean) / 2 : null;
 			log(`  [verify] re-eval=${v.mean?.toFixed(4) ?? "ERR"} avg=${avg?.toFixed(4) ?? "—"}`);
 			emit({ type: "verify", first: best.mean, second: v.mean, avg, champion: state.bestFitness });
 			journal.append({
@@ -428,18 +487,40 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		}
 	}
 
-	// 5) held-out final exam
-	const hasHeldout = allProblems.some((p) => p.heldout);
-	if (hasHeldout && !controller?.stopRequested) {
+	// 5) held-out final exam (idempotent across resume)
+	const hasHeldout = allProblems.some((problem) => problem.heldout);
+	if (
+		hasHeldout &&
+		!controller?.stopRequested &&
+		!state.finalization?.heldoutCompleted &&
+		TOKENS.total < cfg.cost_cap_tokens
+	) {
 		log("\n[final] held-out exam with champion scaffold ...");
 		emit({ type: "heldout_start", problems: allProblems.filter((p) => p.heldout).map((p) => p.id) });
-		const report = await runHeldoutExam(opts.cfg, opts.runName, state.champion, log);
+		const report = await runHeldoutExam(opts.cfg, opts.runName, state.champion, log, controller);
 		emit({
 			type: "heldout_done",
 			mean: report.heldoutMean,
 			results: report.results.map((r) => ({ problem: r.problem, fitness: r.fitness })),
 		});
 		journal.append({ kind: "note", ts: nowTs(), generation: state.generation, text: `held-out exam: ${report.summary}` });
+		state.tokensUsed = TOKENS.total;
+		if (report.complete) {
+			state.finalization = {
+				heldoutCompleted: true,
+				heldoutSummary: report.summary,
+				completedAt: new Date().toISOString(),
+			};
+		} else {
+			log("[final] held-out gate was incomplete; resume may retry missing/cancelled work");
+		}
+		saveRunState(runDir, state);
+	} else if (state.finalization?.heldoutCompleted) {
+		log(`[final] held-out exam already completed; resume is not rerunning it (${state.finalization.heldoutSummary ?? "no summary"})`);
+	} else if (!hasHeldout && !controller?.stopRequested) {
+		state.tokensUsed = TOKENS.total;
+		state.finalization = { heldoutCompleted: true, heldoutSummary: null, completedAt: new Date().toISOString() };
+		saveRunState(runDir, state);
 	}
 	journal.append({
 		kind: "note",

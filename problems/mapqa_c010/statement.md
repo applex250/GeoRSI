@@ -18,5 +18,5 @@ submissions score partially and unanswered questions count as wrong.
 
 ## Grading
 public score = accuracy on a hidden calibration slice (a number, never the answers);
-private score = accuracy on all questions. Partial answers score partially —
+private score = accuracy on non-dev questions only. Partial answers score partially —
 always submit, even if unsure on some questions.

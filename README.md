@@ -72,9 +72,11 @@ solved by the engine subprocess in 31s with fitness 1.0000
       catalog, 76k events 1990-2024) · flood_rp (hydrology) ·
       climate_trend (climatology) · poro_perm (petrophysics, held-out)
 
-Private truths live OUTSIDE this tree (`../rsi-lab-private/`), so agents cannot
-reward-hack by reading them. Agents see only public (reference) scores; the
-outer loop selects on private scores.
+Synthetic/open-task private truths live OUTSIDE this tree (`../rsi-lab-private/`).
+External quiz gold and judge/reference assets may live under `problems/` on the
+trusted evaluator side, but are never copied to the exchange and the full
+repository is closed inside strict Sandboxie. Agents see only public reference/dev
+scores; the outer loop selects on private-only scores.
 
 On Windows, the default execution backend is **Sandboxie-Plus app-level
 isolation**. Each episode gets a fresh box and an absolute exchange workspace
@@ -249,8 +251,8 @@ and runs the evolution loop in the same process:
 
     npm install --ignore-scripts          # pi packages (pinned 0.84.2)
     python problems/<id>/gen.py --private ../rsi-lab-private   # (re)gen data
-    npx tsx src/run.ts selftest           # no-LLM unit tests (grader/suite/guard/models)
-    npm run sandboxie:selftest             # real box + PID/path/network/cleanup probe
+    npm run check                         # aggregate free regression gate
+    npm run sandboxie:selftest             # real box + PID/path/network/lease/cleanup probe
     npx tsx src/run.ts smoke               # one live episode on quake_b
     npx tsx src/run.ts exam               # full suite exam -> RESULTS.md
     npx tsx src/run.ts rsi --gens 4       # evolution run
@@ -266,15 +268,20 @@ whole repository is closed. Use `host-audit` explicitly only when a repo-local
 venv is intentionally required; that mode is not an OS sandbox.
 
 API key: `RSILAB_API_KEY` env var or `api_key.txt` (gitignored). Gateway and
-models are configured in `config.json`; the pi provider file
-(`config/pi-models.json`) is regenerated at boot.
+models are configured in `config.json`; the pi provider file is created with
+owner-only permissions in a random OS temp directory, consumed at startup,
+and immediately deleted. Legacy `config/pi-models.json` is no longer written.
 
 ## External benchmarks (A/B-tier integration)
 
 `scripts/quiz_build.py` converts external question banks into **quiz-mode**
 problems (one chunk = one problem; questions in `data/quiz.jsonl`, answers in
 `answers.private.jsonl` — never copied to the agent; submission =
-`answers.json` via the submit tool, eval_cap 2, unanswered = wrong). Suite
+`answers.json` via the submit tool, eval_cap 2, unanswered = wrong). Public
+fitness uses only `dev=true` calibration questions; `private-only-v2` uses
+only `dev=false` questions, so calibration items cannot inflate selection or
+held-out results. Historical reports made before 2026-08-29 used an all-item
+private metric and are not directly comparable. Suite
 registers live in `config/<suite>.problems.json`; point `config.json`'s
 `problems_file` at one to run it whole:
 
@@ -289,7 +296,9 @@ For a bounded routing pilot, `scripts/quiz_slice.py` creates deterministic
 small slices from an existing chunk. The completed 2026-08-27 seed/unscoped/
 scoped comparison is documented in [`docs/SCOPE-PILOT.md`](docs/SCOPE-PILOT.md).
 
-Judge/oracle problems (no quiz template):
+Judge/oracle problems (no quiz template; current GAB/GeoBenchX scores are
+**structural/judge proxy metrics**, not proof that produced GIS artifacts are
+scientifically correct):
 
     python scripts/gab_build.py --n 10          # GeoAnalystBench: oracle -> judge chain
     python scripts/gbx_build.py --n-real 8 --n-reject 4   # GeoBenchX: tool-chain judge,
@@ -314,14 +323,15 @@ tracked in [`docs/AGENT-EVO.md`](docs/AGENT-EVO.md).
 apply to; `src/knowledge.ts` routes active nodes to a deterministic,
 char-budgeted lesson set injected into the inner prompt. Newly accepted
 champion tips are staged as `probation` rather than silently becoming active.
-Usage stats (`uses`/`wins`/fitness) update only after an episode ends. Use
+Usage stats (`uses`/historical `wins`/fitness) update only after an episode
+ends. `wins` means competent co-exposure, not causal credit for the node. Use
 `RSILAB_KB_INCLUDE_PROBATION=1` only for an explicit A/B pilot, and promote a
-probation node after independent evidence with:
+probation node only with independent paired evidence:
 
-    python scripts/knowledge_add.py --promote <node-id>
+    python scripts/knowledge_add.py --promote <node-id> --evidence-file evidence.json
 
-The command requires at least 3 observations and a 0.8 private-fitness win
-rate unless `--force` is supplied.
+The evidence file identifies the node, at least two independent groups, and a
+positive paired delta; `--force` remains an explicit operator override.
 
 ## Honesty infrastructure (anti reward-hacking)
 
@@ -331,8 +341,9 @@ GeoRSI now has two explicit Python backends:
   Sandboxie-Plus in a fresh per-episode box. The exchange workspace is outside
   the repository; the full repository/private roots, credential locations, and
   network are closed and checked by a real probe. If Sandboxie, `/reload`,
-  rule read-back, PID ownership, or the probe fails, the episode fails closed —
-  it never falls back to host Python.
+  rule read-back, global-WFP lease, PID ownership, or the probe fails, the episode fails closed —
+  it never falls back to host Python. Strict episodes are serialized across
+  GeoRSI processes while the temporary global WFP setting is active.
 - **`host-audit`**: an explicit compatibility mode for environments without
   Sandboxie. It keeps the existing path fence, execution-policy scan, manifest,
   and post-episode guard, but is not an OS sandbox.
@@ -344,7 +355,8 @@ Defense-in-depth remains enabled in both modes (`src/guard.ts`; asserted by
   exchange workspace, and official pi `read`/`write`/`edit`/`ls`/`grep`
   factories receive symlink-aware guarded operations;
 - **protected manifest**: eval-side files (eval.py, gold answers, hidden
-  references) are hashed before the episode; tampering fails the eval;
+  references, and effective external private truth) are hashed before the
+  episode and rechecked before every public/private evaluator launch;
 - **post-episode sweep**: agent-written artifacts and tool-call text are
   scanned for protected-path references; a breach marks the episode
   compromised (fitness → null);
@@ -357,9 +369,10 @@ Defense-in-depth remains enabled in both modes (`src/guard.ts`; asserted by
   uncaught/unhandled fatal errors, and the Node exit handler terminate the
   Sandboxie box and remove its config. An external hard kill of the Node process
   (`taskkill /F`, power loss, or kernel crash) cannot execute user-space cleanup;
-  after such a kill, verify `SbieIni query /boxes "*"` and rerun the integration
-  selftest before trusting the next run; strict execution never falls back to
-  the host while cleanup is uncertain.
+  after such a kill, inspect/terminate stale GeoRSI boxes, restore/read back
+  `Sandboxie.ini`, rerun the integration selftest, and only then remove
+  `%TEMP%\\GeoRSI\\sandboxie-global-wfp.lock`; strict execution never falls
+  back to the host while cleanup or the lease is uncertain.
 
 Sandboxie-Plus provides **app-level isolation**, not VM-level security. It does
 not replace host hardening, a VM, resource governance, or an independent
@@ -379,11 +392,15 @@ structure, gold isolation and the model/guard layers (no LLM needed).
 ## Run artifacts (runs/<name>/)
 
 - `board.jsonl` append-only journal (source of truth; crash-safe)
-- `state.json` atomic snapshot (generation, champion, history) — resume point
+- `state.json` atomic snapshot (generation, champion, history, token count,
+  held-out finalization) — resume point; completed held-out gates are not rerun
 - `champion_scaffold.json` current champion
 - `variants/genN_vK.json` every proposal incl. pruned (audit)
 - `leaderboard.md`, `FINDINGS.md` human-readable reports (regenerable)
-- `episodes/`, `memory/memory.jsonl`, `RESULTS.md`, `FEEDBACK.md` (write to steer)
+- `episodes/<tag>/episode.json` and canonical submitted JSON are durable,
+  sanitized copies written only after strict cleanup/guard checks; arbitrary
+  agent scripts and logs remain in the external exchange temp tree
+- `memory/memory.jsonl`, `RESULTS.md`, `exam-report.json`, `FEEDBACK.md`
 
 ## Legacy
 

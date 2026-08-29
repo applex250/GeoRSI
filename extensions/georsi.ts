@@ -17,7 +17,7 @@
  *   /research help
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, copyFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, copyFileSync, appendFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -126,6 +126,9 @@ export function validateResearch(dir: string): ValidationResult {
 	if (!existsSync(join(dir, "private_truth.txt"))) warnings.push("private_truth.txt missing — private scoring will fail");
 	else if (readFileSync(join(dir, "private_truth.txt"), "utf8").trim().startsWith("#"))
 		warnings.push("private_truth.txt still has only a comment — put the real number there");
+	if (!existsSync(join(dir, "reference_truth.txt"))) warnings.push("reference_truth.txt missing — public grading will fail");
+	else if (readFileSync(join(dir, "reference_truth.txt"), "utf8").trim().startsWith("#"))
+		warnings.push("reference_truth.txt still has only a comment — put the public reference answer there");
 	const dataDir = join(dir, "data");
 	if (!existsSync(dataDir) || readdirSafe(dataDir).length === 0)
 		warnings.push("data/ is empty — the agent will have nothing to analyze (fine for pure-theory questions)");
@@ -183,6 +186,12 @@ function registerInLab(dir: string, idHint: string): { id: string; warnings: str
 	mkdirSync(join(dst, "data"), { recursive: true });
 	copyFileSync(join(dir, "statement.md"), join(dst, "statement.md"));
 	copyFileSync(join(dir, "eval.py"), join(dst, "eval.py"));
+	const referenceTruth = join(dir, "reference_truth.txt");
+	if (existsSync(referenceTruth)) {
+		copyFileSync(referenceTruth, join(dst, "reference_truth.txt"));
+	} else {
+		warnings.push("reference_truth.txt is missing; public grading cannot validate the registered problem");
+	}
 	// copy datasets (skip the placeholder)
 	for (const f of readdirSafe(join(dir, "data"))) {
 		try {
@@ -219,8 +228,8 @@ const INSTRUCTIONS = [
 	"  research/data/              ← PUT YOUR DATASETS HERE (CSV/JSON...)",
 	"                                optional: reference_* data with a KNOWN answer",
 	"  research/private_truth.txt  ← THE TRUE ANSWER for the main data (one number;",
-	"                                the agent can never see this file — it is used",
-	"                                only to grade. You may keep it secret.)",
+	"                                under Windows strict Sandboxie the agent cannot see",
+	"                                this file; host-audit is compatibility-only, not confidentiality.",
 	"  research/eval.py            ← grading script; works as-is for {\"answer\": number}",
 	"                                submissions; edit the formula for other formats",
 	"  research/reference_truth.txt← truth of the reference dataset (public/visible)",
@@ -536,6 +545,7 @@ export default function georsiExtension(pi: ExtensionAPI): void {
 		activeRun = { runName, runDir, controlPath, mode: isEvolve ? "evolve" : "solve" };
 		refreshWidget();
 		let res: SpawnResult | null = null;
+		let temporaryConfig: string | null = null;
 		try {
 			if (isEvolve) {
 				const reg = registerInLab(dir, "research_" + Date.now().toString(36));
@@ -543,6 +553,7 @@ export default function georsiExtension(pi: ExtensionAPI): void {
 				const cfg = JSON.parse(readFileSync(join(GEORSI_ROOT, "config.json"), "utf8")) as { problems: unknown[] };
 				cfg.problems = [{ id: reg.id }];
 				const tmpCfg = join(GEORSI_ROOT, "config", `research-${reg.id}.json`);
+				temporaryConfig = tmpCfg;
 				writeFileSync(tmpCfg, JSON.stringify(cfg));
 				res = await runEngine(
 					["rsi", "--config", tmpCfg, "--gens", String(gens), "--run-name", runName, "--control", controlPath],
@@ -567,6 +578,7 @@ export default function georsiExtension(pi: ExtensionAPI): void {
 		} catch (e) {
 			pushLog(`engine error: ${e instanceof Error ? e.message : String(e)}`);
 		} finally {
+			if (temporaryConfig) rmSync(temporaryConfig, { force: true });
 			flushThinking();
 			const finalLine = res?.tail.find((l) => l.includes("RESEARCH RESULT") || l.includes("DONE best="));
 			stopSpinner(finalLine?.replace(/^(SYS|)\|?/, "") ?? "done");
@@ -710,6 +722,7 @@ export default function georsiExtension(pi: ExtensionAPI): void {
 					return;
 				}
 				case "model": {
+					const liveModels = SUPPORTED_MODELS.filter((model) => !model.retired);
 					// /research model                -> show current + supported list
 					// /research model inner <id>     -> set the researcher model
 					// /research model outer <id>     -> set the evolver model
@@ -722,7 +735,7 @@ export default function georsiExtension(pi: ExtensionAPI): void {
 								`outer (evolver):    ${cfgNow.outer_model}`,
 								"",
 								"supported models:",
-								...SUPPORTED_MODELS.map(
+								...liveModels.map(
 									(m) => `  ${m.id.padEnd(28)} ${m.route === "proxy" ? "proxy " : "direct"}  ${m.note}`,
 								),
 								"",
@@ -739,12 +752,12 @@ export default function georsiExtension(pi: ExtensionAPI): void {
 					}
 					const id = rest[1];
 					if (!id) {
-						ctx.ui.notify(`which model? choose: ${SUPPORTED_MODELS.map((m) => m.id).join(", ")}`);
+						ctx.ui.notify(`which model? choose: ${liveModels.map((m) => m.id).join(", ")}`);
 						return;
 					}
 					const spec = modelSpec(id);
-					if (!spec) {
-						ctx.ui.notify(`unknown model "${id}" — choose: ${SUPPORTED_MODELS.map((m) => m.id).join(", ")}`);
+					if (!spec || spec.retired) {
+						ctx.ui.notify(`unknown or retired model "${id}" — choose: ${liveModels.map((m) => m.id).join(", ")}`);
 						return;
 					}
 					if (spec.endpoint === "local") {

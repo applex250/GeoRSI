@@ -1,9 +1,10 @@
 /** Real no-LLM Sandboxie-Plus integration smoke test. */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { loadConfig, ROOT } from "./config.js";
 import { sandboxProbeSource, hostNetworkReachable } from "./inner/solve.js";
-import { SandboxieAdapter, assertSandboxPythonCommand, makeSandboxieBoxName, resolveExchangeWorkspace, type SandboxieBoxRecord } from "./sandboxie.js";
+import { SandboxieAdapter, assertSandboxPythonCommand, makeSandboxieBoxName, resolveExchangeWorkspace, sandboxieGlobalLeasePath, type SandboxieBoxRecord } from "./sandboxie.js";
 
 const cfg = loadConfig();
 const exchange = resolveExchangeWorkspace(
@@ -12,6 +13,10 @@ const exchange = resolveExchangeWorkspace(
 );
 const repoRoot = resolve(ROOT);
 const privateRoot = resolve(ROOT, cfg.private_truth_dir);
+const additionalProtectedRoot = join(tmpdir(), "GeoRSI", `sandboxie-protected-${process.pid}`);
+const additionalProtectedFile = join(additionalProtectedRoot, "canary.txt");
+mkdirSync(additionalProtectedRoot, { recursive: true });
+writeFileSync(additionalProtectedFile, "sandboxie-protected-canary", "utf8");
 const pythonCmd = assertSandboxPythonCommand(process.env.GEORSI_SANDBOXIE_PYTHON ?? cfg.python_cmd, [repoRoot, privateRoot]);
 const probeScript = join(exchange, ".sandboxie-selftest.py");
 const probeResult = join(exchange, ".sandboxie-selftest.json");
@@ -23,13 +28,30 @@ try {
 	mkdirSync(exchange, { recursive: true });
 	const hostNetwork = await hostNetworkReachable();
 	if (!hostNetwork) throw new Error("host network preflight failed; refusing to classify an unavailable network as sandbox blocking");
-	writeFileSync(probeScript, sandboxProbeSource(join(repoRoot, "README.md"), privateRoot, probeResult, hostNetwork), "utf8");
+	writeFileSync(
+		probeScript,
+		sandboxProbeSource(join(repoRoot, "README.md"), privateRoot, probeResult, hostNetwork, [additionalProtectedFile]),
+		"utf8",
+	);
 	record = await adapter.prepareBox({
 		name: makeSandboxieBoxName("sandboxie-selftest"),
 		exchangeWorkspace: exchange,
 		repoRoot,
 		privateRoot,
+		additionalProtectedRoots: [additionalProtectedRoot],
 	});
+	let concurrentLeaseRejected = false;
+	try {
+		await adapter.prepareBox({
+			name: makeSandboxieBoxName("sandboxie-selftest-concurrent"),
+			exchangeWorkspace: exchange,
+			repoRoot,
+			privateRoot,
+		});
+	} catch (error) {
+		concurrentLeaseRejected = String(error).includes("global-WFP lease");
+	}
+	if (!concurrentLeaseRejected) throw new Error("concurrent strict Sandboxie prepare did not fail on the global-WFP lease");
 	const run = await adapter.runPython({
 		boxName: record.name,
 		pythonCmd,
@@ -49,6 +71,10 @@ try {
 	}
 	for (const key of ["repo_file", "private_dir", "network"]) {
 		if (result[key] !== "BLOCKED") throw new Error(`isolation probe ${key}=${String(result[key])} detail=${String(result[`${key}_detail`] ?? "missing")}`);
+	}
+	const additional = result.additional_protected as { status?: unknown }[] | undefined;
+	if (!additional || additional.length !== 1 || additional[0]?.status !== "BLOCKED") {
+		throw new Error(`additional protected canary was not blocked: ${JSON.stringify(additional)}`);
 	}
 	const timeoutScript = join(exchange, ".sandboxie-timeout.py");
 	writeFileSync(timeoutScript, "import time\ntime.sleep(20)\n", "utf8");
@@ -140,13 +166,51 @@ try {
 		});
 	});
 	if (existsSync(backgroundMarker)) throw new Error("terminated background job wrote its completion marker");
+	const detachedScript = join(exchange, ".sandboxie-detached-descendant.py");
+	writeFileSync(
+		detachedScript,
+		"import subprocess, sys\nflags = getattr(subprocess, 'DETACHED_PROCESS', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)\nsubprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True, creationflags=flags)\nprint('spawned')\n",
+		"utf8",
+	);
+	let detachedRejected = false;
+	try {
+		await adapter.runPython({
+			boxName: record.name,
+			pythonCmd,
+			scriptPath: detachedScript,
+			cwd: exchange,
+			stdoutPath: join(exchange, ".sandboxie-detached.stdout.log"),
+			stderrPath: join(exchange, ".sandboxie-detached.stderr.log"),
+			timeoutMs: 12_000,
+		});
+	} catch (error) {
+		detachedRejected = String(error).includes("undeclared live descendants");
+	}
+	if (!detachedRejected) throw new Error("foreground detached descendant was not detected and rejected");
 	const { scanWorkspaceForBreaches } = await import("./guard.js");
 	const probeLeaks = scanWorkspaceForBreaches(exchange);
 	if (probeLeaks.length > 0) throw new Error(`probe diagnostics leaked protected paths: ${JSON.stringify(probeLeaks)}`);
 	const cleanup = await adapter.cleanupBox(record);
-	if (cleanup.errors.length > 0 || cleanup.boxStillEnabled || !cleanup.globalWfpRestored) {
+	if (cleanup.errors.length > 0 || cleanup.boxStillEnabled || !cleanup.globalWfpRestored || !cleanup.leaseReleased) {
 		throw new Error(`cleanup failed: ${cleanup.errors.join("; ") || "box remains enabled or global WFP was not restored"}`);
 	}
+	const staleLease = sandboxieGlobalLeasePath();
+	mkdirSync(resolve(staleLease, ".."), { recursive: true });
+	writeFileSync(staleLease, JSON.stringify({ pid: 0, token: "stale", boxName: "GeoRSI_stale", createdAt: "stale" }), "utf8");
+	let staleRejected = false;
+	try {
+		await adapter.prepareBox({
+			name: makeSandboxieBoxName("sandboxie-stale-lease"),
+			exchangeWorkspace: exchange,
+			repoRoot,
+			privateRoot,
+		});
+	} catch (error) {
+		staleRejected = String(error).includes("remove the stale lease manually");
+	} finally {
+		rmSync(staleLease, { force: true });
+	}
+	if (!staleRejected) throw new Error("stale Sandboxie global-WFP lease did not fail closed with recovery guidance");
 	console.log(`SANDBOXIE_OK box=${record.name} pids=${run.targetPids.join(",")} exchange=${exchange}`);
 } catch (error) {
 	console.error(`SANDBOXIE_FAIL: ${error instanceof Error ? error.message : String(error)}`);
@@ -160,4 +224,5 @@ try {
 	process.exitCode = 1;
 } finally {
 	if (existsSync(exchange)) rmSync(exchange, { recursive: true, force: true });
+	if (existsSync(additionalProtectedRoot)) rmSync(additionalProtectedRoot, { recursive: true, force: true });
 }

@@ -13,7 +13,7 @@
  */
 import { spawn } from "node:child_process";
 import { request as httpsRequest } from "node:https";
-import { cpSync, existsSync, closeSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, closeSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
@@ -24,7 +24,7 @@ import { runEval } from "../bench/eval.js";
 import { composeSystemPrompt, type Scaffold } from "../scaffold.js";
 import { loadKnowledge, selectKnowledge, renderKnowledge, recordUsage } from "../knowledge.js";
 import { protectedManifest, scanPythonExecutionPolicy, scanTextForBreaches, scanWorkspaceForBreaches, verifyManifest } from "../guard.js";
-import { PiHarness, toolOutput } from "../piharness.js";
+import { PiHarness, toolOutput, type PromptOutcome } from "../piharness.js";
 import { resolveModel } from "../provider.js";
 import { recall, renderMemory, type MemoryStore } from "../memory.js";
 import { terminateProcessTree, isProcessAlive } from "../process.js";
@@ -40,6 +40,7 @@ import {
 	type SandboxieCleanupResult,
 } from "../sandboxie.js";
 import { queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "../retrieval.js";
+import { atomicWriteJson } from "../journal.js";
 import { assertExchangeWorkspace } from "../workspace-tools.js";
 
 export interface EpisodeResult {
@@ -51,7 +52,10 @@ export interface EpisodeResult {
 	tokens: number;
 	secs: number;
 	error: string | null;
+	warnings: string[];
 	workspace: string;
+	/** sanitized durable evidence location requested by the caller */
+	durableWorkspace: string;
 	/** app-level isolation evidence; host-audit is explicit non-sandbox mode */
 	isolation?: {
 		backend: "sandboxie-app-level" | "host-audit";
@@ -195,10 +199,18 @@ export async function hostNetworkReachable(timeoutMs = 5_000, attempts = 3): Pro
 	return false;
 }
 
-export function sandboxProbeSource(repoFile: string, privateRoot: string, resultPath: string, networkExpected = true): string {
+export function sandboxProbeSource(
+	repoFile: string,
+	privateRoot: string,
+	resultPath: string,
+	networkExpected = true,
+	additionalProtectedPaths: readonly string[] = [],
+): string {
 	const encode = (value: string): string => Buffer.from(value, "utf8").toString("base64");
 	const repoExists = existsSync(repoFile);
 	const privateExists = existsSync(privateRoot);
+	const additional = additionalProtectedPaths.map((path) => ({ encoded: encode(path), directory: existsSync(path) && statSync(path).isDirectory() }));
+	const additionalLiteral = `[${additional.map((item) => `[${JSON.stringify(item.encoded)}, ${item.directory ? "True" : "False"}]`).join(", ")}]`;
 	return [
 		"import base64, json, os, urllib.error, urllib.request",
 		`REPO_FILE = base64.b64decode(${JSON.stringify(encode(repoFile))}).decode('utf-8')`,
@@ -207,6 +219,7 @@ export function sandboxProbeSource(repoFile: string, privateRoot: string, result
 		`REPO_EXPECTED = ${repoExists ? "True" : "False"}`,
 		`PRIVATE_EXPECTED = ${privateExists ? "True" : "False"}`,
 		`NETWORK_EXPECTED = ${networkExpected ? "True" : "False"}`,
+		`ADDITIONAL = ${additionalLiteral}`,
 		"def detail(error):",
 		"    code = getattr(error, 'winerror', None)",
 		"    return f'{type(error).__name__}' + (f' winerror={code}' if code is not None else '')",
@@ -253,7 +266,14 @@ export function sandboxProbeSource(repoFile: string, privateRoot: string, result
 		"out['private_dir_detail'] = private_detail",
 		"out['network'] = network_status",
 		"out['network_detail'] = network_detail",
+		"out['additional_protected'] = []",
+		"for encoded_path, is_directory in ADDITIONAL:",
+		"    protected_path = base64.b64decode(encoded_path).decode('utf-8')",
+		"    action = (lambda p=protected_path: os.listdir(p)) if is_directory else (lambda p=protected_path: open(p, 'rb').read(1))",
+		"    status, protected_detail = probe(action, True)",
+		"    out['additional_protected'].append({'status': status, 'detail': protected_detail})",
 		"out['errors'] = [f'{key}: {value}' for key, value in (('repo_file', repo_detail), ('private_dir', private_detail), ('network', network_detail)) if {'repo_file': repo_status, 'private_dir': private_status, 'network': network_status}[key] == 'ERROR']",
+		"out['errors'].extend([f'additional_{index}: {item[\"detail\"]}' for index, item in enumerate(out['additional_protected']) if item['status'] == 'ERROR'])",
 		"with open(RESULT, 'w', encoding='utf-8') as handle:",
 		"    json.dump(out, handle, sort_keys=True)",
 		"print(json.dumps(out, sort_keys=True))",
@@ -289,8 +309,14 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	const sandboxed = isSandboxieBackend(cfg);
 	const repoRoot = resolve(ROOT);
 	const privateRoot = resolve(ROOT, cfg.private_truth_dir);
+	const extraProtectedRoots = [...new Set((evalCtx.protectedRoots ?? []).map((path) => resolve(path)))]
+		.filter((path) => path !== repoRoot && path !== privateRoot);
+	const protectedFiles = [...new Set([
+		...(evalCtx.protectedFiles ?? []),
+		...(existsSync(evalCtx.truthFile(problem.id)) ? [evalCtx.truthFile(problem.id)] : []),
+	].map((path) => resolve(path)))];
 	const pythonCmd = sandboxed
-		? assertSandboxPythonCommand(cfg.python_cmd, [repoRoot, privateRoot])
+		? assertSandboxPythonCommand(cfg.python_cmd, [repoRoot, privateRoot, ...extraProtectedRoots])
 		: cfg.python_cmd;
 	const requestedWorkspace = resolve(opts.workspace);
 	// Strict Sandboxie episodes never use a repository-owned workspace. The
@@ -298,15 +324,21 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	const workspace = sandboxed
 		? resolveExchangeWorkspace(requestedWorkspace, cfg.sandboxie_exchange_root)
 		: requestedWorkspace;
-	if (sandboxed) assertExchangeWorkspace(workspace, repoRoot, privateRoot);
+	if (sandboxed) assertExchangeWorkspace(workspace, repoRoot, privateRoot, extraProtectedRoots);
 	const log = opts.log ?? (() => {});
 	const emit = opts.emit ?? (() => {});
 	const t0 = Date.now();
+	const deadline = t0 + cfg.episode_timeout_s * 1000;
+	const remainingMs = (): number => Math.max(0, deadline - Date.now());
 	// fresh scratch every episode: leftovers from a previous episode in the same
 	// role dir would contaminate the agent's context
 	rmSync(workspace, { recursive: true, force: true });
 	mkdirSync(workspace, { recursive: true });
-	if (sandboxed) assertExchangeWorkspace(workspace, repoRoot, privateRoot);
+	if (sandboxed && requestedWorkspace !== workspace) {
+		rmSync(requestedWorkspace, { recursive: true, force: true });
+		mkdirSync(requestedWorkspace, { recursive: true });
+	}
+	if (sandboxed) assertExchangeWorkspace(workspace, repoRoot, privateRoot, extraProtectedRoots);
 	emit({ type: "episode_start", tag: opts.tag, problem: problem.id, role: opts.tag.split("-")[0], generation: scaffold.generation });
 
 	// knowledge-base routing (deterministic; see src/knowledge.ts): pick the
@@ -337,7 +369,16 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	// integrity manifest of everything private grading depends on (eval.py,
 	// hidden references, quiz gold) + a tap recording every tool call's args:
 	// built-in read/write accept absolute paths, so both are checked at exit.
-	const gradeManifest = protectedManifest(problem.dir);
+	const gradeManifest = protectedManifest(problem.dir, protectedFiles);
+	const integrityBreaches: string[] = [];
+	const verifyGradingAssets = (phase: string): string[] => {
+		const changed = verifyManifest(problem.dir, gradeManifest);
+		for (const file of changed) {
+			const finding = `${phase}:${file}`;
+			if (!integrityBreaches.includes(finding)) integrityBreaches.push(finding);
+		}
+		return changed;
+	};
 	const toolCallLog: string[] = [];
 	const sandboxAdapter = sandboxed ? SandboxieAdapter.fromConfig(cfg, log) : null;
 	let sandboxRecord: SandboxieBoxRecord | null = null;
@@ -367,6 +408,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			exchangeWorkspace: workspace,
 			repoRoot,
 			privateRoot,
+			additionalProtectedRoots: extraProtectedRoots,
 		});
 		const recordForExit = sandboxRecord!;
 		const onProcessExit = (): void => {
@@ -383,7 +425,13 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		const repoProbeFile = join(repoRoot, "README.md");
 		if (!existsSync(repoProbeFile)) throw new Error(`Sandboxie isolation probe target is missing: ${repoProbeFile}`);
 		if (!existsSync(privateRoot)) throw new Error(`Sandboxie isolation probe target is missing: ${privateRoot}`);
-		writeFileSync(probeScript, sandboxProbeSource(repoProbeFile, privateRoot, probeResultPath, networkExpected), "utf8");
+		const additionalProbePaths = [...new Set([...extraProtectedRoots, ...protectedFiles])]
+			.filter((path) => existsSync(path));
+		writeFileSync(
+			probeScript,
+			sandboxProbeSource(repoProbeFile, privateRoot, probeResultPath, networkExpected, additionalProbePaths),
+			"utf8",
+		);
 		const probe = await sandboxAdapter.runPython({
 			boxName: sandboxRecord.name,
 			pythonCmd,
@@ -407,6 +455,11 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		for (const key of ["repo_file", "private_dir", "network"] as const) {
 			if (probeData[key] !== "BLOCKED") {
 				throw new Error(`Sandboxie isolation probe was not fail-closed for ${key}: ${String(probeData[key])}`);
+			}
+		}
+		for (const [index, item] of ((probeData.additional_protected ?? []) as { status?: unknown }[]).entries()) {
+			if (item.status !== "BLOCKED") {
+				throw new Error(`Sandboxie isolation probe was not fail-closed for additional protected path ${index}: ${String(item.status)}`);
 			}
 		}
 		if (!Array.isArray(probeData.errors) || probeData.errors.length > 0) {
@@ -478,6 +531,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			file: Type.String({ description: "script filename relative to the workspace, e.g. analyze.py" }),
 		}),
 		execute: async (_id, params) => {
+			if (remainingMs() < 8_000) return toolOutput("error: episode deadline is too close to safely prove Sandboxie process ownership; submit the current best answer now");
 			const file = resolveInWorkspace(workspace, params.file);
 			if (!file) return toolOutput("error: script path must stay inside the workspace");
 			if (!existsSync(file)) {
@@ -485,7 +539,10 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			}
 			const policy = checkPythonExecutionPolicy(file, params.file, cfg.execution_policy ?? "audit");
 			if (policy.blocked) return toolOutput(`error: ${policy.notice}`);
-			const out = await runEpisodePython(file, (cfg.script_timeout_s ?? 120) * 1000);
+			const out = await runEpisodePython(
+				file,
+				Math.min((cfg.script_timeout_s ?? 120) * 1000, Math.max(1, remainingMs())),
+			);
 			const notice = policy.notice ? `${policy.notice}\n\n` : "";
 			if (out.includes("[execution timed out]")) {
 				return toolOutput(
@@ -609,6 +666,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			name: Type.Optional(Type.String({ description: "short job name (default: script name)" })),
 		}),
 		execute: async (_id, params) => {
+			if (remainingMs() < 8_000) return toolOutput("error: episode deadline is too close to start a background job; submit the current best answer now");
 			const file = resolveInWorkspace(workspace, params.file);
 			if (!file) return toolOutput("error: job script must stay inside the workspace");
 			if (!existsSync(file)) {
@@ -770,6 +828,10 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			final: Type.Optional(Type.Boolean({ description: "true when you are done improving" })),
 		}),
 		execute: async (_id, params) => {
+			const activeJobs = [...jobs.values()].filter((job) => refreshJob(job).state === "running");
+			if (activeJobs.length > 0) {
+				return toolOutput(`submission refused while background jobs are still writing (${activeJobs.map((job) => job.name).join(", ")}); wait for the driver wake-up first`);
+			}
 			if (st.submits >= cfg.eval_cap) {
 				// budget is spent, but final=true is still meaningful: it ends
 				// the episode cleanly instead of leaving the nudge loop to burn
@@ -851,10 +913,18 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			} else if (!params.answer) {
 				return toolOutput("error: provide either answer or answers_file");
 			}
+			const changedAssets = verifyGradingAssets("public-preflight");
+			if (changedAssets.length > 0) {
+				return toolOutput(`submission refused: grading assets changed (${changedAssets.slice(0, 3).join(", ")})`);
+			}
 			st.submits += 1;
 			const subPath = join(workspace, "solutions", `${problem.id}.json`);
 			writeFileSync(subPath, JSON.stringify(answer, null, 2));
-			const res: EvalResult = await runEval(problem, evalCtx, subPath, "public", (problem.overrides.eval_timeout_s ?? 60) * 1000);
+			const publicEvalTimeout = Math.min(
+				(problem.overrides.eval_timeout_s ?? 60) * 1000,
+				Math.max(1, remainingMs()),
+			);
+			const res: EvalResult = await runEval(problem, evalCtx, subPath, "public", publicEvalTimeout);
 			st.publicHistory.push({ score: res.score, note: params.note ?? "" });
 			const improved = res.score != null && (st.bestPublic == null || res.score > st.bestPublic);
 			if (improved) {
@@ -940,6 +1010,12 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		cwd: workspace,
 		systemPrompt: composeSystemPrompt(scaffold, problem.genre) + renderKnowledge(kbSel) + renderRetrieved(ragDocs),
 		customTools: [runPy, submit, startJob, jobStatus, killJobTool],
+		exchangeToolGuard: () => {
+			const active = [...jobs.values()].filter((job) => refreshJob(job).state === "running");
+			if (active.length > 0) {
+				throw new Error(`exchange file tools are unavailable while background Python jobs run (${active.map((job) => job.name).join(", ")}); wait for completion or kill the job first`);
+			}
+		},
 		onAgentDelta: opts.onAgentDelta,
 		onToolEvent: (ev) => {
 			toolCallLog.push(`${ev.phase} ${ev.tool} ${ev.detail}`);
@@ -956,6 +1032,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	let turns = 0;
 	let tokens = 0;
 	let lastError: string | null = null;
+	const warnings: string[] = [];
 
 	try {
 		await harness.init();
@@ -965,6 +1042,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		const openFirstPass = !isQuiz
 			? "OPEN-TASK FIRST-PASS CONTRACT: inspect the statement and available data/tools, perform only the minimum checks needed to form a valid answer, and submit a complete best-effort artifact in this first turn with final=false. Do not spend the whole turn on exploratory narration or repeated analysis; an imperfect valid submission creates feedback for refinement.\n"
 			: "";
+		const softSubmitTarget = Math.max(1, Math.min(cfg.eval_cap, Math.round(scaffold.eval_budget_hint || cfg.eval_cap)));
 		const initial =
 			`${problem.statement}\n\n` +
 			`Environment: you are in a scratch workspace; the dataset is in data/. ` +
@@ -974,25 +1052,30 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			`when it finishes (hours are fine). Budget your time: a complete analysis in 2-4 scripts is ideal.\n` +
 			quizFirstPass +
 			openFirstPass +
-			`You may submit up to ${cfg.eval_cap} times; public scores guide your iteration. ` +
+			`You may submit up to ${cfg.eval_cap} times; target at most ${softSubmitTarget} submissions unless public feedback shows a specific fix worth testing. ` +
 			`SUBMISSION GATE: as soon as one executed script produces a candidate, stop exploratory analysis and call submit with that candidate. ` +
 			`Do not end this turn after writing a solution file without calling submit; an approximate valid submission is better than an unsubmitted perfect answer. ` +
 			`Finish by calling submit with final=true.\n` +
 			(memBlock ? `\n${memBlock}\n` : "");
 		log(`  [${opts.tag}] turn 1`);
 		emit({ type: "episode_turn", tag: opts.tag, turn: 1, maxTurns: cfg.max_turns, note: problem.id });
-		let out = await harness.prompt(initial);
+		let out: PromptOutcome;
+		if (remainingMs() <= 0) {
+			out = { aborted: true, timedOut: true, stalled: false, error: "episode wall-clock cap reached before the first model turn", tokens: 0, secs: 0 };
+		} else {
+			out = await harness.prompt(initial, remainingMs());
+		}
 		const recoveredFirst = await recoverCandidateFile("turn-1");
 		tokens += out.tokens;
 		turns += 1;
-		if (out.error && !recoveredFirst) lastError = out.error;
+		if (out.error && !recoveredFirst && st.submits === 0) lastError = out.error;
+		if (out.error && (recoveredFirst || st.submits > 0)) warnings.push(`post-submit model turn warning: ${out.error}`);
 		let canContinue = !out.error && !out.aborted;
 		if (recoveredFirst && out.error) {
 			log(`  [${opts.tag}] model turn ended with ${out.error}; recovered submission is authoritative`);
 			canContinue = false;
 		}
 
-		const deadline = t0 + cfg.episode_timeout_s * 1000;
 		for (let turn = 2; turn <= cfg.max_turns && !st.finished && !lastError && canContinue; turn++) {
 			await opts.controller?.waitIfPaused();
 			if (opts.controller?.stopRequested) {
@@ -1051,11 +1134,12 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			}
 			log(`  [${opts.tag}] turn ${turn}: ${nudge.slice(0, 60)}...`);
 			emit({ type: "episode_turn", tag: opts.tag, turn, maxTurns: cfg.max_turns, note: nudge.slice(0, 80) });
-			out = await harness.prompt(nudge);
+			out = await harness.prompt(nudge, remainingMs());
 			const recovered = await recoverCandidateFile(`turn-${turn}`);
 			tokens += out.tokens;
 			turns += 1;
-			if (out.error && !recovered) lastError = out.error;
+			if (out.error && !recovered && st.submits === 0) lastError = out.error;
+			if (out.error && (recovered || st.submits > 0)) warnings.push(`post-submit model turn warning: ${out.error}`);
 			canContinue = !out.error && !out.aborted;
 			if (recovered && out.error) {
 				log(`  [${opts.tag}] model turn ended with ${out.error}; recovered submission is authoritative`);
@@ -1080,7 +1164,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		try {
 			sandboxCleanup = await sandboxAdapter.cleanupBox(sandboxRecord);
 			sandboxRecord.cleanup = sandboxCleanup;
-			if (sandboxCleanup.errors.length > 0 || sandboxCleanup.boxStillEnabled || !sandboxCleanup.terminated) {
+			if (sandboxCleanup.errors.length > 0 || sandboxCleanup.boxStillEnabled || !sandboxCleanup.terminated || !sandboxCleanup.leaseReleased) {
 				sandboxCleanupError = `Sandboxie cleanup failed: ${sandboxCleanup.errors.slice(0, 3).join("; ") || "box remains enabled"}`;
 			}
 		} catch (cleanupError) {
@@ -1097,12 +1181,23 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	let error = sandboxCleanupError ?? lastError;
 	if (submissionRecovered && !sandboxCleanupError) error = null;
 	if (!sandboxCleanupError && (st.bestAnswer != null || st.answer != null)) {
-		const answer = st.bestAnswer ?? st.answer!;
-		const subPath = join(workspace, "solutions", `${problem.id}.json`);
-		writeFileSync(subPath, JSON.stringify(answer, null, 2));
-		const priv = await runEval(problem, evalCtx, subPath, "private", (problem.overrides.eval_timeout_s ?? 60) * 1000);
-		fitness = priv.score;
-		if (priv.score == null) error = priv.detail;
+		const changedAssets = verifyGradingAssets("private-preflight");
+		if (changedAssets.length > 0) {
+			error = `anti-cheat: grading assets changed before private evaluation (${changedAssets.slice(0, 3).join(", ")})`;
+		} else if (remainingMs() <= 0) {
+			error = "episode wall-clock cap reached before private evaluation";
+		} else {
+			const answer = st.bestAnswer ?? st.answer!;
+			const subPath = join(workspace, "solutions", `${problem.id}.json`);
+			writeFileSync(subPath, JSON.stringify(answer, null, 2));
+			const privateEvalTimeout = Math.min(
+				(problem.overrides.eval_timeout_s ?? 60) * 1000,
+				Math.max(1, remainingMs()),
+			);
+			const priv = await runEval(problem, evalCtx, subPath, "private", privateEvalTimeout);
+			fitness = priv.score;
+			if (priv.score == null) error = priv.detail;
+		}
 	} else if (!sandboxCleanupError && st.bestAnswer == null && st.answer == null) {
 		error = error ?? "no submission produced";
 	}
@@ -1116,7 +1211,9 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		tokens,
 		secs: (Date.now() - t0) / 1000,
 		error,
+		warnings,
 		workspace,
+		durableWorkspace: requestedWorkspace,
 		submissionRecovery: submissionRecovered ? "candidate-file-driver" : undefined,
 		isolation: sandboxRecord
 			? {
@@ -1134,8 +1231,8 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 
 	let breaches = scanWorkspaceForBreaches(workspace);
 	breaches.push(...scanTextForBreaches(toolCallLog.join("\n")));
-	const tampered = verifyManifest(problem.dir, gradeManifest);
-	for (const f of tampered) breaches.push({ file: f, pattern: "grading asset modified" });
+	const tampered = verifyGradingAssets("final");
+	for (const file of tampered) breaches.push({ file, pattern: "grading asset modified" });
 	if (breaches.length > 0) {
 		// reward-hacking attempt: agent touched protected paths (quiz gold,
 		// hidden references, judge cache). Void the episode end to end.
@@ -1152,7 +1249,17 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			result.fitness,
 		);
 	}
-	writeFileSync(join(workspace, "episode.json"), JSON.stringify(result, null, 2));
+	atomicWriteJson(join(workspace, "episode.json"), result);
+	if (requestedWorkspace !== workspace) {
+		mkdirSync(requestedWorkspace, { recursive: true });
+		atomicWriteJson(join(requestedWorkspace, "episode.json"), result);
+		const selectedAnswer = st.bestAnswer ?? st.answer;
+		if (selectedAnswer) {
+			const durableSolutions = join(requestedWorkspace, "solutions");
+			mkdirSync(durableSolutions, { recursive: true });
+			atomicWriteJson(join(durableSolutions, `${problem.id}.json`), selectedAnswer);
+		}
+	}
 	emit({
 		type: "episode_end",
 		tag: opts.tag,

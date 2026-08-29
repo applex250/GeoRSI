@@ -8,7 +8,7 @@
  */
 import { access, lstat, mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { constants, realpathSync } from "node:fs";
-import { dirname, resolve, sep } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import {
 	createEditToolDefinition,
 	createGrepToolDefinition,
@@ -35,8 +35,27 @@ async function realExistingPath(path: string): Promise<string> {
 	return realpath(path);
 }
 
+async function assertNoReparseComponents(root: string, absolutePath: string, allowMissingTail: boolean): Promise<void> {
+	const rootPath = resolve(root);
+	const candidate = resolve(absolutePath);
+	if (!lexicalInside(rootPath, candidate)) throw new Error(`path escapes exchange workspace: ${absolutePath}`);
+	const rel = relative(rootPath, candidate);
+	const components = rel && rel !== "." ? rel.split(/[\\/]+/).filter(Boolean) : [];
+	let current = rootPath;
+	for (const component of components) {
+		current = resolve(current, component);
+		try {
+			const info = await lstat(current);
+			if (info.isSymbolicLink()) throw new Error(`reparse/symlink components are forbidden in exchange paths: ${absolutePath}`);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT" && allowMissingTail) return;
+			throw error;
+		}
+	}
+}
+
 async function assertExistingInside(root: string, absolutePath: string): Promise<void> {
-	if (!lexicalInside(root, absolutePath)) throw new Error(`path escapes exchange workspace: ${absolutePath}`);
+	await assertNoReparseComponents(root, absolutePath, false);
 	let actual: string;
 	try {
 		actual = await realExistingPath(absolutePath);
@@ -50,6 +69,7 @@ async function assertExistingInside(root: string, absolutePath: string): Promise
 }
 
 async function assertNewInside(root: string, absolutePath: string): Promise<void> {
+	await assertNoReparseComponents(root, absolutePath, true);
 	if (!lexicalInside(root, absolutePath)) throw new Error(`path escapes exchange workspace: ${absolutePath}`);
 	let current = resolve(absolutePath);
 	for (;;) {
@@ -84,44 +104,58 @@ function guard(root: string, absolutePath: string): Promise<void> {
 }
 
 /** Return official pi tool definitions whose operations are exchange-guarded. */
-export function createExchangeToolDefinitions(cwd: string): ToolDefinition<any, any>[] {
+export function createExchangeToolDefinitions(
+	cwd: string,
+	beforeOperation?: () => void | Promise<void>,
+): ToolDefinition<any, any>[] {
 	const root = resolve(cwd);
+	const before = async (): Promise<void> => {
+		await beforeOperation?.();
+	};
 	const readOps: ReadOperations = {
 		readFile: async (path) => {
+			await before();
 			await guard(root, path);
 			return readFile(path);
 		},
 		access: async (path) => {
+			await before();
 			await guard(root, path);
 			await access(path, constants.R_OK);
 		},
 	};
 	const writeOps: WriteOperations = {
 		writeFile: async (path, content) => {
+			await before();
 			await assertNewInside(root, path);
 			await writeFile(path, content, "utf8");
 		},
 		mkdir: async (path) => {
+			await before();
 			await assertNewInside(root, path);
 			await mkdir(path, { recursive: true });
 		},
 	};
 	const editOps: EditOperations = {
 		readFile: async (path) => {
+			await before();
 			await guard(root, path);
 			return readFile(path);
 		},
 		writeFile: async (path, content) => {
+			await before();
 			await assertNewInside(root, path);
 			await writeFile(path, content, "utf8");
 		},
 		access: async (path) => {
+			await before();
 			await guard(root, path);
 			await access(path, constants.R_OK | constants.W_OK);
 		},
 	};
 	const lsOps: LsOperations = {
 		exists: async (path) => {
+			await before();
 			if (!lexicalInside(root, path)) return false;
 			try {
 				await guard(root, path);
@@ -131,20 +165,24 @@ export function createExchangeToolDefinitions(cwd: string): ToolDefinition<any, 
 			}
 		},
 		stat: async (path) => {
+			await before();
 			await guard(root, path);
 			return stat(path);
 		},
 		readdir: async (path) => {
+			await before();
 			await guard(root, path);
 			return readdir(path).then((entries) => entries.map(String));
 		},
 	};
 	const grepOps: GrepOperations = {
 		isDirectory: async (path) => {
+			await before();
 			await guard(root, path);
 			return (await stat(path)).isDirectory();
 		},
 		readFile: async (path) => {
+			await before();
 			await guard(root, path);
 			return readFile(path, "utf8");
 		},
@@ -164,19 +202,52 @@ export function isExchangePath(cwd: string, candidate: string): boolean {
 }
 
 /** Ensure a caller did not accidentally pass a repository path as exchange. */
-export function assertExchangeWorkspace(cwd: string, repoRoot: string, privateRoot: string): void {
+export function assertExchangeWorkspace(
+	cwd: string,
+	repoRoot: string,
+	privateRoot: string,
+	additionalProtectedRoots: readonly string[] = [],
+): void {
 	const workspace = resolve(cwd);
 	let actual = workspace;
 	try {
-		actual = realpathSync(workspace);
+		actual = realpathSync.native(workspace);
 	} catch {
 		/* the caller may invoke this before mkdir; lexical checks still apply */
 	}
-	for (const [label, protectedRoot] of [["repository", repoRoot], ["private", privateRoot]] as const) {
-		const protectedPath = resolve(protectedRoot);
-		if (lexicalInside(workspace, protectedPath) || lexicalInside(protectedPath, workspace) ||
-			lexicalInside(actual, protectedPath) || lexicalInside(protectedPath, actual)) {
-			throw new Error(`exchange workspace overlaps ${label} root: ${workspace}`);
+	const protectedRoots = [
+		["repository", repoRoot],
+		["private", privateRoot],
+		...additionalProtectedRoots.map((path, index) => [`additional-${index}`, path] as const),
+	] as const;
+	for (const [label, configuredRoot] of protectedRoots) {
+		const lexicalProtected = resolve(configuredRoot);
+		let canonicalProtected = lexicalProtected;
+		try {
+			canonicalProtected = realpathSync.native(lexicalProtected);
+		} catch (error) {
+			if (existsSyncCompat(lexicalProtected)) {
+				throw new Error(`cannot canonicalize existing ${label} protected root: ${lexicalProtected} (${String(error)})`);
+			}
 		}
+		for (const protectedPath of [lexicalProtected, canonicalProtected]) {
+			if (
+				lexicalInside(workspace, protectedPath) ||
+				lexicalInside(protectedPath, workspace) ||
+				lexicalInside(actual, protectedPath) ||
+				lexicalInside(protectedPath, actual)
+			) {
+				throw new Error(`exchange workspace overlaps ${label} root: ${workspace}`);
+			}
+		}
+	}
+}
+
+function existsSyncCompat(path: string): boolean {
+	try {
+		realpathSync.native(path);
+		return true;
+	} catch {
+		return false;
 	}
 }

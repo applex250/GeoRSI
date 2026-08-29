@@ -33,6 +33,11 @@ export interface RunState {
 	fitnessHistory: number[];
 	stagnation: number;
 	tokensUsed: number;
+	finalization?: {
+		heldoutCompleted: boolean;
+		heldoutSummary: string | null;
+		completedAt: string;
+	};
 }
 
 export class Journal {

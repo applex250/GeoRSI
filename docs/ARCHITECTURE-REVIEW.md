@@ -183,7 +183,7 @@ RAG off/on 泛化对照
 本轮代码修改后的回归：
 
 - `npm run typecheck`：通过。
-- `npm run selftest`：`99 passed, 0 failed`，包含 explicit `host-audit`、per-problem backend override、外置解释器门禁和 exchange file-tool 边界。
+- `npm run selftest`：`124 passed, 0 failed`，包含 config/route/reasoning validation、private-only quiz、weighted denominator、external truth manifest、explicit `host-audit`、per-problem backend override、外置解释器门禁、reparse 拒绝和 exchange file-tool 边界。
 - `npm run sandboxie:selftest`：`SANDBOXIE_OK`，包含真实 repo/private/network 阻断、global WFP restore、PID ownership、foreground timeout、异常退出、background kill 和 cleanup。
 - `npm run tuitest`：`41/0`、`12/0`、`10/0`、`12/0`，共 75 项。
 - `python scripts/struct_selftest.py`：`STRUCT_OK`（164 quiz chunks、629 cache entries、15 knowledge nodes）。

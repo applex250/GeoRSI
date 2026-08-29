@@ -13,6 +13,7 @@ export interface EpisodeRecord {
 	submits: number;
 	secs: number;
 	error: string | null;
+	warnings?: string[];
 }
 
 export function renderLeaderboard(

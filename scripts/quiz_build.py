@@ -52,7 +52,7 @@ partial submissions score partially and unanswered questions count as wrong.
 
 ## Grading
 public score = accuracy on a hidden calibration slice (a number, never the answers);
-private score = accuracy on all questions. Partial answers score partially —
+private score = accuracy on non-dev questions only. Partial answers score partially —
 always submit, even if unsure on some questions.
 """
 
@@ -94,12 +94,22 @@ def read_earthse(kinds, subject_regex=None):
 
 
 def extract_inline_options(question):
-    """Parse 'A) text B) text C) text D) text' (EarthSE style) from a question."""
-    m = re.search(r"A\)\s*(.+?)(?:\s*B\)\s*(.+?))?(?:\s*C\)\s*(.+?))?(?:\s*D\)\s*(.+?))?$", question, re.DOTALL)
-    if not m:
+    """Parse boundary-delimited ``A) ... B) ...`` options without splitting abbreviations such as ``EBSD)``."""
+    markers = list(re.finditer(r"(?<!\S)([A-F])\)\s+", question))
+    if len(markers) < 2 or markers[0].group(1) != "A":
         return None
-    opts = [g for g in m.groups() if g]
-    return opts if 2 <= len(opts) <= 6 else None
+    labels = [marker.group(1) for marker in markers]
+    expected = [chr(ord("A") + index) for index in range(len(markers))]
+    if labels != expected:
+        return None
+    options = []
+    for index, marker in enumerate(markers):
+        end = markers[index + 1].start() if index + 1 < len(markers) else len(question)
+        text = question[marker.end():end].strip()
+        if not text:
+            return None
+        options.append(text)
+    return options if 2 <= len(options) <= 6 else None
 
 
 # --------------------------------------------------------------------- k2 ---

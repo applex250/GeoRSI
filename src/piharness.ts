@@ -20,7 +20,7 @@ import type { Model } from "@earendil-works/pi-ai";
 import { join } from "node:path";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
-import { resolveThinking, type ThinkingLevel } from "./models.js";
+import { getProfile, resolveThinking, type ThinkingLevel } from "./models.js";
 import { createExchangeToolDefinitions } from "./workspace-tools.js";
 
 export interface HarnessOpts {
@@ -35,6 +35,8 @@ export interface HarnessOpts {
 	stallMs: number;
 	/** explicitly attach the guarded exchange filesystem tools; default is true for inner sessions */
 	exchangeTools?: boolean;
+	/** optional guard run immediately before each trusted host file-tool operation */
+	exchangeToolGuard?: () => void | Promise<void>;
 	/** built-in tools to enable; agent file IO but no shell (cross-platform) */
 	builtinTools?: string[];
 	onText?: (delta: string) => void;
@@ -143,6 +145,29 @@ export function shouldAttachExchangeTools(builtinTools: string[] | undefined, ex
 	return explicit ?? builtinTools === undefined;
 }
 
+export function resolveHarnessThinking(model: Model<any>, requested: ThinkingLevel): Exclude<ThinkingLevel, "none"> {
+	const modelId = (model as { id?: string }).id ?? "";
+	try {
+		const resolved = resolveThinking(modelId, requested);
+		if (resolved.clamped || resolved.note) console.error(`[models] ${modelId}: ${resolved.note}`);
+		const profile = getProfile(modelId);
+		if (profile.reasoning.budget_param && resolved.extraBody[profile.reasoning.budget_param] !== undefined) {
+			throw new Error(
+				`${modelId}: ${profile.reasoning.budget_param} is required for ${resolved.level}, but the Pi TS harness cannot serialize that field; refusing a mislabeled reasoning request`,
+			);
+		}
+		let level = resolved.level;
+		if (level === "none") level = "low";
+		if (level === "xhigh" || level === "max") {
+			const mapped = model.thinkingLevelMap?.[level];
+			if (mapped === undefined || mapped === null) level = "high";
+		}
+		return level as Exclude<ThinkingLevel, "none">;
+	} catch (error) {
+		throw new Error(`model thinking configuration failed for ${modelId || "unknown model"}: ${error instanceof Error ? error.message : String(error)}`);
+	}
+}
+
 export class PiHarness {
 	private session: AgentSession | null = null;
 	readonly opts: HarnessOpts;
@@ -160,37 +185,7 @@ export class PiHarness {
 	async init(): Promise<void> {
 		mkdirSync(this.opts.cwd, { recursive: true });
 		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(this.opts.cwd, "prompt_diag.jsonl") : null;
-		// per-model compatibility (config/model-profiles.json): clamp the
-		// requested thinking level to what THIS model accepts before the
-		// session is built — e.g. ox-alpha-free rejects "high", muse must
-		// carry no reasoning parameters at all
-		const modelId = (this.opts.model as { id?: string }).id ?? "";
-		let thinkingLevel: string = this.opts.thinkingLevel;
-		try {
-			const resolved = resolveThinking(modelId, thinkingLevel as ThinkingLevel);
-			if (resolved.clamped || resolved.note) {
-				console.error(`[models] ${modelId}: ${resolved.note}`);
-			}
-			thinkingLevel = resolved.level;
-			// pi-ai supports extended levels, but legacy GeoRSI profiles use
-			// "none" as an alias and historically folded minimal/xhigh/max to
-			// the four-level session range. Preserve the exact tested levels for
-			// the emooo model; its models.json entry maps xhigh through and
-			// explicitly disables max, so max has already clamped to xhigh.
-			if (thinkingLevel === "none") {
-				thinkingLevel = "low";
-			} else if (modelId !== "mimo-v2.5-pro") {
-				const fold: Record<string, "off" | "low" | "medium" | "high"> = {
-					minimal: "low",
-					none: "low",
-					xhigh: "high",
-					max: "high",
-				};
-				thinkingLevel = fold[thinkingLevel] ?? thinkingLevel;
-			}
-		} catch {
-			/* model without a profile: pass the request through untouched */
-		}
+		const thinkingLevel = resolveHarnessThinking(this.opts.model, this.opts.thinkingLevel);
 		// Fully isolated resource loading: our system prompt only, no ambient
 		// .pi context files, no skills discovery side effects.
 		const agentDir = join(this.opts.cwd, ".pi-agent");
@@ -203,7 +198,7 @@ export class PiHarness {
 		});
 		await loader.reload();
 		const exchangeTools = shouldAttachExchangeTools(this.opts.builtinTools, this.opts.exchangeTools)
-			? createExchangeToolDefinitions(this.opts.cwd)
+			? createExchangeToolDefinitions(this.opts.cwd, this.opts.exchangeToolGuard)
 			: [];
 		const customTools = [...exchangeTools, ...this.opts.customTools];
 		const { session } = await createAgentSession({
@@ -288,17 +283,18 @@ export class PiHarness {
 	}
 
 	/** Run one prompt under both watchdogs. Never throws; outcome carries status. */
-	async prompt(text: string): Promise<PromptOutcome> {
+	async prompt(text: string, timeoutOverrideMs?: number): Promise<PromptOutcome> {
 		if (!this.session) throw new Error("harness not initialized");
 		const t0 = Date.now();
 		this.lastEventTs = Date.now();
 		let timedOut = false;
 		let stalled = false;
 
+		const timeoutMs = Math.max(1, Math.min(this.opts.promptTimeoutMs, timeoutOverrideMs ?? this.opts.promptTimeoutMs));
 		const wall = setTimeout(() => {
 			timedOut = true;
 			void this.session?.abort();
-		}, this.opts.promptTimeoutMs);
+		}, timeoutMs);
 
 		const stall = setInterval(() => {
 			if (Date.now() - this.lastEventTs > this.opts.stallMs) {

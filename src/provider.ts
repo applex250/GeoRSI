@@ -5,11 +5,11 @@
  * temporary emooo.cc route). The set of usable models is FIXED
  * (SUPPORTED_MODELS in config.ts, verified 2026-08-28): the historical
  * zen/openrouter/local set plus `mimo-v2.5-pro` on emooo. Instead of patching
- * pi we use what pi itself supports for custom endpoints: a project-local
- * models.json (provider + models + apiKey) whose
- * path is handed to ModelRuntime.create({ modelsPath }). The file is
- * regenerated at boot from env/api_key.txt so secrets never sit in a
- * checked-in file. Per-model `api` selects the pi-ai implementation
+ * pi we use what pi itself supports for custom endpoints: a private random
+ * temporary models.json (provider + models + apiKey) handed to
+ * ModelRuntime.create({ modelsPath }). The directory is outside the repository
+ * and removed immediately after composition on both success and failure.
+ * Per-model `api` selects the pi-ai implementation
  * (chat/completions vs responses) — pi dispatches per model.
  *
  * Proxy: when a selected model has route "proxy", enableEnvProxy() installs
@@ -21,11 +21,13 @@
  * Token accounting: pi reports per-session usage via session stats; we
  * additionally keep a global meter the loop consults for budget stops.
  */
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
-import { SUPPORTED_MODELS, modelSpec, type Config, type ModelSpec } from "./config.js";
+import { SUPPORTED_MODELS, assertSupportedModel, modelSpec, type Config, type ModelSpec } from "./config.js";
+import { loadProblems } from "./bench/eval.js";
 import { getProfile } from "./models.js";
 
 export const TOKENS = { total: 0, calls: 0, failed: 0 };
@@ -40,11 +42,17 @@ export function setBootNotifier(fn: (m: string) => void): void {
 }
 
 export function loadApiKey(root: string): string {
+	const key = loadOptionalApiKey(root);
+	if (key) return key;
+	throw new Error("no API key: set RSILAB_API_KEY or write api_key.txt");
+}
+
+/** Optional Zen key; selection validation decides whether absence is fatal. */
+export function loadOptionalApiKey(root: string): string {
 	const env = (process.env.RSILAB_API_KEY ?? "").trim();
 	if (env) return env;
 	const p = join(root, "api_key.txt");
-	if (existsSync(p)) return readFileSync(p, "utf8").trim();
-	throw new Error("no API key: set RSILAB_API_KEY or write api_key.txt");
+	return existsSync(p) ? readFileSync(p, "utf8").trim() : "";
 }
 
 /** Key for the campus-local server (empty string when not configured). */
@@ -112,11 +120,11 @@ export async function enableEnvProxy(noProxyExtra: string[] = []): Promise<boole
 }
 
 /** Fail fast when a selected local model's server is down (downtime is normal). */
-export async function preflightLocal(cfg: Config, modelId: string): Promise<void> {
+export async function preflightLocal(cfg: Config, modelId: string, apiKey = loadLocalApiKey(process.cwd())): Promise<void> {
 	const url = cfg.local_base_url.replace(/\/+$/, "") + "/models";
 	try {
 		const r = await fetch(url, {
-			headers: { Authorization: `Bearer ${loadLocalApiKey(process.cwd())}` },
+			headers: { Authorization: `Bearer ${apiKey}` },
 			signal: AbortSignal.timeout(8000),
 		});
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -171,7 +179,16 @@ export async function preflightEmooo(cfg: Config, modelId: string, apiKey: strin
  * (reasoning + code + answer sheet) legitimately exceeds the default: seen as
  * `stopReason=length` -> "empty assistant response" on mimo-v2.5, 2026-08-27.
  */
-const REQUEST_MAX_TOKENS = Number.parseInt(process.env.RSILAB_REQUEST_MAX_TOKENS ?? "", 10) || 16384;
+const DEFAULT_REQUEST_MAX_TOKENS = 16_384;
+
+/** Parse the optional cap fail-safely; non-positive/non-integer values use the default. */
+export function resolveRequestMaxTokens(raw = process.env.RSILAB_REQUEST_MAX_TOKENS): number {
+	if (raw === undefined || raw.trim() === "") return DEFAULT_REQUEST_MAX_TOKENS;
+	const parsed = Number(raw);
+	return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : DEFAULT_REQUEST_MAX_TOKENS;
+}
+
+const REQUEST_MAX_TOKENS = resolveRequestMaxTokens();
 
 /** Whether this model tolerates reasoning parameters (profile-driven). */
 function reasoningParamSupported(id: string): boolean {
@@ -192,7 +209,7 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 		// cap per-request output so a verbose model cannot burn a whole turn
 		// on one giant dump (lesson from OpenRSI_self's laguna incident);
 		// true ceilings live in ModelSpec.maxOutput
-		maxTokens: REQUEST_MAX_TOKENS,
+		maxTokens: Math.min(REQUEST_MAX_TOKENS, m.maxOutput),
 		// per-model capability from the probed profile registry (muse rejects
 		// any reasoning parameter with a 400; unknown ids keep legacy behavior)
 		reasoning: reasoningParamSupported(m.id),
@@ -201,16 +218,15 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 		input: ["text"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	});
-	const providers: Record<string, unknown> = {
-		zen: {
+	const providers: Record<string, unknown> = {};
+	if (apiKey) providers.zen = {
 			name: "zen gateway",
 			baseUrl: cfg.base_url,
-			apiKey: apiKey,
+			apiKey,
 			// provider-level default; per-model `api` above still wins
 			api: "openai-completions",
 			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "zen" && !m.retired).map(mk),
-		},
-	};
+		};
 	if (orApiKey) {
 		providers.openrouter = {
 			name: "openrouter",
@@ -274,48 +290,64 @@ export function resolveModel(id: string): Model<any> {
 
 export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime> {
 	if (cached) return cached;
-	const apiKey = loadApiKey(root);
+	const apiKey = loadOptionalApiKey(root);
 	const localApiKey = loadLocalApiKey(root);
 	const orApiKey = loadOpenRouterApiKey(root);
 	const emoooApiKey = loadEmoooApiKey();
-	const dir = join(root, "config");
-	mkdirSync(dir, { recursive: true });
-	const modelsPath = join(dir, "pi-models.json");
-	writeFileSync(modelsPath, JSON.stringify(buildModelsJson(cfg, apiKey, localApiKey, orApiKey, emoooApiKey), null, 2));
+	const configuredRoutes = loadProblems(cfg, root, true)
+		.map((problem) => problem.overrides.inner_model)
+		.filter((id): id is string => !!id);
+	const selected = [cfg.inner_model, cfg.outer_model, cfg.quiz_inner_model, ...configuredRoutes]
+		.filter((id): id is string => !!id)
+		.filter((id, index, all) => all.indexOf(id) === index);
+	const specOf = (id: string): ModelSpec => assertSupportedModel("selected model", id);
 
-	const selected = [cfg.inner_model, cfg.outer_model].filter((v, i, a) => a.indexOf(v) === i);
-	const specOf = (id: string) => modelSpec(id)!; // loadConfig already validated
-
-	// A selected local model must have its key and its server up — fail fast
-	// with a clear hint instead of mysterious mid-run call failures.
 	for (const id of selected) {
-		if (specOf(id).endpoint === "local") {
+		const spec = specOf(id);
+		if (spec.endpoint === "zen" && !apiKey) {
+			throw new Error(`Zen model "${id}" selected but no key configured: set RSILAB_API_KEY or write api_key.txt`);
+		}
+		if (spec.endpoint === "openrouter" && !orApiKey) {
+			throw new Error(`OpenRouter model "${id}" selected but no key configured: set RSILAB_OR_KEY or write api_key_or.txt`);
+		}
+		if (spec.endpoint === "local") {
 			if (!localApiKey) {
-				throw new Error(
-					`local model "${id}" selected but no key configured: set RSILAB_LOCAL_API_KEY or write api_key_local.txt`,
-				);
+				throw new Error(`local model "${id}" selected but no key configured: set RSILAB_LOCAL_API_KEY or write api_key_local.txt`);
 			}
-			await preflightLocal(cfg, id);
+			await preflightLocal(cfg, id, localApiKey);
 		}
-		if (specOf(id).endpoint === "emooo") {
-			await preflightEmooo(cfg, id, emoooApiKey);
-		}
+		if (spec.endpoint === "emooo") await preflightEmooo(cfg, id, emoooApiKey);
 	}
 
-	// Any selected model needing the proxy flips the whole process's LLM
-	// traffic onto it — all supported models were verified working via proxy;
-	// the local campus server is excluded via noProxy.
+	// Any selected/routed model needing the proxy flips the whole process's LLM
+	// traffic onto it. The local campus server remains excluded via noProxy.
 	if (selected.some((id) => specOf(id).route === "proxy")) {
 		await enableEnvProxy([localEndpointHost(cfg)]);
 		bootNotifier("[provider] proxy-routed model selected -> gateway traffic via env proxy (local server direct)");
 	}
 
-	const modelRuntime = await ModelRuntime.create({
-		modelsPath,
-		// no model-catalog network refresh: our provider is fully static
-		refreshOnCreate: false,
-		allowModelNetwork: false,
-	});
+	// Provider configuration contains credentials, so it must never persist in
+	// the repository. ModelRuntime reads it during create(); delete the private
+	// random temp directory on both success and failure.
+	const legacyModelsPath = join(root, "config", "pi-models.json");
+	rmSync(legacyModelsPath, { force: true });
+	const runtimeDir = mkdtempSync(join(tmpdir(), "georsi-models-"));
+	const modelsPath = join(runtimeDir, "models.json");
+	let modelRuntime: ModelRuntime;
+	try {
+		const modelsJson = buildModelsJson(cfg, apiKey, localApiKey, orApiKey, emoooApiKey) as { providers?: Record<string, unknown> };
+		if (!modelsJson.providers || Object.keys(modelsJson.providers).length === 0) {
+			throw new Error("no provider credentials are configured for the selected GeoRSI models");
+		}
+		writeFileSync(modelsPath, JSON.stringify(modelsJson, null, 2), { encoding: "utf8", mode: 0o600, flag: "wx" });
+		modelRuntime = await ModelRuntime.create({
+			modelsPath,
+			refreshOnCreate: false,
+			allowModelNetwork: false,
+		});
+	} finally {
+		rmSync(runtimeDir, { recursive: true, force: true });
+	}
 
 	const resolve = (id: string): Model<any> => {
 		const provider = providerIdForEndpoint(specOf(id).endpoint);

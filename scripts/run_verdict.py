@@ -43,11 +43,44 @@ def classify_episode(ws, rec):
     return None
 
 
+def expected_heldout(manifest):
+    if not manifest:
+        return []
+    problems = [p for p in manifest.get("problems", []) if p.get("heldout")]
+    repeats = max(1, int(manifest.get("config", {}).get("episodes_per_problem", 1) or 1))
+    expected = []
+    for repeat in range(repeats):
+        for problem in problems:
+            name = problem["id"] if repeats == 1 else f"r{repeat + 1}-{problem['id']}"
+            expected.append((name, float(problem.get("weight", 1) or 1), problem["id"]))
+    return expected
+
+
+def compute_heldout(root, manifest):
+    expected = expected_heldout(manifest)
+    rows = []
+    missing = []
+    for name, weight, problem_id in expected:
+        path = os.path.join(root, "heldout", name, "episode.json")
+        rec = load(path)
+        valid = bool(rec and rec.get("problemId") == problem_id and rec.get("fitness") is not None)
+        if not valid:
+            missing.append(name)
+        rows.append(((float(rec["fitness"]) if valid else 0.0), weight))
+    total_weight = sum(weight for _, weight in rows)
+    mean = round(sum(value * weight for value, weight in rows) / total_weight, 4) if total_weight > 0 else None
+    return mean, bool(expected) and not missing, missing
+
+
 def main(run):
     root = os.path.join("runs", run)
     state = load(os.path.join(root, "state.json"))
+    manifest = load(os.path.join(root, "run-manifest.json"))
     if not state:
         print(json.dumps({"run": run, "verdict": "BROKEN", "next_action": "ESCALATE", "why": "no state.json"}))
+        return
+    if not manifest:
+        print(json.dumps({"run": run, "verdict": "BROKEN", "next_action": "ESCALATE", "why": "no run-manifest.json"}))
         return
     baseline = state["fitnessHistory"][0] if state["fitnessHistory"] else None
     best = state.get("bestFitness")
@@ -75,14 +108,12 @@ def main(run):
         if kind:
             crashes.append({"episode": os.path.basename(os.path.dirname(p)), "fitness": rec["fitness"], "kind": kind})
 
-    heldout_recs = [rec for p in glob.glob(os.path.join(root, "heldout", "*", "episode.json"))
-                    if (rec := load(p))]
-    # A missing held-out score is a failed held-out task, not missing data.
-    hvals = [(rec.get("fitness") if rec.get("fitness") is not None else 0) for rec in heldout_recs]
-    heldout = round(sum(hvals) / len(hvals), 4) if hvals else None
+    heldout, heldout_complete, missing_heldout = compute_heldout(root, manifest)
+    for name in missing_heldout:
+        crashes.append({"episode": name, "fitness": None, "kind": "missing-heldout"})
 
     tokens = 0
-    for p in glob.glob(os.path.join(root, "episodes", "*", "episode.json")):
+    for p in glob.glob(os.path.join(root, "episodes", "*", "episode.json")) + glob.glob(os.path.join(root, "heldout", "*", "episode.json")):
         rec = load(p)
         if rec:
             tokens += rec.get("tokens") or 0
@@ -101,13 +132,13 @@ def main(run):
     # later challengers scoring low are FAILED ATTEMPTS, not capability loss:
     # the verified champion is retained by design. Generalization gate =
     # heldout must stay within 0.15 of the training baseline.
-    if champion_changed and heldout is not None and baseline is not None and heldout >= baseline - 0.15:
+    if champion_changed and heldout_complete and heldout is not None and baseline is not None and heldout >= baseline - 0.15:
         print(json.dumps({
             "run": run, "verdict": "CHAMPION", "next_action": "STOP_SUCCESS",
             "baseline": baseline, "best": best, "champion_changed": True,
             "accepts": len(accepts),
             "history": [round(f, 4) for f in state["fitnessHistory"]],
-            "heldout": heldout, "guard_violations": guard, "tokens": tokens,
+            "heldout": heldout, "heldout_complete": heldout_complete, "guard_violations": guard, "tokens": tokens,
             "diagnosed_episodes": crashes,
         }, ensure_ascii=False, indent=1))
         return
@@ -160,6 +191,7 @@ def main(run):
         "accepts": len(accepts),
         "history": [round(f, 4) for f in state["fitnessHistory"]],
         "heldout": heldout,
+        "heldout_complete": heldout_complete,
         "guard_violations": guard,
         "tokens": tokens,
         "crashes": crashes,

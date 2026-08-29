@@ -14,7 +14,8 @@ import { ROOT } from "./config.js";
 import { makeEvalContext, type Problem } from "./bench/eval.js";
 import type { EpisodeRecord } from "./board.js";
 import type { Scaffold } from "./scaffold.js";
-import { solveEpisode, type EpisodeResult } from "./inner/solve.js";
+import { solveEpisode, setBudgetExhausted, type EpisodeResult } from "./inner/solve.js";
+import { TOKENS } from "./provider.js";
 import { addMemory, defaultObservation, snapshotMemory, type MemoryItem, type MemoryStore } from "./memory.js";
 import { knowledgePath, recordUsage } from "./knowledge.js";
 import type { RsiEvent } from "./tui/events.js";
@@ -30,6 +31,7 @@ export interface ScaffoldEvaluation {
 	mean: number | null;
 	detail: EpisodeRecord[];
 	learning: EvaluationLearning;
+	cancelled: boolean;
 }
 
 export interface EvaluateScaffoldOptions {
@@ -57,9 +59,27 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 	const weighted: { fitness: number | null; weight: number }[] = [];
 	const evalMemory = snapshotMemory(memory);
 	const repeats = Math.max(1, Math.floor(cfg.episodes_per_problem || 1));
+	let cancelled = false;
 	for (let repeat = 0; repeat < repeats; repeat++) {
 		for (const problem of problems) {
 			await controller?.waitIfPaused();
+			const budgetExhausted = TOKENS.total >= cfg.cost_cap_tokens;
+			if (budgetExhausted) setBudgetExhausted(true);
+			if (controller?.stopRequested || budgetExhausted) {
+				cancelled = true;
+				const reason = controller?.stopRequested ? "cancelled by operator" : "token budget exhausted";
+				weighted.push({ fitness: null, weight: problem.weight });
+				detail.push({
+					problem: problem.id,
+					fitness: null,
+					bestPublic: null,
+					submits: 0,
+					secs: 0,
+					error: reason,
+					warnings: [],
+				});
+				continue;
+			}
 			const tag = repeats === 1 ? `${role}-${problem.id}` : `${role}-r${repeat + 1}-${problem.id}`;
 			const workspace = join(runDir, "episodes", tag);
 			const result = await solveEpisode({
@@ -74,6 +94,7 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 				tag,
 				emit,
 				persistKnowledgeUsage: false,
+				controller,
 			});
 			evaluated.push({ problem, result });
 			weighted.push({ fitness: result.fitness, weight: problem.weight });
@@ -84,11 +105,13 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 				submits: result.submits,
 				secs: Math.round(result.secs),
 				error: result.error,
+				warnings: result.warnings,
 			});
+			if (TOKENS.total >= cfg.cost_cap_tokens) setBudgetExhausted(true);
 		}
 	}
 	// Fixed denominator: an ERR/null episode is a failed task, not missing data.
-	if (problems.length === 0) return { mean: null, detail, learning: { memoryItems: [], knowledgeUsage: [] } };
+	if (problems.length === 0) return { mean: null, detail, learning: { memoryItems: [], knowledgeUsage: [] }, cancelled };
 	const mean = weightedFitnessMean(weighted);
 	emit({
 		type: "suite_done",
@@ -107,7 +130,7 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 				ts: Date.now(),
 				problem: res.problemId,
 				genre: problem.genre,
-				tag: res.error ? "failure" : "note",
+				tag: res.fitness == null ? "failure" : "note",
 				text,
 				publicScore: res.bestPublic,
 				confidence: "probation",
@@ -122,7 +145,7 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 			knowledgeUsage.push({ ids: res.knowledgeIds, fitness: res.fitness });
 		}
 	}
-	return { mean, detail, learning: { memoryItems, knowledgeUsage } };
+	return { mean, detail, learning: { memoryItems, knowledgeUsage }, cancelled };
 }
 
 export function commitEvaluationLearning(memory: MemoryStore, learning: EvaluationLearning): void {

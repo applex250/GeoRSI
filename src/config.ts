@@ -10,6 +10,8 @@ import type { Scaffold } from "./scaffold.js";
 
 export interface ProblemSpec {
 	id: string;
+	/** explicit task-family/scope key */
+	genre?: string;
 	/** statement.md relative to the problem dir */
 	statement?: string;
 	/** relative weight in suite fitness (default 1) */
@@ -82,7 +84,7 @@ export interface ModelSpec {
 }
 
 export const SUPPORTED_MODELS: ModelSpec[] = [
-	{ id: "hy3", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 262144, maxOutput: 131072, note: "fast, strong proposer (outer, default)" },
+	{ id: "hy3", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 262144, maxOutput: 131072, thinkingLevelMap: { xhigh: "xhigh", max: null }, note: "fast, strong proposer (outer, default)" },
 	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
 	{ id: "mimo-v2.5-pro", api: "openai-completions", route: "direct", endpoint: "emooo", contextWindow: 1048576, maxOutput: 131072, thinkingLevelMap: { xhigh: "xhigh", max: null }, compat: { thinkingFormat: "zai", supportsReasoningEffort: true, supportsDeveloperRole: false, supportsUsageInStreaming: true, supportsFinishReason: true, supportsStrictMode: false, maxTokensField: "max_tokens" }, note: "temporary emooo.cc route; chat/completions selected over Responses after live probe; thinking enabled/disabled with minimal/low/medium/high/xhigh" },
@@ -90,7 +92,7 @@ export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
 	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: OpenRouter testing alias returned 404 and points to z-ai/glm-5.3-flash" },
 	{ id: "minimax/minimax-m3:free", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter free; reasoning model (params optional); fast (~2.5s); vision VERIFIED 4/4 on standard scene; cleanest free-tier stability (6/6)" },
-	{ id: "z-ai/glm-5.3-flash", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, note: "OpenRouter live replacement for stealth/ox-alpha; mandatory reasoning; multimodal; verified 2026-08-27" },
+	{ id: "z-ai/glm-5.3-flash", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, thinkingLevelMap: { max: "max", xhigh: null }, note: "OpenRouter live replacement for stealth/ox-alpha; mandatory reasoning; multimodal; verified 2026-08-27" },
 ];
 
 export function modelSpec(id: string): ModelSpec | undefined {
@@ -101,10 +103,28 @@ export type ConfigThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" 
 
 const CONFIG_THINKING_LEVELS = new Set<ConfigThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
-function optionalThinkingLevel(value: unknown): ConfigThinkingLevel | undefined {
-	return typeof value === "string" && CONFIG_THINKING_LEVELS.has(value as ConfigThinkingLevel)
-		? (value as ConfigThinkingLevel)
-		: undefined;
+function optionalThinkingLevel(value: unknown, label: string): ConfigThinkingLevel | undefined {
+	if (value === undefined || value === null || value === "") return undefined;
+	if (typeof value === "string" && CONFIG_THINKING_LEVELS.has(value as ConfigThinkingLevel)) {
+		return value as ConfigThinkingLevel;
+	}
+	throw new Error(`${label} must be one of: ${[...CONFIG_THINKING_LEVELS].join(", ")}`);
+}
+
+export function assertSupportedModel(label: string, id: string): ModelSpec {
+	const spec = modelSpec(id);
+	if (!spec) {
+		throw new Error(
+			`config.json: ${label} "${id}" is not in the supported gateway list: ` +
+				SUPPORTED_MODELS.map((model) => `${model.id} (${model.route}, ${model.api})`).join(", "),
+		);
+	}
+	if (spec.retired) {
+		throw new Error(
+			`config.json: ${label} "${id}" is retired by the provider; choose a live profile`,
+		);
+	}
+	return spec;
 }
 
 export interface Config {
@@ -208,37 +228,36 @@ export function loadConfig(path?: string): Config {
 		});
 	}
 	const problems = Array.isArray(raw.problems)
-		? (raw.problems as ProblemSpec[]).filter((p) => p && typeof p.id === "string")
+		? (raw.problems as ProblemSpec[]).filter((problem) => problem && typeof problem.id === "string" && problem.id.trim().length > 0)
 		: [];
 	if (problems.length === 0) {
 		throw new Error("config.json: `problems` must list at least one problem id (directory under problems/)");
 	}
-	const inner = String(raw.inner_model ?? "mimo-v2.5");
-	const outer = String(raw.outer_model ?? "hy3");
-	for (const [role, id] of [["inner_model", inner], ["outer_model", outer]] as const) {
-		const spec = modelSpec(id);
-		if (!spec) {
-			throw new Error(
-				`config.json: ${role} "${id}" is not in the supported gateway list: ` +
-					SUPPORTED_MODELS.map((m) => `${m.id} (${m.route}, ${m.api})`).join(", "),
-			);
-		}
-		if (spec.retired) {
-			throw new Error(`config.json: ${role} "${id}" is retired by the provider; choose mimo-v2.5, mimo-v2.5-pro (temporary emooo route), hy3, minimax/minimax-m3:free, z-ai/glm-5.3-flash, or another live profile`);
+	const duplicateProblem = problems.find((problem, index) => problems.findIndex((candidate) => candidate.id === problem.id) !== index);
+	if (duplicateProblem) throw new Error(`config.json: duplicate problem id "${duplicateProblem.id}"`);
+	for (const problem of problems) {
+		if (problem.weight !== undefined && (!Number.isFinite(problem.weight) || problem.weight <= 0)) {
+			throw new Error(`config.json: problem "${problem.id}" weight must be a positive finite number`);
 		}
 	}
+	const inner = String(raw.inner_model ?? "mimo-v2.5");
+	const outer = String(raw.outer_model ?? "hy3");
+	const quizInner = typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : undefined;
+	assertSupportedModel("inner_model", inner);
+	assertSupportedModel("outer_model", outer);
+	if (quizInner) assertSupportedModel("quiz_inner_model", quizInner);
 	return {
 		base_url: String(raw.base_url ?? "https://opencode.ai/zen/go/v1"),
 		local_base_url: String(raw.local_base_url ?? "http://172.27.116.56:8080/v1"),
 		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
 		emooo_base_url: String(raw.emooo_base_url ?? "https://api.emooo.cc/v1"),
 		inner_model: inner,
-		inner_thinking_level: optionalThinkingLevel(raw.inner_thinking_level),
-		quiz_inner_model: typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : undefined,
+		inner_thinking_level: optionalThinkingLevel(raw.inner_thinking_level, "config.json: inner_thinking_level"),
+		quiz_inner_model: quizInner,
 		rag_enabled: raw.rag_enabled === true,
 		rag_budget_chars: num(raw.rag_budget_chars, 2400),
 		outer_model: outer,
-		outer_thinking_level: optionalThinkingLevel(raw.outer_thinking_level),
+		outer_thinking_level: optionalThinkingLevel(raw.outer_thinking_level, "config.json: outer_thinking_level"),
 		generations: num(raw.generations, 4),
 		proposals: num(raw.proposals, 3),
 		critics: num(raw.critics, 1),

@@ -28,12 +28,16 @@ sequenceDiagram
     Tools->>Box: run Python root with /box:<name>
     Box-->>Tools: stdout/stderr files in exchange
     Tools-->>Inner: outputs / logs
+    Inner->>Guard: verify grader manifest before public eval
     Inner->>Public: submit candidate artifact
     Public-->>Inner: visible score + feedback
-    Inner->>Private: evaluate best public submission
+    Inner->>Adapter: terminate, delete data, remove box config, reload, release WFP lease
+    Adapter-->>Inner: cleanup verified; no enabled box/process remains
+    Inner->>Guard: verify grader + external truth manifest
+    Inner->>Private: evaluate best public submission after cleanup
     Private-->>Suite: private fitness
-    Inner->>Adapter: terminate, delete data, remove box config, reload
-    Adapter-->>State: episode.json isolation/cleanup evidence
+    Inner->>State: persist sanitized episode/result evidence
+    Adapter-->>State: isolation/cleanup evidence
     Suite-->>Loop: baseline + staged learning
     Loop->>State: persist baseline
 

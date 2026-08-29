@@ -12,7 +12,7 @@
  * the sandboxie backend. Sandboxie is app-level isolation, not a VM boundary.
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
 	existsSync,
 	closeSync,
@@ -58,6 +58,7 @@ export interface SandboxieCleanupResult {
 	reloaded: boolean;
 	boxStillEnabled: boolean;
 	globalWfpRestored: boolean;
+	leaseReleased: boolean;
 	errors: string[];
 }
 
@@ -71,6 +72,8 @@ export interface SandboxieBoxRecord {
 	pids: number[];
 	globalWfpWasEnabled: boolean;
 	globalWfpOriginalValues: string[];
+	leasePath: string;
+	leaseToken: string;
 	networkProbe?: Record<string, unknown>;
 	cleanup?: SandboxieCleanupResult;
 }
@@ -133,6 +136,19 @@ function normalizeWindowsPath(value: string): string {
 	return value.replace(/\//g, "\\");
 }
 
+function pathAliases(value: string): string[] {
+	const lexical = resolve(value);
+	let canonical = lexical;
+	try {
+		canonical = realpathSync.native(lexical);
+	} catch (error) {
+		if (existsSync(lexical)) {
+			throw new Error(`cannot canonicalize protected path ${lexical}: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+	return uniqueCaseInsensitive([lexical, canonical]);
+}
+
 function canonicalPath(value: string): string {
 	return resolve(value).replace(/[\\/]+$/, "").toLowerCase();
 }
@@ -141,6 +157,34 @@ function isWithin(root: string, candidate: string): boolean {
 	const r = canonicalPath(root);
 	const c = canonicalPath(candidate);
 	return c === r || c.startsWith(r + sep);
+}
+
+function processImageMap(): Map<number, string> {
+	const images = new Map<number, string>();
+	if (process.platform !== "win32") return images;
+	const result = spawnSync("tasklist.exe", ["/FO", "CSV", "/NH"], {
+		encoding: "utf8",
+		windowsHide: true,
+		stdio: ["ignore", "pipe", "ignore"],
+	});
+	const text = typeof result.stdout === "string" ? result.stdout : "";
+	for (const line of text.split(/\r?\n/)) {
+		const match = /^"([^"]+)","(\d+)"/.exec(line.trim());
+		if (match) images.set(Number(match[2]), match[1]!);
+	}
+	return images;
+}
+
+function processImageName(pid: number): string {
+	if (process.platform !== "win32") return "unknown";
+	const result = spawnSync("tasklist.exe", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"], {
+		encoding: "utf8",
+		windowsHide: true,
+		stdio: ["ignore", "pipe", "ignore"],
+	});
+	const line = typeof result.stdout === "string" ? result.stdout.trim() : "";
+	const match = /^"([^"]+)"/.exec(line);
+	return match?.[1] ?? "unknown";
 }
 
 function settingComparable(value: string): string {
@@ -294,7 +338,7 @@ export function assertSandboxPythonCommand(pythonCmd: string, protectedRoots: re
 	} catch {
 		/* the command lookup already proved the executable exists */
 	}
-	for (const root of protectedRoots) {
+	for (const root of protectedRoots.flatMap(pathAliases)) {
 		if (isWithin(root, actual)) {
 			throw new Error(
 				`strict Sandboxie refuses python_cmd inside a protected root: ${resolved}. ` +
@@ -310,9 +354,17 @@ function credentialClosedPaths(repoRoot: string): string[] {
 	const candidates = [
 		join(repoRoot, "api_key.txt"),
 		join(home, ".pi", "agent", "*"),
+		join(home, ".aws", "*"),
+		join(home, ".azure", "*"),
+		join(home, ".ssh", "*"),
+		join(home, ".kube", "*"),
+		join(home, ".docker", "*"),
+		join(home, ".git-credentials"),
+		join(home, ".npmrc"),
 		join(home, "AppData", "Roaming", "pi", "*"),
 		join(home, "AppData", "Local", "pi", "*"),
 		process.env.APPDATA ? join(process.env.APPDATA, "pi", "*") : "",
+		process.env.APPDATA ? join(process.env.APPDATA, "npm", "*") : "",
 	];
 	return candidates.filter(Boolean).map((p) => `${normalizeWindowsPath(resolve(p))}`);
 }
@@ -333,6 +385,7 @@ export function sanitizeSandboxEnvironment(env?: NodeJS.ProcessEnv): NodeJS.Proc
 			/^RSILAB_/i.test(key) ||
 			/^(https?|all|no)_proxy$/i.test(key) ||
 			/^(?:PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|NODE_PATH|NODE_OPTIONS)$/i.test(key) ||
+			/^(?:SSH_AUTH_SOCK|GIT_ASKPASS|SSH_ASKPASS|DOCKER_AUTH_CONFIG|KUBECONFIG|AWS_SHARED_CREDENTIALS_FILE|AZURE_CONFIG_DIR)$/i.test(key) ||
 			/(?:API[_-]?KEY|TOKEN|ACCESS[_-]?(?:KEY|TOKEN)|AUTH[_-]?TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE[_-]?KEY|CREDENTIAL)/i.test(key)
 		) {
 			delete safe[key];
@@ -341,6 +394,17 @@ export function sanitizeSandboxEnvironment(env?: NodeJS.ProcessEnv): NodeJS.Proc
 	safe.PYTHONUNBUFFERED = "1";
 	safe.PYTHONIOENCODING = "utf-8";
 	return safe;
+}
+
+export function sandboxieGlobalLeasePath(): string {
+	return join(tmpdir(), "GeoRSI", "sandboxie-global-wfp.lock");
+}
+
+interface SandboxieLeaseRecord {
+	pid: number;
+	token: string;
+	boxName: string;
+	createdAt: string;
 }
 
 export class SandboxieAdapter {
@@ -361,6 +425,47 @@ export class SandboxieAdapter {
 		const paths = discoverSandboxiePaths(cfg);
 		const root = cfg.sandboxie_root ?? join(tmpdir(), "GeoRSI", "sandbox-roots");
 		return new SandboxieAdapter({ paths, sandboxRoot: root, log });
+	}
+
+	private acquireGlobalLease(boxName: string): { path: string; token: string } {
+		const path = sandboxieGlobalLeasePath();
+		mkdirSync(resolve(path, ".."), { recursive: true });
+		const token = randomUUID();
+		const record: SandboxieLeaseRecord = { pid: process.pid, token, boxName, createdAt: new Date().toISOString() };
+		let handle: number;
+		try {
+			handle = openSync(path, "wx", 0o600);
+		} catch (error) {
+			let owner = "unknown owner";
+			try {
+				const existing = JSON.parse(readFileSync(path, "utf8")) as Partial<SandboxieLeaseRecord>;
+				owner = `pid=${existing.pid ?? "?"} box=${existing.boxName ?? "?"} created=${existing.createdAt ?? "?"}`;
+			} catch {
+				/* retain generic owner text */
+			}
+			throw new Error(
+				`strict Sandboxie global-WFP lease is already present (${owner}) at ${path}. ` +
+				`Concurrent strict episodes are refused. If the owner crashed, inspect/terminate stale GeoRSI boxes, restore Sandboxie.ini, run npm run sandboxie:selftest, then remove the stale lease manually. ` +
+				`Original error: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+		try {
+			writeFileSync(handle, JSON.stringify(record), "utf8");
+		} finally {
+			closeSync(handle);
+		}
+		return { path, token };
+	}
+
+	private releaseGlobalLease(path: string, token: string): boolean {
+		try {
+			const current = JSON.parse(readFileSync(path, "utf8")) as Partial<SandboxieLeaseRecord>;
+			if (current.token !== token || current.pid !== process.pid) return false;
+			rmSync(path, { force: true });
+			return !existsSync(path);
+		} catch {
+			return false;
+		}
 	}
 
 	private async runCli(file: string, args: string[], timeoutMs = this.commandTimeoutMs): Promise<SandboxieCommandResult> {
@@ -529,11 +634,15 @@ export class SandboxieAdapter {
 		exchangeWorkspace: string;
 		repoRoot: string;
 		privateRoot: string;
+		additionalProtectedRoots?: readonly string[];
 	}): Promise<SandboxieBoxRecord> {
 		const name = sanitizeSandboxieBoxName(args.name);
 		const exchangeWorkspace = resolve(args.exchangeWorkspace);
-		const repoRoot = resolve(args.repoRoot);
-		const privateRoot = resolve(args.privateRoot);
+		const repoAliases = pathAliases(args.repoRoot);
+		const privateAliases = pathAliases(args.privateRoot);
+		const additionalAliases = (args.additionalProtectedRoots ?? []).flatMap(pathAliases);
+		const protectedRoots = uniqueCaseInsensitive([...repoAliases, ...privateAliases, ...additionalAliases]);
+		const repoRoot = repoAliases[0]!;
 		mkdirSync(exchangeWorkspace, { recursive: true });
 		mkdirSync(this.sandboxRoot, { recursive: true });
 
@@ -545,8 +654,7 @@ export class SandboxieAdapter {
 
 		const rootPath = resolve(this.sandboxRoot, name);
 		if (
-			isWithin(repoRoot, rootPath) ||
-			isWithin(privateRoot, rootPath) ||
+			protectedRoots.some((protectedRoot) => isWithin(protectedRoot, rootPath) || isWithin(rootPath, protectedRoot)) ||
 			isWithin(exchangeWorkspace, rootPath) ||
 			isWithin(rootPath, exchangeWorkspace)
 		) {
@@ -554,8 +662,7 @@ export class SandboxieAdapter {
 		}
 		const exchangeRule = `${normalizeWindowsPath(exchangeWorkspace)}\\*`;
 		const closedFilePaths = uniqueCaseInsensitive([
-			`${normalizeWindowsPath(repoRoot)}\\*`,
-			`${normalizeWindowsPath(privateRoot)}\\*`,
+			...protectedRoots.map((protectedRoot) => `${normalizeWindowsPath(protectedRoot)}\\*`),
 			...credentialClosedPaths(repoRoot),
 		]);
 		const closedKeyPaths = uniqueCaseInsensitive(credentialClosedKeys());
@@ -566,13 +673,16 @@ export class SandboxieAdapter {
 			closedKeyPaths,
 			networkAccess: "*,Block",
 		};
-		const globalWfpOriginalValues = await this.query("GlobalSettings", "NetworkEnableWFP");
-		const globalWfpWasEnabled = globalWfpOriginalValues.some((value) => /^y$/i.test(value.trim()));
+		const lease = this.acquireGlobalLease(name);
+		let globalWfpOriginalValues: string[] = [];
+		let globalWfpWasEnabled = true;
 
 		// ConfigLevel=10 + Enabled=y is the critical fix for the recurring
 		// "invalid sandbox name parameter DefaultBox" error. A section that is
 		// merely present in Sandboxie.ini is not a usable box.
 		try {
+			globalWfpOriginalValues = await this.query("GlobalSettings", "NetworkEnableWFP");
+			globalWfpWasEnabled = globalWfpOriginalValues.some((value) => /^y$/i.test(value.trim()));
 			if (!globalWfpWasEnabled) await this.set("GlobalSettings", "NetworkEnableWFP", "y");
 			await this.set(name, "ConfigLevel", "10");
 			await this.set(name, "Enabled", "y");
@@ -631,24 +741,36 @@ export class SandboxieAdapter {
 				pids: [],
 				globalWfpWasEnabled,
 				globalWfpOriginalValues,
+				leasePath: lease.path,
+				leaseToken: lease.token,
 			};
 		} catch (error) {
+			let removedConfig = false;
+			let globalRestored = globalWfpWasEnabled;
+			let reloaded = false;
 			try {
 				await this.runIni(["set", name, "*", ""]);
+				removedConfig = true;
 			} catch (cleanupError) {
 				this.log(`[sandboxie] failed to remove partial box ${name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
 			}
 			if (!globalWfpWasEnabled) {
 				try {
 					await this.restoreSetting("GlobalSettings", "NetworkEnableWFP", globalWfpOriginalValues);
+					globalRestored = true;
 				} catch (restoreError) {
+					globalRestored = false;
 					this.log(`[sandboxie] failed to restore global WFP after partial box ${name}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
 				}
 			}
 			try {
 				await this.reload();
+				reloaded = true;
 			} catch (reloadError) {
 				this.log(`[sandboxie] failed to reload after partial box ${name}: ${reloadError instanceof Error ? reloadError.message : String(reloadError)}`);
+			}
+			if (removedConfig && globalRestored && reloaded) {
+				this.releaseGlobalLease(lease.path, lease.token);
 			}
 			throw error;
 		}
@@ -674,24 +796,23 @@ export class SandboxieAdapter {
 		return this.listPidsResultSync(name).pids;
 	}
 
-	private waitForPidsGone(name: string, pids: readonly number[], timeoutMs: number): Promise<void> {
-		if (pids.length === 0) return Promise.resolve();
+	private waitForBaselineRestored(name: string, baselinePids: ReadonlySet<number>, timeoutMs: number): Promise<void> {
 		return new Promise((resolveDone, reject) => {
 			const started = Date.now();
-			const wanted = new Set(pids);
 			const poll = (): void => {
 				const listed = this.listPidsResultSync(name);
 				if (!listed.ok) {
 					reject(new Error(`Sandboxie /listpids failed while waiting for foreground exit in box ${name}: ${listed.error ?? "unknown error"}`));
 					return;
 				}
-				const remaining = listed.pids.filter((pid) => wanted.has(pid) && isProcessAlive(pid));
-				if (remaining.length === 0) {
+				const extra = listed.pids.filter((pid) => !baselinePids.has(pid) && isProcessAlive(pid));
+				if (extra.length === 0) {
 					resolveDone();
 					return;
 				}
 				if (Date.now() - started >= timeoutMs) {
-					reject(new Error(`Sandboxie foreground pids remained after exit in box ${name}: ${remaining.join(",")}`));
+					const described = extra.map((pid) => `${pid}:${processImageName(pid)}`).join(",");
+					reject(new Error(`Sandboxie foreground command left undeclared live descendants in box ${name}: ${described}`));
 					return;
 				}
 				setTimeout(poll, 100);
@@ -705,10 +826,12 @@ export class SandboxieAdapter {
 		launcherPid: number | undefined,
 		baselinePids: ReadonlySet<number>,
 		timeoutMs: number,
+		expectedImage?: string,
 	): Promise<number[]> {
 		return new Promise((resolvePids, reject) => {
 			const started = Date.now();
 			let lastPids: number[] = [];
+			const observed = new Set<string>();
 			const poll = (): void => {
 				const listed = this.listPidsResultSync(name);
 				if (!listed.ok) {
@@ -716,15 +839,23 @@ export class SandboxieAdapter {
 					return;
 				}
 				lastPids = listed.pids;
+				const expectedStem = expectedImage?.toLowerCase().replace(/\.exe$/, "");
+				const imageMap = expectedStem ? processImageMap() : new Map<number, string>();
+				for (const pid of listed.pids) observed.add(`${pid}:${imageMap.get(pid) ?? "unknown"}`);
 				const pids = listed.pids.filter(
-					(pid) => pid !== process.pid && pid !== launcherPid && !baselinePids.has(pid) && isProcessAlive(pid),
+					(pid) =>
+						pid !== process.pid &&
+						pid !== launcherPid &&
+						!baselinePids.has(pid) &&
+						isProcessAlive(pid) &&
+						(!expectedStem || (imageMap.get(pid) ?? "").toLowerCase().replace(/\.exe$/, "") === expectedStem),
 				);
 				if (pids.length > 0) {
 					resolvePids(pids);
 					return;
 				}
 				if (Date.now() - started >= timeoutMs) {
-					reject(new Error(`Sandboxie process ownership could not be proven for box ${name}; baseline=[${[...baselinePids].join(",")}] current=[${lastPids.join(",")}]`));
+					reject(new Error(`Sandboxie process ownership could not be proven for box ${name}; baseline=[${[...baselinePids].join(",")}] current=[${lastPids.join(",")}] observed=[${[...observed].slice(-20).join(",")}] expectedImage=${expectedImage ?? "any"}`));
 					return;
 				}
 				setTimeout(poll, 100);
@@ -765,7 +896,7 @@ export class SandboxieAdapter {
 			"    code = 1",
 			"# Keep a short-lived root process so the parent/box ownership check",
 			"# cannot miss a very fast script.",
-			"time.sleep(0.35)",
+			"time.sleep(5.0)",
 			"raise SystemExit(code)",
 		].join("\n");
 		writeFileSync(wrapperPath, content, "utf8");
@@ -810,6 +941,7 @@ export class SandboxieAdapter {
 		if (options.background) throw new Error("use startPython for background Sandboxie jobs");
 		const baseline = this.listPidsResultSync(options.boxName);
 		if (!baseline.ok) throw new Error(`Sandboxie /listpids failed before launch for box ${options.boxName}: ${baseline.error ?? "unknown error"}`);
+		const launchStarted = Date.now();
 		const launched = this.launchPython(options);
 		let launchError: Error | null = null;
 		launched.child.once("error", (error) => {
@@ -823,7 +955,8 @@ export class SandboxieAdapter {
 				options.boxName,
 				launched.child.pid,
 				new Set(baseline.pids),
-				Math.min(options.timeoutMs, 8_000),
+				Math.max(8_000, Math.min(options.timeoutMs, 15_000)),
+				basename(options.pythonCmd),
 			);
 		} catch (error) {
 			ownershipError = error instanceof Error ? error : new Error(String(error));
@@ -838,6 +971,7 @@ export class SandboxieAdapter {
 			}
 			throw launchError ?? ownershipError!;
 		}
+		const executionTimeoutMs = Math.max(1, options.timeoutMs - (Date.now() - launchStarted));
 		const result = await new Promise<{ code: number | null; error?: string }>((resolveResult) => {
 			let settled = false;
 			let runtimeError: string | undefined;
@@ -851,7 +985,7 @@ export class SandboxieAdapter {
 				this.terminateSync(options.boxName);
 				terminateProcessTree(launched.child.pid);
 				finish(null);
-			}, options.timeoutMs);
+			}, executionTimeoutMs);
 			launched.child.on("error", (error) => {
 				runtimeError = error.message;
 				clearTimeout(timer);
@@ -863,7 +997,11 @@ export class SandboxieAdapter {
 			});
 		});
 		try {
-			await new Promise((resolveDelay) => setTimeout(resolveDelay, 500));
+			await this.waitForBaselineRestored(
+				options.boxName,
+				timedOut ? new Set<number>() : new Set(baseline.pids),
+				Math.min(5_000, Math.max(1_000, options.timeoutMs)),
+			);
 		} catch (error) {
 			this.terminateSync(options.boxName);
 			terminateProcessTree(launched.child.pid);
@@ -905,6 +1043,7 @@ export class SandboxieAdapter {
 					launched.child.pid,
 					new Set(baseline.pids),
 					Math.min(options.timeoutMs, 30_000),
+					basename(options.pythonCmd),
 				);
 				if (launchError) throw launchError;
 				launched.child.unref();
@@ -967,6 +1106,7 @@ export class SandboxieAdapter {
 				reloaded: false,
 				boxStillEnabled: true,
 				globalWfpRestored: false,
+				leaseReleased: false,
 				errors,
 			};
 		}
@@ -992,12 +1132,17 @@ export class SandboxieAdapter {
 		const boxes = this.runCliSync(this.paths.iniPath, ["query", "/boxes", "*"]);
 		const boxStillEnabled = lines(boxes.stdout).some((name) => name.toLowerCase() === record.name.toLowerCase());
 		if (boxStillEnabled) errors.push(`box ${record.name} remains enabled after sync cleanup`);
+		let leaseReleased = false;
+		if (terminated && deletedData && removedConfig && reloaded && !boxStillEnabled && globalWfpRestored) {
+			leaseReleased = this.releaseGlobalLease(record.leasePath, record.leaseToken);
+			if (!leaseReleased) errors.push("Sandboxie global-WFP lease could not be released");
+		}
 		try {
 			rmSync(record.rootPath, { recursive: true, force: true });
 		} catch (error) {
 			errors.push(`sandbox root cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
-		return { terminated, deletedData, removedConfig, reloaded, boxStillEnabled, globalWfpRestored, errors };
+		return { terminated, deletedData, removedConfig, reloaded, boxStillEnabled, globalWfpRestored, leaseReleased, errors };
 	}
 
 	async cleanupBox(record: SandboxieBoxRecord): Promise<SandboxieCleanupResult> {
@@ -1017,6 +1162,7 @@ export class SandboxieAdapter {
 				reloaded: false,
 				boxStillEnabled: true,
 				globalWfpRestored: false,
+				leaseReleased: false,
 				errors: [
 					remaining.ok
 						? `box ${record.name} still has live pids before cleanup`
@@ -1067,12 +1213,17 @@ export class SandboxieAdapter {
 		} catch (error) {
 			errors.push(error instanceof Error ? error.message : String(error));
 		}
+		let leaseReleased = false;
+		if (terminated && deletedData && removedConfig && reloaded && !boxStillEnabled && globalWfpRestored) {
+			leaseReleased = this.releaseGlobalLease(record.leasePath, record.leaseToken);
+			if (!leaseReleased) errors.push("Sandboxie global-WFP lease could not be released");
+		}
 		try {
 			rmSync(record.rootPath, { recursive: true, force: true });
 		} catch (error) {
 			errors.push(`sandbox root cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
-		return { terminated, deletedData, removedConfig, reloaded, boxStillEnabled, globalWfpRestored, errors };
+		return { terminated, deletedData, removedConfig, reloaded, boxStillEnabled, globalWfpRestored, leaseReleased, errors };
 	}
 }
 

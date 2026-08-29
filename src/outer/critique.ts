@@ -18,6 +18,21 @@ export interface CritiqueOutcome {
 	scores: { index: number; quality: number; keepVotes: number }[];
 }
 
+export function selectTopSurvivors(
+	proposals: readonly Proposal[],
+	survivors: readonly Proposal[],
+	scores: readonly { index: number; quality: number; keepVotes: number }[],
+	limit: number,
+): Proposal[] {
+	return [...survivors]
+		.sort((left, right) => {
+			const leftScore = scores[proposals.indexOf(left)]?.quality ?? 0;
+			const rightScore = scores[proposals.indexOf(right)]?.quality ?? 0;
+			return rightScore - leftScore;
+		})
+		.slice(0, Math.max(1, Math.floor(limit)));
+}
+
 export async function critiquePanel(
 	model: Model<any>,
 	proposals: Proposal[],

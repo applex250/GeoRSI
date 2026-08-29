@@ -155,9 +155,9 @@ TuiAltScreen (pi-tui 全屏差分渲染 + Windows 原生 VT 支持)
 ## 长跑保障
 
 1. **崩溃安全**：任何一行崩溃都留下合法前缀（append-only + fsync；快照 tmp+rename）
-2. **续跑**：state.json 记录代数/冠军/历史/停滞计数；指纹不匹配拒绝续跑（防配置漂移）
-3. **止损**：stagnation_limit 停滞停跑；cost_cap_tokens 预算停跑；单 episode 墙钟硬顶
-4. **防挂死**：每 prompt 墙钟 + stall 双看门狗；python 子进程 120s 超时
+2. **续跑**：state.json 记录代数/冠军/历史/停滞/token 与 held-out finalization；指纹不匹配拒绝续跑，已完成 held-out 不重复付费执行
+3. **止损**：stagnation_limit 停滞停跑；cost_cap_tokens 在每个新调用/episode 前检查（已启动的单请求可能小幅越界，但越界后不再启动新请求）；单 episode 对不可信计算使用同一剩余墙钟
+4. **防挂死**：每 prompt 墙钟 + stall 双看门狗；foreground Python 受 script cap 与 episode 剩余时间共同约束；stop controller 传入每个 suite episode
 5. **防泄漏**：agent 工作区只拷贝 data/；eval 脚本与私有真值均不可达；公开分才进提示
 
 ## 演进：外部基准、统一模型层、知识库与诚实性基础设施（2026-08-25，v1.1）
@@ -170,10 +170,13 @@ TuiAltScreen (pi-tui 全屏差分渲染 + Windows 原生 VT 支持)
 - **quiz 批量模式**（`scripts/quiz_build.py`）：外部题库切块成批，一 chunk 一题；
   题目在 `data/quiz.jsonl`（agent 可见），金标答案在 `answers.private.jsonl`
   （不拷入工作区）；提交 = submit 工具交 answers.json，eval_cap=2，未答即错。
+  public=`dev=true`，private-only-v2=`dev=false`，二者不重叠；历史 all-item private
+  分数不可与 v2 直接比较。
   套件经 `config/<suite>.problems.json` 注册，`config.json` 的 `problems_file`
   指向即可整卷运行。已接：earthse / k2 / mapqa / gkmc / stepgame / mgq。
 - **judge/oracle 模式**（`scripts/gab_build.py`、`gbx_build.py`）：
-  GeoAnalystBench 走 oracle 参考解 → LLM judge 链；GeoBenchX 走工具链 judge，
+  GeoAnalystBench 走 oracle 参考解 → LLM judge 链；GeoBenchX 走工具链 judge。
+  当前这些分数是结构/裁判 proxy，不等价于 GIS 产物科学正确性的端到端证明；
   正确拒绝得确定性 1.0。共享缓存 judge（`problems/_shared/judge.py`，
   model+prompt 为键），judge 凭据只在 eval 侧存在。
 
@@ -202,11 +205,15 @@ episode 结束后发生，不再中途污染评测。
 Windows strict backend 由 `src/sandboxie.ts` 适配已安装的 Sandboxie-Plus，
 不自行实现文件虚拟化、进程注入或 WFP。每个 episode 使用独立的 ASCII box，
 并把模型可控的文件交换目录放在仓库外的绝对 `%TEMP%\\GeoRSI\\episodes\\`
-路径。`SbieIni` 写入完整 repo/private deny、credential deny、exchange allow
-和 network block 规则后必须执行 `/reload`，再通过 query 回读验证。
+路径。`SbieIni` 写入 repo/private/外部 ad-hoc grading root deny、credential deny、exchange allow
+和 network block 规则后必须执行 `/reload`，再通过 query 回读验证。全局 WFP
+临时修改由跨进程 lease 串行化；活跃或 stale lease 都 fail-closed，只有 box/config
+删除、reload、WFP 恢复回读全部成功后才释放。
 
 启动前还会用 `/listpids` 证明 Python 根进程确实属于该 box，并用未列举的 repo
-文件、private root 和真实 HTTPS 请求做阻断探测；任何成功访问都 fail-closed。
+文件、private root、额外 truth canary 和真实 HTTPS 请求做阻断探测；任何成功访问都 fail-closed。
+foreground 命令结束后 box PID 必须回到命令前 baseline，未声明的 detached descendant
+会触发整 box 终止。
 `/box` 用于把根进程放入命名 box；Sandboxie 的 `/fcp` 是“根进程在外部、只强制
 未来子进程”的语义，因此不放在 GeoRSI 的外层 root launch，避免反向绕过隔离。
 正常父进程继承仍保证子进程跟随。`delete_sandbox_silent` 是 `/box:<name>` 后的
@@ -214,7 +221,7 @@ Windows strict backend 由 `src/sandboxie.ts` 适配已安装的 Sandboxie-Plus�
 
 `host-audit` 仍保留 guard 机制但不宣称 OS 隔离：工作区硬围栏（resolve+包含判定，
 堵住旧正则放行 `../` 的洞）、官方 pi 文件工具的 symlink-aware operations、eval
-侧文件完整性 manifest、episode 后受保护路径扫描和 judge 凭据剥离仍然有效。
+侧文件与有效外部 truth 的完整性 manifest（每次 public/private eval 前重验）、episode 后受保护路径扫描和 judge 凭据剥离仍然有效。
 严格 Sandboxie 还会清除 provider/judge credential、proxy、Python/Node path 注入环境变量，
 并拒绝位于 repo/private root 内的 `python_cmd`；GIS venv 必须预先安装在受保护根之外。
 正常完成、timeout、background kill、uncaught/unhandled fatal error 和 Node exit

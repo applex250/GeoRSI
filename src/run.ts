@@ -7,11 +7,11 @@
  *   npx tsx src/run.ts rsi [--gens N] [--resume] [--run-name NAME]
  */
 import { readFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { loadConfig, ROOT } from "./config.js";
 import { selftest } from "./selftest.js";
 import { runRsi } from "./rsi.js";
-import { runExam } from "./exam.js";
+import { examHasValidTrainingResult, runExam } from "./exam.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
 import { TOKENS } from "./provider.js";
 
@@ -95,6 +95,8 @@ async function main() {
 			const evalCtx = {
 				...makeEvalContext(cfg, ROOT),
 				truthFile: () => adhoc.truthPath,
+				protectedFiles: [adhoc.truthPath],
+				protectedRoots: [resolve(adhoc.problem.dir), resolve(dirname(adhoc.truthPath))],
 			};
 			const runName = args["run-name"] ? String(args["run-name"]) : `research-${adhoc.problem.id}-${Date.now()}`;
 			const runDir = join(ROOT, "runs", runName);
@@ -181,7 +183,7 @@ async function main() {
 		const runName = args["run-name"] ? String(args["run-name"]) : `exam-${Date.now()}`;
 		const report = await runExam(cfg, scaffold, name, join(ROOT, "runs", runName), (m) => console.log(m));
 		console.log(`\nEXAM DONE: ${report.summary} (artifacts: runs/${runName}/RESULTS.md)`);
-		process.exit(report.trainMean != null ? 0 : 2);
+		process.exit(examHasValidTrainingResult(report.results) ? 0 : 2);
 	}
 
 	if (cmd === "tui") {

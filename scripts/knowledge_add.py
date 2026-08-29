@@ -7,9 +7,10 @@ Add a lesson node:
 List nodes with stats:
   python scripts/knowledge_add.py --list
 
-Promote a probation node after evidence:
-  python scripts/knowledge_add.py --promote tip_xxxx
-  # defaults: >=3 observations and >=0.80 private win rate
+Promote a probation node after independent evidence:
+  python scripts/knowledge_add.py --promote tip_xxxx --evidence-file evidence.json
+  # evidence: {"node_id":"tip_xxxx", "independent_groups":2, "paired_delta":0.01}
+  # historical uses/wins remain co-exposure telemetry, not causal evidence
 
 Nodes live in knowledge/nodes.jsonl (one JSON per line). Dedup is by
 normalized text; duplicates are reported, not written.
@@ -45,8 +46,9 @@ def main():
     ap.add_argument("--id", help="explicit id (default tip_NNNN)")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--promote", action="append", help="promote an existing probation node by id (repeatable)")
-    ap.add_argument("--min-uses", type=int, default=3, help="minimum observations required for promotion")
-    ap.add_argument("--min-win-rate", type=float, default=0.8, help="minimum private-fitness win rate for promotion")
+    ap.add_argument("--evidence-file", help="independent A/B evidence JSON required for promotion unless --force")
+    ap.add_argument("--min-uses", type=int, default=3, help="legacy co-exposure display threshold (not causal evidence)")
+    ap.add_argument("--min-win-rate", type=float, default=0.8, help="legacy competent-exposure rate (not causal evidence)")
     ap.add_argument("--force", action="store_true", help="promote without probation thresholds")
     a = ap.parse_args()
 
@@ -55,13 +57,18 @@ def main():
         for n in nodes:
             avg = n["stats"]["fitness_sum"] / n["stats"]["uses"] if n["stats"]["uses"] else float("nan")
             print(f"{n['id']} [{n['status']}/{n['scope']}] tags={','.join(n['tags'])} "
-                  f"uses={n['stats']['uses']} wins={n['stats']['wins']} avg_fit={avg:.3f}")
+                  f"uses={n['stats']['uses']} competent_exposures={n['stats']['wins']} avg_fit={avg:.3f}")
             print(f"   {n['text'][:100]}")
         print(f"\n{len(nodes)} nodes")
         return
 
     if a.promote:
         wanted = set(a.promote)
+        evidence = None
+        if a.evidence_file:
+            evidence = json.load(open(a.evidence_file, encoding="utf-8"))
+        if not a.force and not evidence:
+            sys.exit("promotion requires --evidence-file with independent A/B evidence (or explicit --force)")
         changed = 0
         for n in nodes:
             if n.get("id") not in wanted:
@@ -73,12 +80,18 @@ def main():
             uses = int(stats.get("uses", 0))
             wins = int(stats.get("wins", 0))
             rate = wins / uses if uses else 0.0
-            if not a.force and (uses < a.min_uses or rate < a.min_win_rate):
-                print(f"{n['id']}: insufficient evidence uses={uses} win_rate={rate:.3f} - unchanged")
-                continue
+            if not a.force:
+                evidence_ok = (
+                    evidence.get("node_id") == n.get("id")
+                    and int(evidence.get("independent_groups", 0)) >= 2
+                    and float(evidence.get("paired_delta", 0)) > 0
+                )
+                if not evidence_ok:
+                    print(f"{n['id']}: independent evidence missing/mismatched - unchanged")
+                    continue
             n["status"] = "active"
             changed += 1
-            print(f"{n['id']}: promoted uses={uses} win_rate={rate:.3f}")
+            print(f"{n['id']}: promoted independent_evidence={'forced' if a.force else a.evidence_file} uses={uses} competent_exposure_rate={rate:.3f}")
         missing = wanted - {n.get("id") for n in nodes}
         for nid in sorted(missing):
             print(f"{nid}: not found")

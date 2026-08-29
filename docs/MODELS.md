@@ -53,7 +53,7 @@
 ## 四、已知残余与升级路径
 
 1. **视觉能力闲置**：GLM/mimo 原始 API 支持图像，但 models.json 接线仍以 text-only 为主。启用步骤：provider 的 `buildModelsJson` 按 profiles 的 `vision:true` 输出 `input:["text","image"]` 并验证 pi 图像消息透传（对 GABench 类看图任务是前置条件）。
-2. **harness thinkingLevel 枚举无 xhigh/thinking_budget**：`src/models.ts` 的 `resolveThinking()` 已按 profiles 做钳制与参数翻译；pi 会话内目前只透传 low/medium/high。
+2. **TS Pi harness 对模型级参数保持 fail-closed**：pi-ai 可原样传递显式映射的 hy3 `xhigh`、GLM `max` 和 emooo `xhigh`；但当前 TS harness 无法序列化 dsv4f 专用 `thinking_budget`，因此 dsv4f `xhigh/max` 会在请求前拒绝，而不是静默折叠成该服务不支持的 `high`。Python direct client 仍支持已验证的 budget 通道。
 3. **旧 OpenRouter alias 已退役**：`stealth/ox-alpha` 于 2026-08-27 返回 HTTP 404，并指向 `z-ai/glm-5.3-flash`；旧分数只用于历史解释，不用于新实验。
 4. muse 调用必须带重试纪律（SSL EOF 瞬态，实测 3 试 2 败 1 成）。
 

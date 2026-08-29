@@ -30,7 +30,7 @@ export interface KnowledgeNode {
 }
 
 export const KNOWLEDGE_CHAR_BUDGET = 6000;
-/** a "win" is coarse on purpose: episodes that reached basic competence */
+/** historical `wins` means co-exposures whose episode reached basic competence; it is not causal evidence for the node */
 export const WIN_LINE = 0.6;
 
 export function knowledgePath(): string {
@@ -127,9 +127,9 @@ export function renderKnowledge(sel: KnowledgeSelection): string {
 }
 
 /**
- * Post-episode feedback: bump usage counters for the nodes that were in
- * context. Reloads the store fresh (another process may have appended),
- * patches, saves atomically. Never called while an eval can observe it.
+ * Post-episode exposure telemetry: bump counters for every node that was in
+ * context. `wins` is retained for JSON compatibility but records competent
+ * co-exposures, not evidence that the node caused the outcome.
  */
 export function recordUsage(ids: string[], fitness: number): void {
 	if (ids.length === 0 || !Number.isFinite(fitness)) return;

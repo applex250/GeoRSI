@@ -92,7 +92,8 @@ def grade_quiz(submission: dict, questions, answers, split: str, judge=None):
     questions:  list of {qid, kind, options?, dev?} (dev flags live in the
                 PRIVATE answers file, never in the agent-visible copy)
     answers:    dict qid -> {answer, dev}
-    split:      "public" -> dev slice only; "private" -> all questions
+    split:      "public" -> dev calibration slice only;
+                "private" -> non-dev questions only (honest test split)
     judge:      optional callable(question, gold, pred) -> bool for fill fallback
     returns (score, detail_dict)
     """
@@ -107,6 +108,8 @@ def grade_quiz(submission: dict, questions, answers, split: str, judge=None):
             skipped += 1
             continue
         if split == "public" and not gold_rec.get("dev"):
+            continue
+        if split == "private" and gold_rec.get("dev"):
             continue
         total += 1
         pred = submission.get(qid)
@@ -126,4 +129,4 @@ def grade_quiz(submission: dict, questions, answers, split: str, judge=None):
         if ok:
             correct += 1
     score = (correct / total) if total > 0 else 0.0
-    return score, {"correct": correct, "total": total, "skipped": skipped}
+    return score, {"correct": correct, "total": total, "skipped": skipped, "metric": "public-dev-v1" if split == "public" else "private-only-v2"}

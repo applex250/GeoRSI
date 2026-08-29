@@ -1,14 +1,10 @@
 /**
- * Anti-cheat sweep: the honest backstop of the no-sandbox protocol.
+ * Anti-cheat sweep: defense in depth behind the strict Sandboxie boundary.
  *
- * run_python gives the agent full filesystem access, so "hidden" gold files
- * inside the repo tree (quiz answers.private.jsonl, gbx/gab reference/,
- * judge_cache.jsonl) are reachable by a reward-hacking agent that guesses
- * the layout. We cannot prevent reads without a real sandbox — so we detect
- * them instead: after every episode, scan what the agent wrote/executed for
- * references to protected paths. A hit marks the episode compromised
- * (fitness -> null), which also keeps poisoned results out of knowledge
- * stats and champion selection.
+ * Strict Windows runs prevent repository/private access at the OS application
+ * boundary. Explicit host-audit does not, so post-hoc scans remain useful for
+ * score integrity there; in strict mode they detect prompt/tool/artifact
+ * references and protect against configuration regressions.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -140,10 +136,10 @@ export function scanTextForBreaches(text: string, label = "tool-call"): GuardBre
 }
 
 // ---------------------------------------------------------------------------
-// integrity manifest: everything private grading depends on must survive the
-// episode untouched. The built-in write tool accepts absolute paths, so
-// eval.py / hidden references are writable by the agent — hash them at
-// episode start and verify before trusting any fitness.
+// integrity manifest: every private grading dependency must survive the
+// episode untouched. Strict file tools are exchange-guarded and Sandboxie
+// closes protected roots; the manifest remains defense in depth and is the
+// primary fail-closed check in explicit host-audit mode.
 // ---------------------------------------------------------------------------
 
 function walkFiles(dir: string): string[] {
@@ -169,12 +165,12 @@ function walkFiles(dir: string): string[] {
 }
 
 /** sha256 of every grading-critical file under the problem dir. */
-export function protectedManifest(problemDir: string): Record<string, string> {
+export function protectedManifest(problemDir: string, extraFiles: readonly string[] = []): Record<string, string> {
 	const manifest: Record<string, string> = {};
-	const wanted = ["eval.py", "answers.private.jsonl"].map((f) => join(problemDir, f));
-	for (const f of [...wanted, ...walkFiles(join(problemDir, "reference"))]) {
+	const wanted = ["eval.py", "answers.private.jsonl"].map((file) => join(problemDir, file));
+	for (const file of [...wanted, ...walkFiles(join(problemDir, "reference")), ...extraFiles]) {
 		try {
-			manifest[f] = createHash("sha256").update(readFileSync(f)).digest("hex");
+			manifest[file] = createHash("sha256").update(readFileSync(file)).digest("hex");
 		} catch {
 			/* optional file (quiz problems have no reference/) */
 		}
@@ -192,7 +188,9 @@ export function verifyManifest(problemDir: string, manifest: Record<string, stri
 		} catch {
 			now = null;
 		}
-		if (now !== hash) bad.push(f.slice(problemDir.length + 1));
+		if (now !== hash) {
+			bad.push(f.startsWith(problemDir) ? f.slice(problemDir.length + 1) : f);
+		}
 	}
 	return bad;
 }

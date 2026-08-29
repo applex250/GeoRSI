@@ -15,9 +15,9 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { terminateProcessTree } from "../process.js";
-import type { Config, ProblemSpec } from "../config.js";
+import { assertSupportedModel, type Config, type ProblemSpec } from "../config.js";
 
 export interface ProblemOverride {
 	type?: "standard" | "quiz";
@@ -84,13 +84,14 @@ export function loadProblems(cfg: Config, root: string, includeHeldout = false):
 			throw new Error(`problem "${spec.id}": missing ${statementPath}`);
 		}
 		const overrides = loadOverrides(dir);
+		if (overrides.inner_model) assertSupportedModel(`problem ${spec.id} inner_model`, overrides.inner_model);
 		out.push({
 			id: spec.id,
 			dir,
 			statement: readFileSync(statementPath, "utf8"),
 			weight: spec.weight ?? 1,
 			heldout: spec.heldout ?? false,
-			genre: (spec as { genre?: string }).genre ?? overrides.genre ?? guessGenre(spec.id),
+			genre: spec.genre ?? overrides.genre ?? guessGenre(spec.id),
 			overrides,
 		});
 	}
@@ -150,6 +151,10 @@ export interface EvalContext {
 	privateTruthDir: string;
 	/** per-problem truth filename inside privateTruthDir */
 	truthFile: (problemId: string) => string;
+	/** additional grading files that must be denied to the agent and hashed */
+	protectedFiles?: string[];
+	/** additional grading roots that must be denied to the agent */
+	protectedRoots?: string[];
 	/** gateway credentials for LLM-judge evals (private splits only) */
 	judgeEnv?: Record<string, string>;
 }
@@ -166,10 +171,12 @@ export function makeEvalContext(cfg: Config, root: string): EvalContext {
 			RSILAB_JUDGE_MODEL: (cfg as { judge?: { model?: string } }).judge?.model ?? "hy3",
 		};
 	}
+	const privateTruthDir = resolve(root, cfg.private_truth_dir);
 	return {
 		pythonCmd: cfg.python_cmd,
-		privateTruthDir: join(root, cfg.private_truth_dir),
-		truthFile: (id) => join(root, cfg.private_truth_dir, `${id}.txt`),
+		privateTruthDir,
+		truthFile: (id) => join(privateTruthDir, `${id}.txt`),
+		protectedRoots: [privateTruthDir],
 		judgeEnv,
 	};
 }
