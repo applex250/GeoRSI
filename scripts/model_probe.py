@@ -25,11 +25,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ZEN = "https://opencode.ai/zen/go/v1"
 LOCAL = "http://172.27.116.56:8080/v1"
 OPENROUTER = "https://openrouter.ai/api/v1"
+EMOOO = os.environ.get("RSILAB_EMOOO_BASE_URL", "https://api.emooo.cc/v1")
+
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 
 KEY = open(os.path.join(ROOT, "api_key.txt"), encoding="utf-8").read().strip()
 LKEY = open(os.path.join(ROOT, "api_key_local.txt"), encoding="utf-8").read().strip()
 OKEY = open(os.path.join(ROOT, "api_key_or.txt"), encoding="utf-8").read().strip()
+EMOOO_KEY = os.environ.get("RSILAB_EMOOO_API_KEY", os.environ.get("GEORSI_EMOOO_API_KEY", "")).strip()
 
 def render_scene_b64():
     img = Image.new("RGB", (320, 240), "white")
@@ -50,10 +53,11 @@ def vision_probe():
     truth = {"squares=1": False, "circles=1": False, "triangles=1": False}
     print("== VISION (rendered scene: red square, green circle, blue triangle, text GEO-2026) ==")
     for name, base, key in MODELS:
-        ok, dt, c, fr, err = call(base, name, key, [{"role": "user", "content": [
+        ok, dt, c, fr = call(base, name, key, [{"role": "user", "content": [
             {"type": "text", "text": q},
             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}]}],
-            max_tokens=2500, timeout=120)
+            max_tokens=2500, timeout=120, extra=model_extra(name))
+        err = "" if ok else c
         low = c.lower() if ok else ""
         score = sum(1 for k in ("square_color=red", "circle_color=green", "triangles=1", "geo-2026") if k in low)
         print(f"{name:<16} {'OK ' if ok else 'ERR'} {dt:5.1f}s detail={score}/4 | {(c or err)[:130]!r}", flush=True)
@@ -67,6 +71,14 @@ MODELS = [
     ("z-ai/glm-5.3-flash", OPENROUTER, OKEY),
     ("minimax/minimax-m3:free", OPENROUTER, OKEY),
 ]
+if EMOOO_KEY:
+    MODELS.append(("mimo-v2.5-pro", EMOOO, EMOOO_KEY))
+
+
+def model_extra(model):
+    if model == "mimo-v2.5-pro":
+        return {"thinking": {"type": "enabled", "clear_thinking": False}, "reasoning_effort": "low"}
+    return None
 
 
 def red_png_b64():
@@ -117,7 +129,7 @@ def probe(model, base, key):
     # --- stability -------------------------------------------------------
     oks, lats, errs = [], [], {}
     for _ in range(4):
-        ok, dt, content, fr = call(base, model, key, [{"role": "user", "content": "Reply with exactly: ok"}], max_tokens=8, timeout=45)
+        ok, dt, content, fr = call(base, model, key, [{"role": "user", "content": "Reply with exactly: ok"}], max_tokens=8, timeout=45, extra=model_extra(model))
         (oks if ok else errs).append(1) if ok else errs.__setitem__(str(content)[:60], errs.get(str(content)[:60], 0) + 1)
         if ok:
             lats.append(dt)
@@ -133,7 +145,7 @@ def probe(model, base, key):
           'Reply with EXACTLY one JSON object and nothing else:\n{"score": <float 0..1>, "reason": "<one line>"}')
     jok = 0
     for _ in range(2):
-        ok, dt, content, fr = call(base, model, key, [{"role": "user", "content": jp}], max_tokens=120, timeout=60)
+        ok, dt, content, fr = call(base, model, key, [{"role": "user", "content": jp}], max_tokens=120, timeout=60, extra=model_extra(model))
         if ok:
             try:
                 v = json.loads(content.strip().removeprefix("```json").removesuffix("```").strip())
@@ -147,7 +159,7 @@ def probe(model, base, key):
     ok, dt, content, fr = call(
         base, model, key,
         [{"role": "user", "content": "A seismic wave travels 8 km/s through rock. How many seconds to cross 240 km? Reply with just the number."}],
-        max_tokens=2000, timeout=120,
+        max_tokens=2000, timeout=120, extra=model_extra(model),
     )
     num = None
     if ok:
@@ -180,8 +192,11 @@ def levels_probe():
     LEVELS = ["minimal", "off", "none", "low", "medium", "high", "xhigh", "max"]
     print("answer must be 5 | Y(ans,lat) accepted / N rejected", flush=True)
     for name, base, key in MODELS:
-        for style, mk in (("effort", lambda lv: {"reasoning_effort": lv}),
-                          ("obj", lambda lv: {"reasoning": {"effort": lv}})):
+        styles = [("effort", lambda lv: {"reasoning_effort": lv}),
+                  ("obj", lambda lv: {"reasoning": {"effort": lv}})]
+        if name == "mimo-v2.5-pro":
+            styles.append(("zai", lambda lv: {"thinking": {"type": "disabled"}} if lv == "off" else {"thinking": {"type": "enabled", "clear_thinking": False}, "reasoning_effort": lv}))
+        for style, mk in styles:
             cells = []
             for lv in LEVELS:
                 ok, dt, c, _fr = call(base, name, key, [{"role": "user", "content": MATH}],

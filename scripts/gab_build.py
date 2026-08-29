@@ -27,6 +27,7 @@ SRC = os.path.join(ROOT, "benchmarks", "GeoAnalystBench", "dataset", "GeoAnalyst
 GAB_DATA = os.path.join(ROOT, "benchmarks", "GABench", "dataset")
 SHARED = os.path.join(ROOT, "problems", "_shared")
 MAX_DATA_MB = 300
+GIS_PYTHON_CMD = os.environ.get("GEORSI_GIS_PYTHON", r"F:\GeoRSI\venvs\gis\Scripts\python.exe")
 
 STATEMENT = """# {task}
 
@@ -275,7 +276,7 @@ def main(n, suite):
                 {
                     "genre": "geoanalyst",
                     "judge": True,
-                    "python_cmd": os.path.join(ROOT, ".gisenv", "Scripts", "python.exe"),
+                    "python_cmd": GIS_PYTHON_CMD,
                     "max_turns": 25,
                     "eval_cap": 3,
                     "episode_timeout_s": 3600,

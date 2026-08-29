@@ -236,7 +236,15 @@ async function main() {
 	process.exit(1);
 }
 
-main().catch((e) => {
-	console.error("FATAL:", e);
+function fatalExit(label: string, error: unknown): never {
+	console.error(`${label}:`, error);
+	process.exitCode = 1;
+	// Explicit exit still emits the synchronous `exit` event, which is where
+	// solveEpisode's last-resort Sandboxie cleanup is registered.
 	process.exit(1);
-});
+}
+
+process.once("uncaughtException", (error) => fatalExit("UNCAUGHT", error));
+process.once("unhandledRejection", (error) => fatalExit("UNHANDLED", error));
+
+main().catch((e) => fatalExit("FATAL", e));

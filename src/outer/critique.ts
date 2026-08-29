@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import type { Proposal } from "./improve.js";
+import type { ConfigThinkingLevel } from "../config.js";
 import { PiHarness, toolOutput } from "../piharness.js";
 
 export interface CritiqueOutcome {
@@ -24,6 +25,7 @@ export async function critiquePanel(
 	attemptsSummary: string,
 	nCritics: number,
 	timeoutMs = 150_000,
+	thinkingLevel: ConfigThinkingLevel = "low",
 ): Promise<CritiqueOutcome> {
 	const C = Math.max(1, nCritics);
 	const qualities: number[][] = Array.from({ length: proposals.length }, () => []);
@@ -77,7 +79,7 @@ export async function critiquePanel(
 			(async () => {
 				const harness = new PiHarness({
 					model,
-					thinkingLevel: "low",
+					thinkingLevel,
 					cwd: process.cwd(),
 					systemPrompt: "You are a harsh but fair review panelist. You always answer by calling score_proposals exactly once.",
 					customTools: [scoreTool],

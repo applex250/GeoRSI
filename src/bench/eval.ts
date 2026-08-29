@@ -16,11 +16,16 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { terminateProcessTree } from "../process.js";
 import type { Config, ProblemSpec } from "../config.js";
 
 export interface ProblemOverride {
 	type?: "standard" | "quiz";
 	genre?: string;
+	/** execution backend override for this task */
+	execution_backend?: "sandboxie" | "host-audit";
+	/** execution policy override for this task's Python scripts */
+	execution_policy?: "audit" | "restricted";
 	/** eval needs the LLM judge on private split (credentials injected) */
 	judge?: boolean;
 	/** isolated python env for this problem (e.g. the GIS venv) */
@@ -204,11 +209,15 @@ export function runEval(
 			}
 			env.RSILAB_PRIVATE_TRUTH = truth;
 		}
-		const child = spawn(problem.overrides.python_cmd ?? ctx.pythonCmd, args, { env, windowsHide: true });
+		const child = spawn(problem.overrides.python_cmd ?? ctx.pythonCmd, args, {
+			env,
+			windowsHide: true,
+			detached: process.platform !== "win32",
+		});
 		let out = "";
 		let err = "";
 		const timer = setTimeout(() => {
-			child.kill();
+			terminateProcessTree(child.pid);
 			resolve({ score: null, detail: "eval timeout", secs: (Date.now() - t0) / 1000 });
 		}, timeoutMs);
 		child.stdout.on("data", (d: Buffer) => (out += d.toString("utf8")));

@@ -11,7 +11,7 @@ import { getPiRuntime } from "./provider.js";
 import { loadProblems, makeEvalContext } from "./bench/eval.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
 import { solveEpisode } from "./inner/solve.js";
-import { openMemory } from "./memory.js";
+import { emptyMemory } from "./memory.js";
 import { writeTextAtomic } from "./journal.js";
 import { meanWithFailures } from "./metrics.js";
 
@@ -43,7 +43,10 @@ export async function runExam(
 	const { inner } = await getPiRuntime(cfg, ROOT);
 	const problems = loadProblems(cfg, ROOT, true);
 	const evalCtx = makeEvalContext(cfg, ROOT);
-	const memory = openMemory(runDir);
+	// Exams must measure the supplied scaffold, not memories left by an
+	// earlier run. Training episodes may build memory; standalone exams start
+	// with an empty episodic store.
+	const memory = emptyMemory(runDir);
 
 	const results: ExamProblemResult[] = [];
 	const repeats = Math.max(1, Math.floor(cfg.episodes_per_problem || 1));
@@ -108,7 +111,9 @@ export async function runHeldoutExam(
 	const { inner } = await getPiRuntime(cfg, ROOT);
 	const problems = loadProblems(cfg, ROOT, true).filter((p) => p.heldout);
 	const evalCtx = makeEvalContext(cfg, ROOT);
-	const memory = openMemory(runDir);
+	// Held-out must not receive train-episode memories. It tests the champion
+	// scaffold with an independent episodic context.
+	const memory = emptyMemory(runDir);
 
 	const results: ExamProblemResult[] = [];
 	const repeats = Math.max(1, Math.floor(cfg.episodes_per_problem || 1));

@@ -6,7 +6,8 @@ Covers the A/B-tier integration invariants:
 - gbx/gab problems: hidden reference/ stays outside data/
 - judge cache: every line parses, keys unique (determinism precondition —
   adversarial re-eval must hit the same cached judgment)
-- env isolation: solve.ts strips RSILAB_JUDGE* from agent-side spawns
+- env isolation: solve.ts uses the shared sanitizer to strip judge/provider
+  credentials, proxy variables, and path-injection variables from agent spawns
 - rag corpus: manifest provenance complete; no benchmark qid/question/option
   text may appear in the retrieval corpus (contamination guard)
 
@@ -15,7 +16,6 @@ Prints STRUCT_OK when everything passes.
 import glob
 import json
 import os
-import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -90,11 +90,24 @@ if os.path.exists(cache_path):
             keys.add(k)
             n += 1
 
-# 4. env isolation: agent-side spawns strip judge credentials ----------------
+# 4. env isolation: agent-side spawns strip judge/provider credentials ---------
 solve_src = open(os.path.join(ROOT, "src", "inner", "solve.ts"), encoding="utf-8").read()
-strips = len(re.findall(r'startsWith\("RSILAB_JUDGE"\)', solve_src))
-if strips < 2:
-    bad(f"solve.ts agent-side env strips found {strips}/2 (run_python + start_job)")
+sandbox_src = open(os.path.join(ROOT, "src", "sandboxie.ts"), encoding="utf-8").read()
+if solve_src.count("sanitizeSandboxEnvironment") < 2 or "sanitizeSandboxEnvironment" not in sandbox_src:
+    bad("agent-side run_python/start_job must use the shared credential-stripping environment sanitizer")
+
+# Strict GIS runtime paths must not point into the repository ------------------
+root_norm = ROOT.replace("\\\\", "/").replace("\\", "/").rstrip("/").lower()
+for pj_path in glob.glob(os.path.join(ROOT, "problems", "*", "problem.json")):
+    try:
+        pj = json.load(open(pj_path, encoding="utf-8"))
+    except Exception:
+        continue
+    value = pj.get("python_cmd") if isinstance(pj, dict) else None
+    if isinstance(value, str):
+        value_norm = value.replace("\\\\", "/").replace("\\", "/").rstrip("/").lower()
+        if value_norm.startswith(root_norm + "/"):
+            bad(f"{os.path.relpath(pj_path, ROOT)}: python_cmd points inside the protected repository")
 judge_src = open(os.path.join(ROOT, "problems", "_shared", "judge.py"), encoding="utf-8").read()
 if "RSILAB_JUDGE_REASONING_EFFORT" not in judge_src or '"reasoning_effort"' not in judge_src:
     bad("judge.py must set a bounded reasoning effort for parseable verdicts")
@@ -206,4 +219,4 @@ if fail:
     for m in fail[:20]:
         print(" -", m)
     sys.exit(1)
-print(f"STRUCT_OK ({checked} quiz chunks, {n} cache entries, {strips} env strips, {kb_n} knowledge nodes)")
+print(f"STRUCT_OK ({checked} quiz chunks, {n} cache entries, shared env sanitizer, {kb_n} knowledge nodes)")

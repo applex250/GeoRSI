@@ -1,0 +1,15 @@
+{
+  "inner_model": "mimo-v2.5-pro",
+  "inner_thinking_level": "low",
+  "outer_model": "hy3",
+  "outer_thinking_level": "low",
+  "emooo_base_url": "https://api.emooo.cc/v1",
+  "private_truth_dir": "../rsi-lab-private",
+  "problems": [
+    { "id": "quake_b" },
+    { "id": "quake_b_real" },
+    { "id": "flood_rp" },
+    { "id": "climate_trend" },
+    { "id": "poro_perm", "heldout": true }
+  ]
+}

@@ -27,6 +27,52 @@ const PROTECTED_PATTERNS = [
 	// the protectedManifest sha256 check catches actual tampering exactly.
 ] as const;
 
+/**
+ * Best-effort source policy for the optional restricted execution mode.
+ * This is intentionally narrower than banning `os` or normal file/data APIs:
+ * geoscience scripts commonly need those. It catches the common escape hatches
+ * (network and arbitrary child-process creation) before launch, but it is not
+ * a substitute for an OS sandbox and can be bypassed by obfuscation.
+ */
+export interface ExecutionPolicyBreach {
+	file: string;
+	rule: string;
+	line: number;
+}
+
+const EXECUTION_RULES: { rule: string; pattern: RegExp }[] = [
+	{
+		rule: "child-process import",
+		pattern: /^\s*(?:from\s+subprocess\b|import\s+subprocess\b)|\bsubprocess\.(?:run|Popen|call|check_call|check_output)\s*\(/,
+	},
+	{
+		rule: "process execution",
+		pattern: /\bos\.(?:system|popen|exec[a-z]*|spawn[a-z]*)\s*\(/,
+	},
+	{
+		rule: "network import",
+		pattern: /^\s*(?:from\s+(?:socket|urllib|requests|httpx|ftplib|paramiko)\b|import\s+(?:socket|urllib|requests|httpx|ftplib|paramiko)\b)|\b(?:socket|urllib\.request|requests|httpx)\.[a-zA-Z_]+\s*\(/,
+	},
+	{
+		rule: "native extension import",
+		pattern: /^\s*(?:from\s+ctypes\b|import\s+ctypes\b)/,
+	},
+];
+
+export function scanPythonExecutionPolicy(text: string, file = "python"): ExecutionPolicyBreach[] {
+	const out: ExecutionPolicyBreach[] = [];
+	for (const [index, line] of text.split(/\r?\n/).entries()) {
+		for (const { rule, pattern } of EXECUTION_RULES) {
+			if (pattern.test(line)) {
+				out.push({ file, rule, line: index + 1 });
+				break;
+			}
+		}
+	}
+	return out;
+}
+
+
 const SCAN_EXTS = new Set([".py", ".txt", ".json", ".md", ".log", ".sh", ".cmd"]);
 const MAX_FILE_BYTES = 2_000_000;
 

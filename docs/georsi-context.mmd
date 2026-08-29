@@ -1,0 +1,20 @@
+flowchart LR
+    operator["Operator / Researcher"]
+    georsi["GeoRSI\nself-evolving research engine"]
+    models["Model providers\ninner / outer / judge"]
+    benchmarks["Benchmark packs\nstatements + public data + graders"]
+    workspace["Episode workspace\nagent files + Python outputs"]
+    private["Private evaluation assets\noutside the agent workspace"]
+
+    operator -->|start / steer / inspect| georsi
+    georsi -->|model calls| models
+    georsi -->|load task + public data| benchmarks
+    georsi -->|create / clean / record| workspace
+    georsi -->|private score only at episode end| private
+
+    classDef system fill:#fff2cc,stroke:#b8860b,color:#3d3210;
+    classDef external fill:#f5f5f5,stroke:#666,color:#222;
+    classDef boundary fill:#fce4d6,stroke:#c55a11,color:#4a1c05;
+    class georsi system;
+    class operator,models,benchmarks,workspace external;
+    class private boundary;

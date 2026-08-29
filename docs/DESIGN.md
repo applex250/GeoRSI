@@ -1,11 +1,19 @@
 # GeoRSI 设计文档
 
 以 **pi agent harness** 为基座的自我进化地学科研系统。外层进化循环改写内层科研
-agent 的策略（scaffold），内层 agent 在沙箱工作区中真实做研究（写代码、跑分析、
-提交答案），私有评测决定选择压。
+agent 的策略（scaffold），内层 agent 在独立 episode exchange workspace 中真实做研究（写代码、跑分析、提交答案），
+Windows strict 路径通过 Sandboxie-Plus app-level box 执行；`host-audit` 仅作为显式兼容模式。
+私有评测决定选择压。
 
-## 总体架构
+- `docs/georsi-context.mmd`：系统上下文
+- `docs/georsi-runtime.mmd`：运行时和容器依赖
+- `docs/georsi-episode.mmd`：代际/episode 时序
+- `docs/georsi-security.mmd`：Agent 执行与评测信任边界
+- `docs/ARCHITECTURE-VIEWS.md`：依赖规则和当前安全限制
 
+旧的单页 Drawio 图仍保留作历史导出，但不再承担所有层次的唯一视图。
+
+## 总体架构（简图）
 ```
                  ┌────────────────────────────────────────────┐
                  │ 外层进化环 (evolver, hy3)                    │
@@ -40,8 +48,9 @@ agent 的策略（scaffold），内层 agent 在沙箱工作区中真实做研�
 | 工具捕获模式的结构化输出 | OpenRSI_self | defineTool+typebox 校验；超时中止后已捕获部分仍可用 |
 | 三看门狗（墙钟/停顿/预算） | OpenRSI_self | 每个 prompt 有硬顶；无事件流 stall 检测；全局 token 预算 |
 | 事件溯源持久化 + 原子快照 | OpenRSI_qh | board.jsonl append+fsync；state.json tmp+rename；断尾容错 |
-| 确定性优先评测 | OpenRSI_qh | 只解析 ##SCORE## 标记，无 LLM judge；分数不进提示 |
-| 公开分迭代/私有分选择 | 两者 | agent 只见公开分；选择只看私有分；私有真值在树外 |
+| 确定性优先评测 | OpenRSI_qh | 默认只解析 ##SCORE## 标记；部分 external private benchmark 使用缓存的 LLM judge；私有分不进入 Agent prompt |
+| 公开分迭代/私有分选择 | 两者 | Agent 只见公开分；外层选择只看私有分；私有真值在树外 |
+| Memory / Knowledge 证据分级 | 本项目新增 | episodic memory 只保存 public-only probation 观察；新 champion tips 先进入 knowledge probation，需独立证据后再 active |
 | goal plan 门控 + 确定性趋势先验 | OpenRSI_self | LLM 判断被便宜先验兜底，LLM 失败不阻塞 |
 | FEEDBACK.md 人在回路 | OpenRSI_self | runs/<name>/FEEDBACK.md 每代重读 |
 | 断点续跑 resume | 本项目新增 | OpenRSI_self 的最大缺口：重启从 gen0 重来。我们用 state.json+指纹校验实现真正续跑 |
@@ -65,19 +74,21 @@ held-out 题不参与进化选择，只在终局考题中验证泛化。
 
 ```
 npx tsx src/run.ts selftest        # 无 LLM 单元测试（编辑算子/journal/评测协议/记忆/看板）
+npm run sandboxie:selftest         # 真实 Sandboxie box + PID/路径/网络/清理探测
 npx tsx src/run.ts smoke           # 1 个真实 episode（quake_b，小预算）
 npx tsx src/run.ts exam            # 全套考题（含 held-out）→ RESULTS.md
 npx tsx src/run.ts rsi --gens N    # 完整进化循环
 npx tsx src/run.ts rsi --resume    # 从 state.json 断点续跑
 ```
 
-## 网关模型支持（2026-08-27 实测固化，8 模型）
+## 网关模型支持（2026-08-28 实测固化，9 模型）
 
 | 模型 | 端点 | 路由 | API | 上下文/最大输出 | 用途 |
 |---|---|---|---|---|---|
 | hy3 | zen 网关 | 直连 | chat/completions | 256k / 128k | outer（默认；实跑产出冠军提案） |
 | z-ai/glm-5.3-flash | OpenRouter | 直连 | chat/completions | 1m / 128k | 当前 quiz/agent inner 候选；2026-08-27 fresh baseline |
 | mimo-v2.5 | zen 网关 | 直连 | chat/completions | 1m / 128k | 备用（重推理、慢） |
+| mimo-v2.5-pro | **emooo.cc 临时网关** | 直连 | **chat/completions** | 1m / 128k | 临时 inner 候选；thinking minimal/low/medium/high/xhigh |
 | muse-spark-1.2-contributor | zen 网关 | **代理** | **responses** | — | 可选；直连 403，chat 端点 500 |
 | dsv4f | **校园本地** | 直连 | chat/completions | 256k / 64k | 免费 deepseek；服务器常关属正常 |
 
@@ -101,6 +112,17 @@ npx tsx src/run.ts rsi --resume    # 从 state.json 断点续跑
    16384（防单轮巨型输出，远低于各模型真实上限）。
 6. 网关有突发性 `finish_reason: network_error`（约分钟级突发）；pi 自动重试
    默认 3 次不够，harness 通过 `SettingsManager.inMemory` 加强为 6 次指数退避。
+7. 临时 `mimo-v2.5-pro` 使用 `https://api.emooo.cc/v1` 的 chat/completions，
+   两个端点都通过了基础 probe，但 chat 更快且已验证 Pi streaming/tool-call。
+   请求通过 `compat.thinkingFormat="zai"` 发送 `thinking: {type: "enabled"}`
+   （enabled 时附 `clear_thinking=false` 和 `reasoning_effort`）；`off` 发送
+   `thinking: {type: "disabled"}`，`max` 不发送而由统一层钳制到 `xhigh`。
+   密钥只从 `RSILAB_EMOOO_API_KEY` 读取，不能写入 Git。
+8. `inner_thinking_level` 与 `outer_thinking_level` 是可选 config 覆盖，支持
+   `off/minimal/low/medium/high/xhigh/max`；profile 在请求前做模型级钳制。
+   若长 turn 已在 exchange 中写出 canonical solution 但没有发 `submit`，driver
+   只读取该 workspace 内的候选并复用同一 public submit/eval 路径；结果以
+   `submissionRecovery="candidate-file-driver"` 留痕，不接触 private truth。
 
 ## TUI 层（pi-tui 复用，2026-08-24）
 
@@ -175,19 +197,49 @@ TuiAltScreen (pi-tui 全屏差分渲染 + Windows 原生 VT 支持)
 确定性契约：同 store 版本 + 同题 ⇒ 同注入集（重评测同分）；统计更新只在
 episode 结束后发生，不再中途污染评测。
 
-### 诚实性基础设施（防 reward-hacking）
+### 执行隔离与诚实性基础设施（防 reward-hacking）
 
-协议保持 no-sandbox（agent 有真实文件系统），作弊改为**检测而非阻止**
-（`src/guard.ts`）：工作区硬围栏（resolve+包含判定，堵住旧正则放行 `../`
-的洞）、eval 侧文件完整性 manifest、episode 后对 agent 写过/执行过的一切
-扫描受保护路径引用（命中 ⇒ 该 episode fitness→null，毒化结果进不了冠军
-选择与知识库统计）、judge 凭据剥离。`npm run selftest` 断言守卫行为。
+Windows strict backend 由 `src/sandboxie.ts` 适配已安装的 Sandboxie-Plus，
+不自行实现文件虚拟化、进程注入或 WFP。每个 episode 使用独立的 ASCII box，
+并把模型可控的文件交换目录放在仓库外的绝对 `%TEMP%\\GeoRSI\\episodes\\`
+路径。`SbieIni` 写入完整 repo/private deny、credential deny、exchange allow
+和 network block 规则后必须执行 `/reload`，再通过 query 回读验证。
+
+启动前还会用 `/listpids` 证明 Python 根进程确实属于该 box，并用未列举的 repo
+文件、private root 和真实 HTTPS 请求做阻断探测；任何成功访问都 fail-closed。
+`/box` 用于把根进程放入命名 box；Sandboxie 的 `/fcp` 是“根进程在外部、只强制
+未来子进程”的语义，因此不放在 GeoRSI 的外层 root launch，避免反向绕过隔离。
+正常父进程继承仍保证子进程跟随。`delete_sandbox_silent` 是 `/box:<name>` 后的
+命令 token，不是 slash-prefixed option。
+
+`host-audit` 仍保留 guard 机制但不宣称 OS 隔离：工作区硬围栏（resolve+包含判定，
+堵住旧正则放行 `../` 的洞）、官方 pi 文件工具的 symlink-aware operations、eval
+侧文件完整性 manifest、episode 后受保护路径扫描和 judge 凭据剥离仍然有效。
+严格 Sandboxie 还会清除 provider/judge credential、proxy、Python/Node path 注入环境变量，
+并拒绝位于 repo/private root 内的 `python_cmd`；GIS venv 必须预先安装在受保护根之外。
+正常完成、timeout、background kill、uncaught/unhandled fatal error 和 Node exit
+handler 都会做同步/验证清理；但外部 `taskkill /F`、断电或内核崩溃无法执行
+用户态清理，之后必须重新查询 enabled boxes 并运行 Sandboxie selftest。严格模式
+在清理不确定时不会回退到宿主机。Sandboxie 是 app-level isolation，不是 VM-level security。
+
+### GIS Python 运行时要求
+
+GIS 题目可以通过 `python_cmd` 指定解释器，但 strict Sandboxie 只接受位于
+`F:/rsi-lab/` 和 `F:/rsi-lab-private/` 两棵根目录之外的解释器或虚拟环境。
+位于仓库内的 `.gisenv/Scripts/python.exe` 会在创建 box **之前**被拒绝；GeoRSI
+不会回退到宿主机 Python，而是让该 episode fail-closed。应把 GIS venv 安装或
+复制到仓库外并将 `python_cmd` 指向它；如果确实需要使用仓库内 venv，只能
+显式选择 `host-audit`，该模式不是 OS sandbox。Windows 上可以用
+`robocopy F:/rsi-lab/.gisenv F:/GeoRSI/venvs/gis /E /COPY:DAT /DCOPY:DAT`
+完成一次迁移；benchmark builder 支持通过 `GEORSI_GIS_PYTHON` 指定未来
+生成的 `problem.json` 路径。
 
 ### 按题覆盖项
 
 `problem.json` 可按题覆盖 config 旋钮（type/judge/python_cmd/超时/max_turns/
 eval_cap 等），合并优先级高于全局配置——quiz 批量、长任务、GIS venv
-（`.gisenv/`）等特例不再需要改全局配置。
+等特例不再需要改全局配置；但 strict Sandboxie 下的 `python_cmd` 必须指向
+repo/private root 之外的解释器。
 
 ### Scope tip pilot
 

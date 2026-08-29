@@ -26,12 +26,17 @@ export interface ReasoningProfile {
 	mandatory?: boolean;
 	budget_param?: string;
 	budget_verified_tokens?: number[];
+	thinking_format?: string;
+	switch_param?: string;
+	verified_real_levels?: string[];
+	verified_disabled?: boolean;
 	status?: string;
 	note?: string;
 }
 
 export interface ModelProfile {
-	endpoint: "zen" | "local" | "openrouter";
+	/** endpoint/provider key for this model */
+	endpoint: "zen" | "local" | "openrouter" | "emooo";
 	api_style: "chat-completions" | "responses";
 	stability_class: string;
 	vision_raw_api: boolean;

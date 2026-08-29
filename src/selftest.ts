@@ -3,7 +3,7 @@
  * eval protocol against a scratch python script. Fast enough to run before
  * any paid episode.
  */
-import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { applyEdits, composeSystemPrompt, SEED_SCAFFOLD } from "./scaffold.js";
 import { Journal, atomicWriteJson, loadRunState, saveRunState, fingerprint, readJournalTail, type RunState } from "./journal.js";
@@ -132,6 +132,8 @@ export async function selftest(): Promise<boolean> {
 	const rec = recall(store, "quake_b", "seismology", 2);
 	check("recall ranks same problem first", rec[0]?.text === "Mc choice matters most");
 	check("render memory non-empty", renderMemory(rec).includes("Mc choice"));
+	check("memory labels public evidence as probation", renderMemory(rec).includes("probation") && renderMemory(rec).includes("public-only"));
+	check("high public score stays a hypothesis", !defaultObservation("x", 1, false)[0]!.includes("same approach generalizes"));
 	check("default observation failure path", defaultObservation("x", null, true)[0]!.includes("no valid submission"));
 
 	console.log("== goal trend ==");
@@ -146,10 +148,16 @@ export async function selftest(): Promise<boolean> {
 	check("findings escapes pipes", fmd.includes("adds L-moment estimator tip / pipe") && fmd.includes("ACCEPTED"));
 
 	console.log("== supported model list ==");
-	check("8 models fixed (4 gateway + 1 local + 3 openrouter)", SUPPORTED_MODELS.length === 8);
+	check("9 models fixed (4 zen + 1 emooo + 1 local + 3 openrouter)", SUPPORTED_MODELS.length === 9);
 	const muse = modelSpec("muse-spark-1.2-contributor");
 	check("muse is proxy + responses", muse?.route === "proxy" && muse?.api === "openai-responses");
 	check("hy3/ox-alpha/mimo direct chat", ["hy3", "ox-alpha-free", "mimo-v2.5"].every((id) => modelSpec(id)?.route === "direct" && modelSpec(id)?.api === "openai-completions"));
+	const emoooMimo = modelSpec("mimo-v2.5-pro");
+	check("temporary emooo mimo-v2.5-pro is chat + zai thinking", emoooMimo?.endpoint === "emooo" && emoooMimo.route === "direct" && emoooMimo.api === "openai-completions" && emoooMimo.contextWindow === 1048576 && emoooMimo.maxOutput === 131072 && emoooMimo.compat?.thinkingFormat === "zai" && emoooMimo.thinkingLevelMap?.xhigh === "xhigh" && emoooMimo.thinkingLevelMap?.max === null);
+	const emoooCfgPath = join(tmp, "emooo-config.json");
+	writeFileSync(emoooCfgPath, JSON.stringify({ inner_model: "mimo-v2.5-pro", inner_thinking_level: "xhigh", outer_model: "hy3", outer_thinking_level: "minimal", problems: [{ id: "quake_b" }] }));
+	const emoooCfg = loadConfig(emoooCfgPath);
+	check("config exposes emooo thinking levels", emoooCfg.inner_thinking_level === "xhigh" && emoooCfg.outer_thinking_level === "minimal");
 	const dsv4f = modelSpec("dsv4f");
 	check("dsv4f is local endpoint", dsv4f?.endpoint === "local" && dsv4f?.route === "direct" && dsv4f?.contextWindow === 262144 && dsv4f?.maxOutput === 65536);
 	const glm = modelSpec("z-ai/glm-5.3-flash");
@@ -218,6 +226,23 @@ export async function selftest(): Promise<boolean> {
 		ksel1.nodes.length > 0 && ksel1.nodes.some((n) => n.tags.some((t) => ktags.includes(t))),
 		`tags=${ktags.join(",")} picked=${ksel1.nodes.map((n) => n.id).join(",")}`,
 	);
+	const probationNode = {
+		id: "selftest-probation",
+		text: "probation lesson",
+		tags: ["quiz-k2"],
+		scope: "regional" as const,
+		stats: { uses: 0, wins: 0, fitness_sum: 0 },
+		origin: { run: "selftest", gen: 0 },
+		status: "probation" as const,
+	};
+	const previousProbationFlag = process.env.RSILAB_KB_INCLUDE_PROBATION;
+	delete process.env.RSILAB_KB_INCLUDE_PROBATION;
+	const probationHidden = selectKnowledge([probationNode], { genre: "quiz-k2", id: "k2_c001" });
+	process.env.RSILAB_KB_INCLUDE_PROBATION = "1";
+	const probationIncluded = selectKnowledge([probationNode], { genre: "quiz-k2", id: "k2_c001" });
+	if (previousProbationFlag === undefined) delete process.env.RSILAB_KB_INCLUDE_PROBATION;
+	else process.env.RSILAB_KB_INCLUDE_PROBATION = previousProbationFlag;
+	check("probation knowledge requires explicit pilot flag", probationHidden.nodes.length === 0 && probationIncluded.nodes.length === 1);
 
 	console.log("== RAG ==");
 	const corpus = loadCorpus();
@@ -246,11 +271,13 @@ export async function selftest(): Promise<boolean> {
 	console.log("== model profiles ==");
 	const { loadProfiles, resolveThinking, assertVisionAllowed, getProfile } = await import("./models.js");
 	loadProfiles();
-	check("model profiles parse", !!getProfile("hy3") && !!getProfile("dsv4f"));
+	check("model profiles parse", !!getProfile("hy3") && !!getProfile("dsv4f") && !!getProfile("mimo-v2.5-pro"));
 	const oxA = getProfile("stealth/ox-alpha");
 	check("retired OpenRouter alias profile preserved", oxA.vision_raw_api === true);
 	const glmProfile = getProfile("z-ai/glm-5.3-flash");
 	check("GLM 5.3 Flash profile loaded", glmProfile.vision_raw_api === true && !!glmProfile.reasoning.mandatory);
+	const emoooProfile = getProfile("mimo-v2.5-pro");
+	check("emooo profile records zai thinking levels", emoooProfile.endpoint === "emooo" && emoooProfile.api_style === "chat-completions" && emoooProfile.reasoning.thinking_format === "zai" && emoooProfile.reasoning.verified_disabled === true && emoooProfile.reasoning.verified_real_levels?.length === 5);
 	const rHy3Max = resolveThinking("hy3", "max");
 	check("hy3 max clamps to real ceiling xhigh", rHy3Max.level === "xhigh" && rHy3Max.clamped);
 	check("ox-alpha-free high clamps to trusted medium", resolveThinking("ox-alpha-free", "high").level === "medium");
@@ -260,6 +287,9 @@ export async function selftest(): Promise<boolean> {
 		"muse strips reasoning params",
 		Object.keys(resolveThinking("muse-spark-1.2-contributor", "high").extraBody).length === 0,
 	);
+	check("emooo off remains a disable request", resolveThinking("mimo-v2.5-pro", "off").level === "off");
+	const emoooMax = resolveThinking("mimo-v2.5-pro", "max");
+	check("emooo max clamps to xhigh", emoooMax.level === "xhigh" && emoooMax.clamped);
 	let visionBlocked = false;
 	try {
 		assertVisionAllowed("dsv4f", true);
@@ -270,7 +300,7 @@ export async function selftest(): Promise<boolean> {
 	assertVisionAllowed("ox-alpha-free", true); // raw API supports images - must not throw
 
 	console.log("== anti-cheat guard ==");
-	const { scanWorkspaceForBreaches } = await import("./guard.js");
+	const { scanWorkspaceForBreaches, scanPythonExecutionPolicy } = await import("./guard.js");
 	const { resolveInWorkspace } = await import("./inner/solve.js");
 	const guardDir = join(tmp, "guard");
 	mkdirSync(join(guardDir, "data"), { recursive: true });
@@ -283,6 +313,11 @@ export async function selftest(): Promise<boolean> {
 	check("guard detects gold-path access", breach.length === 1 && breach[0].file === "cheat.py");
 	check("workspace fence contains relative paths", resolveInWorkspace(guardDir, "sub/a.py") !== null && resolveInWorkspace(guardDir, "a.py") !== null);
 	check("workspace fence blocks traversal", resolveInWorkspace(guardDir, "../escape.py") === null && resolveInWorkspace(guardDir, "../../problems/x/answers.private.jsonl") === null);
+	const { runPythonHost } = await import("./inner/solve.js");
+	const hostAuditScript = join(guardDir, "host-audit.py");
+	writeFileSync(hostAuditScript, "print('host-audit-ok')\n");
+	const hostAuditResult = await runPythonHost(guardDir, loadConfig().python_cmd, hostAuditScript, 5_000);
+	check("explicit host-audit Python runner works", hostAuditResult.includes("exit=0") && hostAuditResult.includes("host-audit-ok"));
 
 	const { protectedManifest, verifyManifest, scanTextForBreaches } = await import("./guard.js");
 	const fakeProblem = join(tmp, "fakeproblem");
@@ -295,12 +330,90 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(join(fakeProblem, "eval.py"), "print(2)\n");
 	check("manifest detects eval.py tampering", verifyManifest(fakeProblem, manifest).includes("eval.py"));
 	const toolBreaches = scanTextForBreaches("tool_execution_start read file=../../problems/k2_c001/answers.private.jsonl");
-	check("tool-log scan flags gold reads", toolBreaches.length === 1 && toolBreaches[0].pattern === "answers.private");
+	const policyBreaches = scanPythonExecutionPolicy(
+		"import subprocess\nimport urllib.request\nos.system('echo risky')",
+		"analysis.py",
+	);
+	check("execution policy flags common escape hatches", policyBreaches.length === 3 && policyBreaches[0]?.rule === "child-process import");
 
-	console.log("== genres ==");
 	check("genre guess", guessGenre("quake_b") === "seismology" && guessGenre("flood_rp") === "hydrology" && guessGenre("poro_perm") === "petrophysics");
 
-	console.log("== scoped tips ==");
+	console.log("== Sandboxie adapter logic ==");
+	const {
+		sanitizeSandboxieBoxName,
+		makeSandboxieBoxName,
+		resolveExchangeWorkspace,
+		sandboxieRootCommandArgs,
+		sandboxieDeleteCommandArgs,
+		assertSandboxPythonCommand,
+		isSandboxieBackend,
+		sanitizeSandboxEnvironment,
+	} = await import("./sandboxie.js");
+	check("Sandboxie box names are strict ASCII", sanitizeSandboxieBoxName("bad/name DefaultBox") === "bad_name_DefaultBox");
+	check("generated box names retain the GeoRSI separator", /^GeoRSI_[0-9a-f]{16}$/.test(makeSandboxieBoxName("selftest")));
+	check("Sandboxie box names are length bounded", sanitizeSandboxieBoxName("x".repeat(100)).length <= 38);
+	const exchange = resolveExchangeWorkspace(join(process.cwd(), "runs", "demo", "episodes", "tag"));
+	check("strict exchange workspace leaves repository", !exchange.toLowerCase().startsWith(process.cwd().toLowerCase()));
+	const rootArgs = sandboxieRootCommandArgs("GeoRSI_test", "python.exe", "C:/tmp/runner.py");
+	check("/box root command does not misuse /fcp", rootArgs[0] === "/box:GeoRSI_test" && !rootArgs.includes("/fcp"));
+	check("delete sandbox uses command token", sandboxieDeleteCommandArgs("GeoRSI_test")[1] === "delete_sandbox_silent");
+	check("Windows defaults to Sandboxie backend", isSandboxieBackend({} as import("./config.js").Config) === (process.platform === "win32"));
+	check("explicit host-audit override disables Sandboxie", !isSandboxieBackend({ execution_backend: "host-audit" } as import("./config.js").Config));
+	check("explicit sandboxie override enables backend", isSandboxieBackend({ execution_backend: "sandboxie" } as import("./config.js").Config));
+	const perProblemCfg = Object.assign({ execution_backend: "sandboxie" }, { execution_backend: "host-audit" });
+	check("per-problem host-audit override wins", !isSandboxieBackend(perProblemCfg as import("./config.js").Config));
+	let interpreterBoundaryRejected = false;
+	try {
+		assertSandboxPythonCommand(join(process.cwd(), "fake-venv", "Scripts", "python.exe"), [process.cwd()]);
+	} catch {
+		interpreterBoundaryRejected = true;
+	}
+	check("strict Sandboxie rejects repo-local interpreters", interpreterBoundaryRejected);
+	const cleanEnv = sanitizeSandboxEnvironment({ RSILAB_API_KEY: "secret", OPENAI_API_KEY: "secret", AWS_ACCESS_KEY_ID: "secret", GITHUB_TOKEN: "secret", HTTP_PROXY: "proxy", SAFE_VALUE: "ok" });
+	check("agent environment strips credentials and proxies", !cleanEnv.RSILAB_API_KEY && !cleanEnv.OPENAI_API_KEY && !cleanEnv.AWS_ACCESS_KEY_ID && !cleanEnv.GITHUB_TOKEN && !cleanEnv.HTTP_PROXY && cleanEnv.SAFE_VALUE === "ok");
+	const { createExchangeToolDefinitions, assertExchangeWorkspace } = await import("./workspace-tools.js");
+	const exchangeTools = createExchangeToolDefinitions(guardDir);
+	check(
+		"official pi tools are exchange-wrapped",
+		["read", "write", "edit", "ls", "grep"].every((name) => exchangeTools.some((tool) => tool.name === name)),
+	);
+	const { shouldAttachExchangeTools } = await import("./piharness.js");
+	check("inner harness opts into exchange tools", shouldAttachExchangeTools(undefined));
+	check("advisor harness with builtinTools=[] has no exchange tools", !shouldAttachExchangeTools([]));
+	check("exchange tool opt-in can be explicit", shouldAttachExchangeTools([], true) && !shouldAttachExchangeTools(undefined, false));
+	let outsideToolRejected = false;
+	try {
+		const writeTool = exchangeTools.find((tool) => tool.name === "write")!;
+		await writeTool.execute("selftest", { path: "../outside-tool.txt", content: "x" }, undefined, undefined, undefined as never);
+	} catch {
+		outsideToolRejected = true;
+	}
+	check("official write tool rejects traversal", outsideToolRejected);
+	let danglingRejected = false;
+	let danglingSupported = false;
+	try {
+		const dangling = join(guardDir, "dangling-link.txt");
+		symlinkSync(join(tmp, "does-not-exist.txt"), dangling, "file");
+		danglingSupported = true;
+		const writeTool = exchangeTools.find((tool) => tool.name === "write")!;
+		try {
+			await writeTool.execute("selftest", { path: "dangling-link.txt", content: "x" }, undefined, undefined, undefined as never);
+		} catch {
+			danglingRejected = true;
+		}
+	} catch {
+		/* symlink creation may require elevated Windows developer settings */
+	}
+	check("official write tool rejects dangling symlinks", !danglingSupported || danglingRejected, danglingSupported ? "" : "symlink creation unavailable; skipped");
+	let overlapRejected = false;
+	try {
+		assertExchangeWorkspace(guardDir, guardDir, join(tmp, "private"));
+	} catch {
+		overlapRejected = true;
+	}
+	check("exchange workspace rejects protected overlap", overlapRejected);
+
+
 	const { applyEdits: applyEdits2, composeSystemPrompt: compose2 } = await import("./scaffold.js");
 	const SEED2 = SEED_SCAFFOLD;
 	const scoped = applyEdits2(SEED2, [

@@ -14,7 +14,7 @@ benchmarks/
 
 api_key_or.txt
 
-# python venv for GIS problems (.gisenv created by problems/<id> setup)
+# legacy repo-local GIS venv (strict Sandboxie uses an external venv)
 .gisenv/
 
 # external-benchmark data is regenerable from source banks via scripts/
@@ -23,5 +23,8 @@ problems/*/data/
 
 # derived LLM-judge disk cache (same submission -> same score)
 problems/_shared/judge_cache*.jsonl
+
+# Windows reserves this name for the null device; ignore a phantom worktree entry
+nul
 
 knowledge/nodes-lane-*.jsonl

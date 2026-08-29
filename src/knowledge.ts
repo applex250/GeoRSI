@@ -84,9 +84,9 @@ export interface KnowledgeSelection {
 }
 
 /**
- * Pick the nodes to inject for one problem: active nodes whose tags overlap
- * the problem's regions, ordered by match breadth, then historical utility,
- * then id — truncated at the char budget. Pure & total order -> stable.
+ * Pick active knowledge for one problem. Probation nodes are excluded by
+ * default; set RSILAB_KB_INCLUDE_PROBATION=1 for an explicit A/B pilot. This
+ * keeps unvalidated champion tips from silently becoming part of every run.
  */
 export function selectKnowledge(
 	nodes: KnowledgeNode[],
@@ -94,13 +94,15 @@ export function selectKnowledge(
 	budgetChars = KNOWLEDGE_CHAR_BUDGET,
 ): KnowledgeSelection {
 	const tags = deriveTags(meta.genre, meta.id);
+	const includeProbation = process.env.RSILAB_KB_INCLUDE_PROBATION === "1";
 	const scored: { n: KnowledgeNode; matches: number }[] = [];
 	for (const n of nodes) {
-		if (n.status !== "active") continue;
+		if (n.status !== "active" && !(includeProbation && n.status === "probation")) continue;
 		const matches = n.scope === "generic" ? 1 : n.tags.filter((t) => tags.includes(t)).length;
 		if (matches > 0) scored.push({ n, matches });
 	}
 	scored.sort((a, b) => {
+		if (a.n.status !== b.n.status) return a.n.status === "active" ? -1 : 1;
 		if (b.matches !== a.matches) return b.matches - a.matches;
 		const ua = a.n.stats.uses ? a.n.stats.fitness_sum / a.n.stats.uses : -1;
 		const ub = b.n.stats.uses ? b.n.stats.fitness_sum / b.n.stats.uses : -1;
@@ -120,8 +122,8 @@ export function selectKnowledge(
 
 export function renderKnowledge(sel: KnowledgeSelection): string {
 	if (sel.nodes.length === 0) return "";
-	const lines = sel.nodes.map((n) => `- ${n.text}`);
-	return "\n\nCurated knowledge matched to this task (proven lessons, follow them):\n" + lines.join("\n");
+	const lines = sel.nodes.map((n) => `- [${n.status === "probation" ? "probation; test before trusting" : "active"}] ${n.text}`);
+	return "\n\nCurated knowledge matched to this task (active lessons and explicit probation pilots):\n" + lines.join("\n");
 }
 
 /**

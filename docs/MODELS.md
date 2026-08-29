@@ -1,6 +1,6 @@
 # 模型能力档案与统一调用层
 
-> 实测日期 2026-08-27。探针：`scripts/model_probe.py`（稳定性/文本）、`scripts/model_probe2.py`（真图视觉/扩展等级）。
+> 实测日期 2026-08-28。探针：`scripts/model_probe.py`（稳定性/文本）、`scripts/model_probe2.py`（真图视觉/扩展等级）。
 > 测量条件声明：部分数据在演化 run 并发压网关时采集；旧 `stealth/ox-alpha` alias 于 2026-08-27 返回 HTTP 404，已停止使用。
 > **机器可读单一事实源：`config/model-profiles.json`** —— TS（`src/models.ts`）与 Python（`problems/_shared/model_client.py`）两侧适配器都从它读取；本文档是 human view。
 
@@ -22,6 +22,7 @@
 - **A. effort 风格** `reasoning_effort: <lv>`：zen 三模型、dsv4f（部分档）
 - **B. 对象风格** `reasoning: {effort: <lv>}`：多数端点也收，但常被静默钳制（延迟无差）
 - **C. 预算风格** `thinking_budget: <tokens>`：**dsv4f 独有且真实生效**
+- **D. emooo/z.ai 风格** `thinking: {type: "enabled"|"disabled"}` 加 `reasoning_effort: <lv>`：临时 `mimo-v2.5-pro`
 
 ### 各模型实际支持
 
@@ -29,6 +30,7 @@
 |---|---|---|---|---|
 | hy3 | minimal/none/low/medium/high/**xhigh** ✓；`off`、`max` 显式拒绝 | 收下但多被钳制 | 各档延迟 3-11s 有波动 | `max` 别用 |
 | mimo-v2.5 | none/low/medium/high ✓；minimal/off/xhigh/max 参数报错 | 全收下（含 xhigh/max），答案正确但无法证明真生效 | none 下数学题答错 | **none/off 禁用于定量任务**；xhigh 只走 B 且不保证真生效 |
+| mimo-v2.5-pro (emooo) | off（thinking disabled）/minimal/low/medium/high/xhigh ✓；max、none 不用 | `thinking: {type: enabled, clear_thinking: false}` + `reasoning_effort` | chat/completions 200；Responses 也 200 但较慢；Pi tool-call 已验证 | 不要发送 `reasoning_effort=max/off`；密钥只放 `RSILAB_EMOOO_API_KEY` |
 | ox-alpha-free | retired | retired | retired | — |
 | GLM-5.3 Flash | low/high/max | reasoning mandatory | 200 OK plain/low probe | fresh agent baseline required |
 | dsv4f | low/medium ✓；high 显式不支持；**xhigh 意外接受** | 全收但恒定延迟=钳制 | **C 风格真实生效**：budget=16384 时思考字符 4704→9741、延迟 13→29s | high(effort)；none 掉智力 |
@@ -70,7 +72,6 @@
 | 项 | 实测 |
 |---|---|
 | 端点 | `https://openrouter.ai/api/v1`（密钥 `api_key_or.txt`，已 gitignore） |
-| 端点 | `https://openrouter.ai/api/v1`（密钥 `api_key_or.txt`，已 gitignore） |
 | 计费 | OpenRouter 低价档（catalog verified 2026-08-27） |
 | 稳定性/延迟 | catalog live；plain/low completion probe 均 200 OK |
 | 上下文/输出 | top provider 1,048,576 / 131,072 |
@@ -80,6 +81,47 @@
 | 当前结论 | 可用于新实验；quiz/scoped 三臂 fresh baseline 尚待完成 |
 
 角色建议：当前 quiz/scoped 实验 inner 候选；长任务仍需 episode watchdog 和提交预算硬闸门观察。
+
+### mimo-v2.5-pro（临时 emooo.cc 路由，2026-08-28 实测）
+
+| 项 | 实测 |
+|---|---|
+| Base URL | `https://api.emooo.cc/v1` |
+| 模型 | `mimo-v2.5-pro` |
+| `/chat/completions` | **200 OK**；Pi streaming/tool-call 已验证 |
+| `/responses` | **200 OK**；基础请求可用，但同一小请求约 12.2s，慢于 chat 的约 7.6s |
+| 上下文 / 输出 | 1,048,576 / 131,072（按服务方信息；GeoRSI 默认单请求仍受自身 cap 约束） |
+| 推理开关 | `thinking: {type: "enabled"|"disabled"}` |
+| 推理档位 | `minimal` / `low` / `medium` / `high` / `xhigh` 均 200 OK；`max` 不支持 |
+| GeoRSI 接线 | `openai-completions` + `compat.thinkingFormat="zai"`；enabled 发送 `thinking.type=enabled`、`clear_thinking=false` 和 `reasoning_effort` |
+| 密钥 | 仅使用环境变量 `RSILAB_EMOOO_API_KEY`（不写入源码或 config.json） |
+
+选择 **chat/completions**：两个端点都能用，但 chat 更快，且 pi 的流式输出、工具调用和
+多轮消息链路已经实测通过。GeoRSI 中暂不把该模型设为默认，只作为临时可选模型；推荐
+`thinkingLevel=low`，需要更深推理时使用 `medium` / `high` / `xhigh`。`off` 会映射为
+`thinking: {type: "disabled"}`；`max` 会在统一层钳制到 `xhigh`，不会发送服务端不支持的
+`reasoning_effort=max`。
+
+启动前设置密钥并选择模型：`config/emooo-mimo-pro.json` 是不含密钥的临时配置，
+其中 `inner_thinking_level` / `outer_thinking_level` 可写 `off`、`minimal`、`low`、
+`medium`、`high`、`xhigh` 或 `max`；统一层会依据 profile 做钳制，绝不把
+网关明确拒绝的 `max` 发送出去。
+
+```powershell
+$env:RSILAB_EMOOO_API_KEY="<temporary-key>"
+$env:RSILAB_REQUEST_MAX_TOKENS="8192"  # 可选：缩短长推理单轮上限
+npm run smoke -- --config config/emooo-mimo-pro.json
+```
+
+短 GeoRSI Sandboxie smoke（2026-08-28，`quake_b`，`inner_thinking_level=low`）已真实跑通：
+`fitness=0.9674`、`public=0.7326`、`submits=1`、`turns=1`，约 537 秒。Sandboxie
+探针仍为 repo/private/network 全部 `BLOCKED`，cleanup 为 terminated/deleted/reloaded
+且 `boxStillEnabled=false`、`globalWfpRestored=true`。该轮模型在写出候选文件后因
+`stopReason=length` 未发出工具调用，由 driver 通过同一个 public submit 路径恢复，
+episode.json 明确记录 `submissionRecovery="candidate-file-driver"`；这证明接线和
+隔离链路可用，但不应把这一次 smoke 当作模型质量排名。
+
+不要把真实 key 写入 Git；本轮 key 已在命令行探针中使用，建议测试完成后轮换。
 
 ### hy3 作为 inner 的负结论（2026-08-25 实测）
 quiz 批量任务 12 轮零提交：唯一产物是"枚举题号"脚本，从未开始作答。hy3 的舒适区是外层式短爆发（JSON 单对象、提案、判定），**不适配 inner 的长程产出管线**（100 题答案表）。角色矩阵维持：hy3 只任 outer/judge 备选，inner 使用 GLM fresh baseline 或 mimo fallback。

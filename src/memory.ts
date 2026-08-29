@@ -11,6 +11,18 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+export type MemoryConfidence = "probation" | "validated";
+export type MemoryEvidenceSource = "public_score" | "episode_outcome" | "operator";
+
+export interface MemoryEvidence {
+	/** What the agent-visible evidence actually supports. */
+	source: MemoryEvidenceSource;
+	/** Public score only; private fitness must never be rendered to the agent. */
+	score: number | null;
+	/** Number of independent observations behind this item. */
+	repetitions: number;
+}
+
 export interface MemoryItem {
 	ts: number;
 	problem: string;
@@ -18,6 +30,10 @@ export interface MemoryItem {
 	tag: string;
 	text: string;
 	publicScore: number | null;
+	/** New records start as probation; old JSONL records default to probation. */
+	confidence?: MemoryConfidence;
+	/** Evidence metadata is deliberately agent-safe and public-only. */
+	evidence?: MemoryEvidence;
 }
 
 export interface MemoryStore {
@@ -47,7 +63,17 @@ export function openMemory(runDir: string): MemoryStore {
 		for (const line of readFileSync(p, "utf8").split("\n")) {
 			if (!line.trim()) continue;
 			try {
-				items.push(JSON.parse(line) as MemoryItem);
+				const parsed = JSON.parse(line) as MemoryItem;
+				const score = parsed.publicScore ?? null;
+				items.push({
+					...parsed,
+					confidence: parsed.confidence ?? "probation",
+					evidence: parsed.evidence ?? {
+						source: score != null ? "public_score" : "episode_outcome",
+						score,
+						repetitions: 1,
+					},
+				});
 			} catch {
 				/* torn tail tolerated */
 			}
@@ -57,8 +83,18 @@ export function openMemory(runDir: string): MemoryStore {
 }
 
 export function addMemory(store: MemoryStore, item: MemoryItem): void {
-	store.items.push(item);
-	appendFileSync(join(store.dir, "memory.jsonl"), JSON.stringify(item) + "\n");
+	const score = item.publicScore ?? null;
+	const normalized: MemoryItem = {
+		...item,
+		confidence: item.confidence ?? "probation",
+		evidence: item.evidence ?? {
+			source: score != null ? "public_score" : "episode_outcome",
+			score,
+			repetitions: 1,
+		},
+	};
+	store.items.push(normalized);
+	appendFileSync(join(store.dir, "memory.jsonl"), JSON.stringify(normalized) + "\n");
 }
 
 /** Deterministic recall: same problem > same genre > score > recency. */
@@ -79,16 +115,30 @@ export function recall(store: MemoryStore, problem: string, genre: string, k = 6
 export function renderMemory(items: MemoryItem[]): string {
 	if (items.length === 0) return "";
 	return (
-		"Possibly relevant experience from earlier episodes (verify before trusting):\n" +
-		items.map((m) => `- [${m.tag}] ${m.text}`).join("\n")
+		"Possibly relevant experience from earlier episodes (probationary evidence; verify before trusting):\n" +
+		items
+			.map((m) => {
+				const confidence = m.confidence ?? "probation";
+				const source = m.evidence?.source === "public_score" ? "public-only" : "episode";
+				return `- [${m.tag}|${confidence}|${source}] ${m.text}`;
+			})
+			.join("\n")
 	);
 }
 
-/** A fixed, safe reflection fallback — never requires an LLM call. */
+/**
+ * A fixed, safe reflection fallback — never requires an LLM call.
+ *
+ * Public success is evidence that one submission worked on the visible split;
+ * it is deliberately NOT described as proof of generalization. Promotion to a
+ * trusted/validated lesson requires a separate repeated or cross-task check.
+ */
 export function defaultObservation(problem: string, publicScore: number | null, failed: boolean): string[] {
-	if (failed) return [`on ${problem}: episode produced no valid submission; keep scripts minimal and submit early`];
-	if (publicScore != null && publicScore >= 0.9) {
-		return [`on ${problem}: pipeline validated on reference data scored ${publicScore.toFixed(2)}; same approach generalizes`];
+	if (failed) {
+		return [`on ${problem}: no valid submission was produced; this is a failure signal, not a proven diagnosis — simplify and submit early`];
 	}
-	return [`on ${problem}: partial credit ${publicScore?.toFixed(2) ?? "?"}; validate estimator on reference data before submitting`];
+	if (publicScore != null && publicScore >= 0.9) {
+		return [`on ${problem}: public split score ${publicScore.toFixed(2)}; promising candidate recipe only — verify on new data before reusing it`];
+	}
+	return [`on ${problem}: partial public credit ${publicScore?.toFixed(2) ?? "?"}; candidate hypothesis only — validate the estimator on reference or new data before submitting`];
 }

@@ -15,25 +15,25 @@
  *   - budget stop + stagnation stop
  *   - held-out final exam with the champion scaffold
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
 import { getPiRuntime, TOKENS } from "./provider.js";
-import { loadProblems, makeEvalContext, type Problem } from "./bench/eval.js";
+import { loadProblems, type Problem } from "./bench/eval.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
 import { Journal, loadRunState, saveRunState, fingerprint, readJournalTail, atomicWriteJson, type RunState } from "./journal.js";
-import { solveEpisode, setBudgetExhausted, type EpisodeResult } from "./inner/solve.js";
+import { solveEpisode, setBudgetExhausted } from "./inner/solve.js";
 import { propose, ANGLES } from "./outer/improve.js";
 import { critiquePanel } from "./outer/critique.js";
 import { makeGoalPlan, checkGoal, readFeedback, type GoalPlan } from "./goal.js";
 import { writeReports, type EpisodeRecord, type FindingRow } from "./board.js";
-import { openMemory, addMemory, defaultObservation, snapshotMemory, type MemoryItem } from "./memory.js";
-import { knowledgePath, loadKnowledge, recordUsage, storeVersion } from "./knowledge.js";
+import { openMemory } from "./memory.js";
+import { loadKnowledge, storeVersion } from "./knowledge.js";
 import { runHeldoutExam } from "./exam.js";
 import type { RsiEvent } from "./tui/events.js";
 import { RunController } from "./loopctl.js";
-import { weightedFitnessMean } from "./metrics.js";
+import { evaluateScaffold, commitEvaluationLearning, promoteChampionTipsToKnowledge, type EvaluationLearning } from "./rsi_eval.js";
 
 export interface RsiOptions {
 	cfg: Config;
@@ -49,143 +49,6 @@ export interface RsiOptions {
 
 function nowTs(): string {
 	return new Date().toISOString().replace("T", " ").slice(0, 19);
-}
-
-interface EvaluationLearning {
-	memoryItems: MemoryItem[];
-	knowledgeUsage: { ids: string[]; fitness: number }[];
-}
-
-interface ScaffoldEvaluation {
-	mean: number | null;
-	detail: EpisodeRecord[];
-	learning: EvaluationLearning;
-}
-
-/** Evaluate a scaffold on a fixed input snapshot; learning commits later. */
-async function evaluateScaffold(
-	cfg: Config,
-	problems: Problem[],
-	scaffold: Scaffold,
-	runDir: string,
-	role: string,
-	model: Parameters<typeof solveEpisode>[0]["model"],
-	memory: ReturnType<typeof openMemory>,
-	emit: (ev: RsiEvent) => void = () => {},
-	controller?: RunController,
-	log: (m: string) => void = () => {},
-	): Promise<ScaffoldEvaluation> {
-	const evalCtx = makeEvalContext(cfg, ROOT);
-	const detail: EpisodeRecord[] = [];
-	const evaluated: { problem: Problem; result: EpisodeResult }[] = [];
-	const weighted: { fitness: number | null; weight: number }[] = [];
-	const evalMemory = snapshotMemory(memory);
-	const repeats = Math.max(1, Math.floor(cfg.episodes_per_problem || 1));
-	for (let repeat = 0; repeat < repeats; repeat++) {
-		for (const problem of problems) {
-			await controller?.waitIfPaused();
-			const tag = repeats === 1 ? `${role}-${problem.id}` : `${role}-r${repeat + 1}-${problem.id}`;
-			const workspace = join(runDir, "episodes", tag);
-			const result = await solveEpisode({
-				cfg,
-				problem,
-				evalCtx,
-				scaffold,
-				model,
-				workspace,
-				memory: evalMemory,
-				log,
-				tag,
-				emit,
-				persistKnowledgeUsage: false,
-			});
-			evaluated.push({ problem, result });
-			weighted.push({ fitness: result.fitness, weight: problem.weight });
-			detail.push({
-				problem: problem.id,
-				fitness: result.fitness,
-				bestPublic: result.bestPublic,
-				submits: result.submits,
-				secs: Math.round(result.secs),
-				error: result.error,
-			});
-		}
-	}
-	// Fixed denominator: an ERR/null episode is a failed task, not missing data.
-	if (problems.length === 0) return { mean: null, detail, learning: { memoryItems: [], knowledgeUsage: [] } };
-	const mean = weightedFitnessMean(weighted);
-	emit({
-		type: "suite_done",
-		mean,
-		perProblem: detail.map((d) => ({ problem: d.problem, fitness: d.fitness })),
-	});
-
-	// Stage learning locally. Candidate, verification, and hold-out callers
-	// decide later whether this evidence is allowed to enter durable state.
-	const memoryItems: MemoryItem[] = [];
-	const knowledgeUsage: { ids: string[]; fitness: number }[] = [];
-	for (const { problem, result: res } of evaluated) {
-		const obs = defaultObservation(res.problemId, res.bestPublic, res.fitness == null);
-		for (const text of obs.slice(0, 1)) {
-			memoryItems.push({
-				ts: Date.now(),
-				problem: res.problemId,
-				genre: problem.genre,
-				tag: res.error ? "failure" : "note",
-				text,
-				publicScore: res.bestPublic,
-			});
-		}
-		if (res.fitness != null && res.knowledgeIds.length > 0) {
-			knowledgeUsage.push({ ids: res.knowledgeIds, fitness: res.fitness });
-		}
-	}
-	return { mean, detail, learning: { memoryItems, knowledgeUsage } };
-}
-
-function commitEvaluationLearning(memory: ReturnType<typeof openMemory>, learning: EvaluationLearning): void {
-	for (const item of learning.memoryItems) addMemory(memory, item);
-	for (const usage of learning.knowledgeUsage) recordUsage(usage.ids, usage.fitness);
-}
-
-/** Champion tips outlive their run: accepted tips become knowledge nodes
- * tagged with the suite's genres, so future runs (any model) inherit them. */
-function promoteChampionTipsToKnowledge(runName: string, gen: number, champion: Scaffold, problems: Problem[]): void {
-	try {
-		const genres = [...new Set(problems.map((p) => p.genre))];
-		const tips = champion.tips
-			.map((t) => (typeof t === "string" ? { text: t, genres: undefined as string[] | undefined } : t))
-			.filter((t) => t.text?.trim());
-		if (tips.length === 0) return;
-		const path = knowledgePath();
-		const existing = new Set<string>();
-		for (const line of readFileSync(path, "utf8").split("\n")) {
-			if (!line.trim()) continue;
-			try {
-				existing.add(JSON.parse(line).text as string);
-			} catch {
-				/* torn tail */
-			}
-		}
-		const fresh = tips.filter((t) => !existing.has(t.text));
-		if (fresh.length === 0) return;
-		const stamp = Date.now().toString(36);
-		const lines = fresh.map((t, i) =>
-			JSON.stringify({
-				id: `tip_${stamp}_${i}`,
-				text: t.text.slice(0, 400),
-				tags: t.genres?.length ? t.genres : genres,
-				scope: t.genres?.length || genres.length === 1 ? "regional" : "generic",
-				stats: { uses: 0, wins: 0, fitness_sum: 0 },
-				origin: { run: runName, gen },
-				status: "active",
-			}),
-		);
-		appendFileSync(path, lines.join("\n") + "\n");
-		console.log(`[knowledge] promoted ${fresh.length} champion tip(s) from g${gen} of ${runName}`);
-	} catch (e) {
-		console.error(`[knowledge] promotion failed: ${(e as Error).message}`);
-	}
 }
 
 export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDir: string }> {
@@ -232,7 +95,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		log(`resuming run "${opts.runName}" at generation ${state.generation} (best=${state.bestFitness?.toFixed(4) ?? "—"})`);
 		// carry the spent budget across process restarts
 		TOKENS.total = state.tokensUsed ?? 0;
-		goalPlan = (await readGoalPlan(runDir)) ?? (await makeGoalPlan(outer, defaultGoalText(cfg)));
+		goalPlan = (await readGoalPlan(runDir)) ?? (await makeGoalPlan(outer, defaultGoalText(cfg), 150_000, cfg.outer_thinking_level ?? "low"));
 	} else {
 		if (state && opts.resume) {
 			throw new Error(
@@ -243,7 +106,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		if (state && !opts.resume) {
 			log(`note: run dir already has state; starting fresh run (old files kept)`);
 		}
-		goalPlan = await makeGoalPlan(outer, defaultGoalText(cfg));
+		goalPlan = await makeGoalPlan(outer, defaultGoalText(cfg), 150_000, cfg.outer_thinking_level ?? "low");
 		await writeGoalPlan(runDir, goalPlan);
 		log(`goal criteria:\n${goalPlan.criteria.map((c) => `  - ${c}`).join("\n")}`);
 		journal.append({ kind: "note", ts: nowTs(), generation: 0, text: `goal plan: ${goalPlan.criteria.join(" | ")}` });
@@ -252,7 +115,18 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		log("\n[gen 0] baseline episode suite ...");
 		emit({ type: "phase", phase: "baseline suite", detail: "seed scaffold" });
 		const seed = cfg.seed_scaffold ?? SEED_SCAFFOLD;
-		const baseline = await evaluateScaffold(cfg, problems, seed, runDir, "g0", inner, memory, emit, controller, log);
+		const baseline = await evaluateScaffold({
+			cfg,
+			problems,
+			scaffold: seed,
+			runDir,
+			role: "g0",
+			model: inner,
+			memory,
+			emit,
+			controller,
+			log,
+		});
 		const { mean, detail } = baseline;
 		commitEvaluationLearning(memory, baseline.learning);
 		log(`[gen 0] baseline mean fitness=${mean?.toFixed(4) ?? "ERR"} tokens=${TOKENS.total}`);
@@ -316,6 +190,8 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				goalPlan,
 				state.fitnessHistory,
 				`champion mean=${state.bestFitness?.toFixed(4) ?? "?"}; stagnation=${state.stagnation}; tokens=${TOKENS.total}`,
+				150_000,
+				cfg.outer_thinking_level ?? "low",
 			);
 			steer = verdict.steer;
 			log(`[goal] onTrack=${verdict.onTrack} (${verdict.source})${steer ? ` steer: ${steer.slice(0, 120)}` : ""}`);
@@ -334,7 +210,10 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 					feedback,
 					goalSteer: steer,
 					suiteSummary,
-				});
+				},
+				240_000,
+				cfg.outer_thinking_level ?? "medium",
+			);
 				if (p) proposals.push(p);
 				else log(`  [propose ${k + 1}] invalid/empty proposal`);
 			} catch (e) {
@@ -360,6 +239,8 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				.map((f) => `${f.mechanism} -> ${f.fitness?.toFixed(3) ?? "ERR"} (${f.accepted ? "accepted" : "rejected"})`)
 				.join("; "),
 			cfg.critics,
+			150_000,
+			cfg.outer_thinking_level ?? "low",
 		);
 		log(
 			`  [critique] qualities=[${scores.map((s) => s.quality.toFixed(1)).join(",")}] -> ${survivors.length}/${proposals.length} survive`,
@@ -412,7 +293,18 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 			child.generation = gen;
 			log(`  [eval survivor ${i + 1}/${survivors.length}] ${p.mechanism.slice(0, 80)}`);
 			emit({ type: "phase", phase: `gen ${gen}: eval survivor ${i + 1}/${survivors.length}`, detail: p.mechanism.slice(0, 90) });
-			const evaluation = await evaluateScaffold(cfg, problems, child, runDir, `g${gen}-s${i + 1}`, inner, memory, emit, controller, log);
+			const evaluation = await evaluateScaffold({
+				cfg,
+				problems,
+				scaffold: child,
+				runDir,
+				role: `g${gen}-s${i + 1}`,
+				model: inner,
+				memory,
+				emit,
+				controller,
+				log,
+			});
 			const { mean, detail } = evaluation;
 			log(`    -> mean fitness=${mean?.toFixed(4) ?? "ERR"}`);
 			const finding: FindingRow = {
@@ -445,7 +337,18 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		} else if (best && state.bestFitness != null && best.mean > state.bestFitness) {
 			log(`  [verify] challenger ${best.mean.toFixed(4)} > champion ${state.bestFitness.toFixed(4)}: fresh re-eval`);
 			emit({ type: "phase", phase: `gen ${gen}: adversarial verify` });
-			const verification = await evaluateScaffold(cfg, problems, best.child, runDir, `g${gen}-verify`, inner, memory, emit, controller, log);
+			const verification = await evaluateScaffold({
+				cfg,
+				problems,
+				scaffold: best.child,
+				runDir,
+				role: `g${gen}-verify`,
+				model: inner,
+				memory,
+				emit,
+				controller,
+				log,
+			});
 			const v = verification;
 			const avg = v.mean != null ? (best.mean + v.mean) / 2 : null;
 			log(`  [verify] re-eval=${v.mean?.toFixed(4) ?? "ERR"} avg=${avg?.toFixed(4) ?? "—"}`);

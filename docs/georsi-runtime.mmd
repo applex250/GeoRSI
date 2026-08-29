@@ -1,0 +1,70 @@
+flowchart TB
+    subgraph control["Control plane"]
+        cli["CLI / TUI\nsrc/run.ts + src/tui"]
+        ext["Pi research extension\nextensions/georsi.ts"]
+        ctl["RunController\npause / resume / stop"]
+    end
+
+    subgraph orchestration["Orchestration plane"]
+        loop["RSI loop\nsrc/rsi.ts"]
+        evalsuite["Suite evaluator\nsrc/rsi_eval.ts"]
+        outer["Proposal + critique\nsrc/outer/*"]
+        acceptance["Acceptance + reports\nchampion / journal / board"]
+    end
+
+    subgraph episode["Episode plane"]
+        solver["Inner solver\nsrc/inner/solve.ts"]
+        harness["PiHarness\nsrc/piharness.ts"]
+        tools["Official pi tools\nexchange-guarded operations"]
+        sandbox["Sandboxie-Plus adapter\nSbieIni + /reload + Start /box"]
+        exchange["Absolute exchange workspace\n%TEMP%\\GeoRSI\\episodes\\run\\episode"]
+    end
+
+    subgraph boundary["Evaluation boundary"]
+        public["Public eval\nfeedback only"]
+        private["Private eval / judge\nfitness only"]
+        guard["Guard + manifest\npost-episode integrity"]
+    end
+
+    subgraph assets["State and assets"]
+        problems["Problem registry\nproblems/ + config"]
+        learning["Learning\nscaffold / knowledge / memory / RAG"]
+        runs["Run artifacts\nruns/<name>/"]
+        providers["Provider adapters\nsrc/provider.ts + models.ts"]
+    end
+
+    cli --> loop
+    ext --> ctl
+    ctl --> loop
+    loop --> outer
+    loop --> evalsuite
+    evalsuite --> solver
+    outer --> providers
+    harness --> providers
+    solver --> harness
+    solver --> tools
+    solver --> sandbox
+    sandbox --> exchange
+    tools --> exchange
+    exchange --> public
+    public --> solver
+    solver --> private
+    solver --> guard
+    loop --> acceptance
+    acceptance --> runs
+    loop --> learning
+    solver --> learning
+    solver --> problems
+    public --> problems
+    private --> problems
+
+    classDef control fill:#e8f0fe,stroke:#4a78c2,color:#172b4d;
+    classDef orchestration fill:#fff2cc,stroke:#b8860b,color:#3d3210;
+    classDef episode fill:#e1f0d8,stroke:#6a9f58,color:#1e3218;
+    classDef boundary fill:#fce4d6,stroke:#c55a11,color:#4a1c05;
+    classDef assets fill:#e8e8e8,stroke:#777,color:#222;
+    class cli,ext,ctl control;
+    class loop,evalsuite,outer,acceptance orchestration;
+    class solver,harness,tools,sandbox,exchange episode;
+    class public,private,guard boundary;
+    class problems,learning,runs,providers assets;

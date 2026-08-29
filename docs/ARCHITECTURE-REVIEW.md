@@ -50,7 +50,8 @@ GeoRSI 不是训练一个新的地学基础模型。它解决的是：在模型�
 核心调用链位于：
 
 - `src/run.ts`：CLI 分发和配置加载。
-- `src/rsi.ts`：外层演化、候选选择、验证和 held-out 入口。
+- `src/rsi.ts`：外层 generation 编排、候选选择和 held-out 入口。
+- `src/rsi_eval.ts`：训练套件评估、学习暂存/提交和 champion tip 晋升策略。
 - `src/inner/solve.ts`：一个隔离 episode 的工具循环和最终评分。
 - `src/provider.ts`、`src/piharness.ts`、`src/models.ts`：模型 Adapter、超时、推理等级和 token 统计。
 - `src/bench/eval.ts`、`src/guard.ts`：公私评测和安全校验。
@@ -87,15 +88,53 @@ fingerprint 使用 SHA-256 截断值，不再使用容易碰撞的短 FNV 值。
 
 `episodes_per_problem` 现在会实际创建独立 workspace 和独立 episode 记录，并用固定分母聚合。默认值 `1` 保持现有成本和行为；设置为大于 `1` 后可用于稳定性和方差测量。
 
+### 4.6 Memory 证据语义收紧
+
+`src/memory.ts` 现在为旧记录补齐 `probation` 和公开证据元数据；高
+public 分只会生成“候选 recipe”，不再写成“same approach generalizes”。
+`runExam` 和 `runHeldoutExam` 使用空 episodic memory，避免已有 run 的记忆
+污染独立考试。
+
+### 4.7 RSI 评估职责拆分
+
+训练套件评估、固定 Memory snapshot、学习暂存和 champion tip 处理已移到
+`src/rsi_eval.ts`；`src/rsi.ts` 保留 generation 控制和接受决策，降低总控
+文件的职责密度。
+
+### 4.8 执行生命周期与 Sandboxie-Plus 隔离
+
+`src/sandboxie.ts` 通过已安装的 Sandboxie-Plus Release 接入 Windows strict
+backend：每个 episode 使用独立 ASCII box 和仓库外的绝对 exchange workspace；
+`SbieIni` 写入 repo/private/credential deny、exchange allow、WFP network block
+后强制 `/reload`，再 query 回读。Python 根进程通过 `/box:<name>` 启动，
+`/listpids` 证明归属，并用真实 repo/private/network probe fail-closed。
+超时、背景 job、正常结束和 Node exit handler 都走 terminate → 删除内容 →
+删除 box 配置 → `/reload`。官方 pi 文件工具的 operations 也绑定到 exchange，
+并做 symlink/junction-aware 边界检查。
+
+`/fcp` 没有放在 GeoRSI 外层 root launch：Sandboxie `Start.exe` 的语义是
+“外部运行当前根进程，只强制其未来子进程”，会反向破坏 root isolation；
+正常 boxed-parent propagation 已覆盖子进程跟随。`host-audit` 只保留旧的
+防御性检查，不是严格回退路径。严格 Sandboxie 下 `python_cmd` 必须指向
+repo/private root 之外的解释器或 venv；repo 内 `.gisenv` 等路径会在创建
+box 前直接拒绝，不会回退到宿主机 Python。Sandboxie 是 app-level isolation，不宣称 VM
+级安全。
+
 ## 5. 仍然存在的架构问题
 
-### P0：当前仍不是完整 sandbox
+### P1：host-audit 兼容模式仍不是完整 sandbox
 
-`run_python` 可以启动子进程，`guard` 主要是事后扫描和 hash 校验。它能废弃作弊结果，但不能在读取发生前阻止所有路径、网络或子孙进程行为。严格比赛环境需要 OS sandbox、只读挂载、网络白名单和进程组清理。
+`host-audit` 明确保留作非 Windows 或排障兼容模式；它依赖 workspace fence、
+manifest、后扫描和可选 execution policy，不能阻止已运行 Python 的所有路径、
+网络或子孙进程行为。生产/竞赛 strict 默认使用 Sandboxie-Plus，但 Sandboxie
+本身仍是 app-level isolation，不等同于 VM、内核隔离或完整主机安全边界。
 
 ### P0：Knowledge 晋升仍缺少 tip 级因果验证
 
-一个 Scaffold 被接受，不等于其中每一条 tip 都有效。当前长期知识需要继续完善为：
+新接受的 champion tips 现在先写成 `probation`，默认不会进入普通知识注入；
+可用 `RSILAB_KB_INCLUDE_PROBATION=1` 做显式 A/B pilot，并通过
+`scripts/knowledge_add.py --promote <id>` 按最小使用次数和 private win rate
+门槛晋升。仍需要把它完善为：
 
 ```text
 candidate -> probation -> tip-level A/B -> cross-family validation -> active
@@ -141,12 +180,14 @@ RAG off/on 泛化对照
 
 ## 7. 当前验证状态
 
-本轮代码修改后的短回归：
+本轮代码修改后的回归：
 
 - `npm run typecheck`：通过。
-- `npm run selftest`：`77 passed, 0 failed`。
-- `npm run tuitest`：`41/0`、`12/0`、`10/0`、`12/0`。
-- `python scripts/struct_selftest.py`：`STRUCT_OK`。
-- Pi 扩展真实 episode：`11 passed, 0 failed`。
+- `npm run selftest`：`99 passed, 0 failed`，包含 explicit `host-audit`、per-problem backend override、外置解释器门禁和 exchange file-tool 边界。
+- `npm run sandboxie:selftest`：`SANDBOXIE_OK`，包含真实 repo/private/network 阻断、global WFP restore、PID ownership、foreground timeout、异常退出、background kill 和 cleanup。
+- `npm run tuitest`：`41/0`、`12/0`、`10/0`、`12/0`，共 75 项。
+- `python scripts/struct_selftest.py`：`STRUCT_OK`（164 quiz chunks、629 cache entries、15 knowledge nodes）。
+- `python -m py_compile scripts/*.py`：通过。
+- 真实 `npm run smoke`：Sandboxie backend 下 `fitness=0.8624`、`public=0.8376`、`submits=2`、`error=none`；episode cleanup 和 probe 均通过。
 
-单题 RSI 启动验证已确认：`--scaffold` 会进入 `rsi` 配置并写出 `run-manifest.json`。该探针因 `k2_c001` 的任务级 `max_turns=40` 出现重复分析行为而被主动停止，未形成正式评分结论。
+当前 strict GIS 运行时门禁已确认：`python_cmd` 解析到 repo/private root 内时，在 box 创建前直接拒绝，不会回退到 host Python；对应要求已同步写入 README、DESIGN、ARCHITECTURE-REVIEW、ARCHITECTURE-VIEWS 和 security 图。

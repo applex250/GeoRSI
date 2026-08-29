@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-27-ox-retired-glm53-live",
+  "version": "2026-08-28-emooo-mimo-pro",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -61,6 +61,40 @@
         ],
         "object_style_accepts_all_but_unverifiable": true,
         "quality_floor": "low"
+      }
+    },
+    "mimo-v2.5-pro": {
+      "endpoint": "emooo",
+      "api_style": "chat-completions",
+      "stability_class": "B-temporary-emooo",
+      "latency_class": "medium-to-slow",
+      "vision_raw_api": false,
+      "reasoning": {
+        "style": "reasoning_effort",
+        "thinking_format": "zai",
+        "switch_param": "thinking",
+        "levels_accepted": [
+          "off",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "levels_rejected": [
+          "none",
+          "max"
+        ],
+        "verified_real_levels": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "verified_disabled": true,
+        "quality_floor": "low",
+        "status": "temporary endpoint probe 2026-08-28: chat/completions and Responses both 200; chat selected; max/off reasoning_effort rejected; thinking disabled retried 3/3"
       }
     },
     "ox-alpha-free": {

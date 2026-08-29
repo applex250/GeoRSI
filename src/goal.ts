@@ -13,6 +13,7 @@ import { join } from "node:path";
 import type { Model } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
+import type { ConfigThinkingLevel } from "./config.js";
 import { PiHarness, toolOutput } from "./piharness.js";
 
 export interface GoalPlan {
@@ -26,7 +27,12 @@ const FALLBACK_CRITERIA = [
 	"no generation passes without a mechanically-justified proposal",
 ];
 
-export async function makeGoalPlan(model: Model<any>, goalText: string, timeoutMs = 150_000): Promise<GoalPlan> {
+export async function makeGoalPlan(
+	model: Model<any>,
+	goalText: string,
+	timeoutMs = 150_000,
+	thinkingLevel: ConfigThinkingLevel = "low",
+): Promise<GoalPlan> {
 	const captured: { p?: { criteria: string[] } } = {};
 	const planTool = defineTool({
 		name: "set_criteria",
@@ -42,7 +48,7 @@ export async function makeGoalPlan(model: Model<any>, goalText: string, timeoutM
 	});
 	const harness = new PiHarness({
 		model,
-		thinkingLevel: "low",
+		thinkingLevel,
 		cwd: process.cwd(),
 		systemPrompt: "You write run-gating criteria. You always answer by calling set_criteria exactly once.",
 		customTools: [planTool],
@@ -86,6 +92,7 @@ export async function checkGoal(
 	fitnessHistory: number[],
 	recentSummary: string,
 	timeoutMs = 150_000,
+	thinkingLevel: ConfigThinkingLevel = "low",
 ): Promise<GoalVerdict> {
 	const det = deterministicTrend(fitnessHistory);
 	const captured: { p?: { on_track: boolean; steer: string } } = {};
@@ -104,7 +111,7 @@ export async function checkGoal(
 	});
 	const harness = new PiHarness({
 		model,
-		thinkingLevel: "low",
+		thinkingLevel,
 		cwd: process.cwd(),
 		systemPrompt: "You are a run supervisor. You always answer by calling goal_verdict exactly once.",
 		customTools: [checkTool],

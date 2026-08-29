@@ -1,7 +1,7 @@
 {
   "genre": "gabench",
   "judge": true,
-  "python_cmd": "F:\\rsi-lab\\.gisenv\\Scripts\\python.exe",
+  "python_cmd": "F:\\GeoRSI\\venvs\\gis\\Scripts\\python.exe",
   "max_turns": 25,
   "eval_cap": 3,
   "episode_timeout_s": 3600,

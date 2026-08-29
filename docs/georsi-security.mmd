@@ -1,0 +1,45 @@
+flowchart LR
+    subgraph trusted["Trusted evaluator process"]
+        engine["GeoRSI engine"]
+        grader["Public/private grader"]
+        truth["Private truth / hidden reference"]
+    end
+
+    subgraph exchange["Absolute exchange workspace (%TEMP%\\GeoRSI\\episodes\\run\\episode)"]
+        agent["Pi inner agent"]
+        files["Scripts + data copy + submissions + logs"]
+        tools["Guarded pi read/write/edit/ls/grep"]
+    end
+
+    subgraph box["Sandboxie-Plus app-level box"]
+        root["Python wrapper root (/box:<name>)\nexternal interpreter/venv only"]
+        child["Python descendants"]
+        wfp["WFP/network block"]
+        closed["Closed repo/private/credential paths"]
+    end
+
+    agent --> tools
+    tools -->|exchange-only operations| files
+    agent -->|run_python / start_job| root
+    root --> child
+    root -. "normal parent propagation; /fcp is not root launch" .-> child
+    box -->|OpenFilePath only| files
+    closed -. "deny" .-> root
+    wfp -. "deny" .-> root
+    files -->|submission artifact| grader
+    engine -->|copy public data only| files
+    engine -->|SbieIni + /reload + read-back| box
+    engine -->|PID ownership + real path/network probe| box
+    engine -->|hash before / verify after| grader
+    engine -->|post-episode scan| files
+    grader --> truth
+    truth -. "outside box and not agent-visible" .-> grader
+
+    classDef trusted fill:#e8f0fe,stroke:#4a78c2,color:#172b4d;
+    classDef exchange fill:#fff2cc,stroke:#b8860b,color:#3d3210;
+    classDef box fill:#e1f0d8,stroke:#6a9f58,color:#1e3218;
+    classDef risk fill:#fce4d6,stroke:#c55a11,color:#4a1c05;
+    class engine,grader trusted;
+    class truth risk;
+    class agent,files,tools exchange;
+    class root,child,wfp,closed box;

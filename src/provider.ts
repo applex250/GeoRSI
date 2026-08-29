@@ -1,12 +1,12 @@
 /**
  * Model/provider wiring for GeoRSI on the pi harness.
  *
- * The lab talks to an OpenAI-compatible gateway (config.json `base_url`).
- * The set of usable models is FIXED (SUPPORTED_MODELS in config.ts, verified
- * 2026-08-24): three direct chat/completions models plus muse-spark, which is
- * region-locked and only served over the Responses API through the local
- * proxy. Instead of patching pi we use what pi itself supports for custom
- * endpoints: a project-local models.json (provider + models + apiKey) whose
+ * The lab talks to OpenAI-compatible gateways (config.json `base_url` plus the
+ * temporary emooo.cc route). The set of usable models is FIXED
+ * (SUPPORTED_MODELS in config.ts, verified 2026-08-28): the historical
+ * zen/openrouter/local set plus `mimo-v2.5-pro` on emooo. Instead of patching
+ * pi we use what pi itself supports for custom endpoints: a project-local
+ * models.json (provider + models + apiKey) whose
  * path is handed to ModelRuntime.create({ modelsPath }). The file is
  * regenerated at boot from env/api_key.txt so secrets never sit in a
  * checked-in file. Per-model `api` selects the pi-ai implementation
@@ -25,7 +25,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
-import { SUPPORTED_MODELS, modelSpec, type Config } from "./config.js";
+import { SUPPORTED_MODELS, modelSpec, type Config, type ModelSpec } from "./config.js";
 import { getProfile } from "./models.js";
 
 export const TOKENS = { total: 0, calls: 0, failed: 0 };
@@ -63,6 +63,11 @@ export function loadOpenRouterApiKey(root: string): string {
 	const p = join(root, "api_key_or.txt");
 	if (existsSync(p)) return readFileSync(p, "utf-8").trim();
 	return "";
+}
+
+/** Temporary emooo.cc key; deliberately environment-only (never read from a repo file). */
+export function loadEmoooApiKey(): string {
+	return (process.env.RSILAB_EMOOO_API_KEY ?? process.env.GEORSI_EMOOO_API_KEY ?? "").trim();
 }
 
 /** Host:port of the local server, for proxy bypass. */
@@ -125,9 +130,39 @@ export async function preflightLocal(cfg: Config, modelId: string): Promise<void
 			`local model "${modelId}" is unreachable at ${cfg.local_base_url} (${(e as Error).message}). ` +
 				`The campus server is turned off regularly — this is expected. ` +
 				`Switch inner_model/outer_model in config.json to a gateway model ` +
-				`(hy3 / mimo-v2.5 / z-ai/glm-5.3-flash) and retry.`,
+				`(hy3 / mimo-v2.5 / mimo-v2.5-pro / z-ai/glm-5.3-flash) and retry.`,
 		);
 	}
+}
+
+/** Fail fast when the temporary emooo.cc model or key is unavailable. */
+export async function preflightEmooo(cfg: Config, modelId: string, apiKey: string): Promise<void> {
+	if (!apiKey) throw new Error(`temporary emooo model "${modelId}" selected but RSILAB_EMOOO_API_KEY is not set`);
+	const url = (cfg.emooo_base_url ?? "https://api.emooo.cc/v1").replace(/\/+$/, "") + "/models";
+	let lastError = "unknown error";
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			const r = await fetch(url, {
+				headers: { Authorization: `Bearer ${apiKey}` },
+				signal: AbortSignal.timeout(12_000),
+			});
+			if (!r.ok) {
+				lastError = `HTTP ${r.status}`;
+				if (r.status === 401 || r.status === 403) break;
+			} else {
+				const d = (await r.json()) as { data?: { id?: string }[] };
+				const ids = (d.data ?? []).map((m) => m.id);
+				if (!ids.includes(modelId)) {
+					throw new Error(`server is up but does not serve "${modelId}" (serves: ${ids.join(", ") || "nothing"})`);
+				}
+				return;
+			}
+		} catch (error) {
+			lastError = error instanceof Error ? error.message : String(error);
+		}
+		if (attempt < 2) await new Promise((resolveDelay) => setTimeout(resolveDelay, 500));
+	}
+	throw new Error(`temporary emooo model "${modelId}" is unavailable at ${url}: ${lastError}`);
 }
 
 /**
@@ -148,7 +183,7 @@ function reasoningParamSupported(id: string): boolean {
 }
 
 /** Build the provider/models description pi consumes (models.json schema). */
-function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApiKey: string): object {
+function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApiKey: string, emoooApiKey: string): object {
 	const mk = (m: (typeof SUPPORTED_MODELS)[number]) => ({
 		id: m.id,
 		name: m.id,
@@ -161,6 +196,8 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 		// per-model capability from the probed profile registry (muse rejects
 		// any reasoning parameter with a 400; unknown ids keep legacy behavior)
 		reasoning: reasoningParamSupported(m.id),
+		thinkingLevelMap: m.thinkingLevelMap,
+		compat: m.compat,
 		input: ["text"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	});
@@ -192,7 +229,23 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "local" && !m.retired).map(mk),
 		};
 	}
+	if (emoooApiKey) {
+		providers.emooo = {
+			name: "emooo temporary gateway",
+			baseUrl: cfg.emooo_base_url ?? "https://api.emooo.cc/v1",
+			apiKey: emoooApiKey,
+			api: "openai-completions",
+			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "emooo" && !m.retired).map(mk),
+		};
+	}
 	return { providers };
+}
+
+function providerIdForEndpoint(endpoint: ModelSpec["endpoint"]): string {
+	if (endpoint === "local") return "local";
+	if (endpoint === "openrouter") return "openrouter";
+	if (endpoint === "emooo") return "emooo";
+	return "zen";
 }
 
 export interface PiRuntime {
@@ -213,7 +266,7 @@ export function currentModelRuntime(): ModelRuntime {
 export function resolveModel(id: string): Model<any> {
 	if (!cached) throw new Error("pi runtime not initialized: call getPiRuntime() first");
 	if (!modelSpec(id)) throw new Error(`model "${id}" not in SUPPORTED_MODELS`);
-	const provider = modelSpec(id)!.endpoint === "local" ? "local" : modelSpec(id)!.endpoint === "openrouter" ? "openrouter" : "zen";
+	const provider = providerIdForEndpoint(modelSpec(id)!.endpoint);
 	const m = cached.modelRuntime.getModel(provider, id);
 	if (!m) throw new Error(`model "${id}" not found on provider "${provider}"`);
 	return m;
@@ -224,10 +277,11 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	const apiKey = loadApiKey(root);
 	const localApiKey = loadLocalApiKey(root);
 	const orApiKey = loadOpenRouterApiKey(root);
+	const emoooApiKey = loadEmoooApiKey();
 	const dir = join(root, "config");
 	mkdirSync(dir, { recursive: true });
 	const modelsPath = join(dir, "pi-models.json");
-	writeFileSync(modelsPath, JSON.stringify(buildModelsJson(cfg, apiKey, localApiKey, orApiKey), null, 2));
+	writeFileSync(modelsPath, JSON.stringify(buildModelsJson(cfg, apiKey, localApiKey, orApiKey, emoooApiKey), null, 2));
 
 	const selected = [cfg.inner_model, cfg.outer_model].filter((v, i, a) => a.indexOf(v) === i);
 	const specOf = (id: string) => modelSpec(id)!; // loadConfig already validated
@@ -242,6 +296,9 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 				);
 			}
 			await preflightLocal(cfg, id);
+		}
+		if (specOf(id).endpoint === "emooo") {
+			await preflightEmooo(cfg, id, emoooApiKey);
 		}
 	}
 
@@ -261,12 +318,12 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	});
 
 	const resolve = (id: string): Model<any> => {
-		const provider = specOf(id).endpoint === "local" ? "local" : specOf(id).endpoint === "openrouter" ? "openrouter" : "zen";
+		const provider = providerIdForEndpoint(specOf(id).endpoint);
 		const m = modelRuntime.getModel(provider, id);
 		if (!m) {
 			throw new Error(
 				`model "${id}" not found on provider "${provider}" after composing pi-models.json` +
-					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : ""),
+					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : !emoooApiKey && specOf(id).endpoint === "emooo" ? " (emooo provider omitted: set RSILAB_EMOOO_API_KEY)" : ""),
 			);
 		}
 		return m;

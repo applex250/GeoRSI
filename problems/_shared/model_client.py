@@ -34,6 +34,8 @@ def _key_for(endpoint):
     if endpoint == "openrouter":
         p = os.path.join(ROOT, "api_key_or.txt")
         return open(p, encoding="utf-8").read().strip() if os.path.exists(p) else ""
+    if endpoint == "emooo":
+        return os.environ.get("RSILAB_EMOOO_API_KEY", os.environ.get("GEORSI_EMOOO_API_KEY", "")).strip()
     return open(os.path.join(ROOT, "api_key.txt"), encoding="utf-8").read().strip()
 
 
@@ -43,6 +45,8 @@ def _base_for(endpoint):
         return cfg["local_base_url"]
     if endpoint == "openrouter":
         return cfg.get("openrouter_base_url", "https://openrouter.ai/api/v1")
+    if endpoint == "emooo":
+        return cfg.get("emooo_base_url", "https://api.emooo.cc/v1")
     return cfg["base_url"]
 
 
@@ -79,7 +83,14 @@ def resolve_thinking(model_id, wanted="low", budget_tokens=None):
         elif level != "off":
             extra["reasoning_effort"] = level
     elif r.get("style") == "reasoning_effort":
-        extra["reasoning_effort"] = level
+        if r.get("thinking_format") == "zai":
+            if level == "off":
+                extra["thinking"] = {"type": "disabled"}
+            else:
+                extra["thinking"] = {"type": "enabled", "clear_thinking": False}
+                extra["reasoning_effort"] = level
+        else:
+            extra["reasoning_effort"] = level
     return level, extra, note
 
 

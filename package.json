@@ -15,7 +15,8 @@
 		"tuitest": "tsx src/tui/headless-check.ts && tsx src/tui/altscreen-check.ts && tsx config/think-check.ts && tsx config/control-check.ts",
 		"agent": "node node_modules/@earendil-works/pi-coding-agent/dist/cli.js -e extensions/georsi.ts",
 		"extcheck": "tsx src/tui/ext-check.ts",
-		"emitcheck": "tsx src/tui/emit-check.ts"
+		"emitcheck": "tsx src/tui/emit-check.ts",
+		"sandboxie:selftest": "tsx src/sandboxie_selftest.ts"
 	},
 	"dependencies": {
 		"@earendil-works/pi-agent-core": "0.84.2",

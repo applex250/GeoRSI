@@ -1,89 +1,26 @@
-flowchart LR
-    operator["Operator / Researcher"]
+flowchart TB
+    control["Control\nCLI / TUI / Pi Extension"]
+    orchestrator["Orchestrate\nRSI generation loop"]
+    episode["Solve\nisolated inner episode"]
+    evaluate["Evaluate\npublic + private + guard"]
+    learn["Learn\nscaffold / memory / knowledge"]
+    persist["Persist\njournal / state / reports"]
+    external["External boundary\nmodel APIs / benchmark data / Python"]
 
-    subgraph control["Control Plane"]
-        cli["CLI / TUI<br/>src/run.ts + src/tui"]
-        extension["Pi Extension<br/>extensions/georsi.ts"]
-        controller["Pause / Resume / Stop<br/>RunController"]
-    end
+    control --> orchestrator
+    orchestrator --> episode
+    episode --> evaluate
+    evaluate --> orchestrator
+    orchestrator --> learn
+    episode --> learn
+    orchestrator --> persist
+    evaluate --> persist
+    episode --> external
+    orchestrator --> external
 
-    subgraph core["Core Research Engine"]
-        orchestrator["RSI Orchestrator<br/>src/rsi.ts"]
-        evolution["Propose -> Critique -> Verify<br/>outer model"]
-        solver["Inner Solver<br/>one isolated episode"]
-        episode["Prompt -> Tools -> Submit<br/>agent loop"]
-    end
-
-    subgraph boundary["Evaluation Boundary"]
-        publicEval["Public Eval<br/>visible score feedback"]
-        privateEval["Private Eval<br/>selection fitness"]
-        guard["Guard + Manifest<br/>anti-cheat and integrity"]
-    end
-
-    subgraph runtime["Runtime and Assets"]
-        modelRuntime["Provider + Pi Harness<br/>routing, profiles, timeouts, tokens"]
-        problemRegistry["Problem Registry<br/>statements, data, eval.py"]
-        learning["Learning Assets<br/>scaffold, knowledge, memory, optional RAG"]
-        artifacts["Run Artifacts<br/>state, journal, variants, reports"]
-    end
-
-    providers["Model APIs / Local Server"]
-    python["Python / GIS Tools"]
-
-    operator --> cli
-    operator --> extension
-    extension --> controller
-    cli --> orchestrator
-    controller --> orchestrator
-
-    orchestrator --> evolution
-    evolution --> orchestrator
-    orchestrator --> solver
-    solver --> episode
-    episode --> solver
-    solver --> publicEval
-    publicEval --> episode
-    solver --> privateEval
-    solver --> guard
-
-    orchestrator --> modelRuntime
-    evolution --> modelRuntime
-    solver --> modelRuntime
-    modelRuntime --> providers
-    episode --> python
-
-    solver --> problemRegistry
-    publicEval --> problemRegistry
-    privateEval --> problemRegistry
-    solver --> learning
-    orchestrator --> learning
-    orchestrator --> artifacts
-    solver --> artifacts
-
-    classDef controlStyle fill:#e8f0fe,stroke:#4a78c2,color:#172b4d;
-    classDef coreStyle fill:#fff2cc,stroke:#d6b656,color:#3d3210;
-    classDef evalStyle fill:#fce4d6,stroke:#c55a11,color:#4a1c05;
-    classDef runtimeStyle fill:#e8e8e8,stroke:#777,color:#222;
-    classDef externalStyle fill:#f5f5f5,stroke:#666,color:#222;
-
-    class cli,extension,controller controlStyle;
-    class orchestrator,evolution,solver,episode coreStyle;
-    class publicEval,privateEval,guard evalStyle;
-    class modelRuntime,problemRegistry,learning,artifacts runtimeStyle;
-    class operator,providers,python externalStyle;
-
-    classDef controlStyle fill:#e8f0fe,stroke:#4a78c2,color:#172b4d;
-    classDef orchestrationStyle fill:#fff2cc,stroke:#d6b656,color:#3d3210;
-    classDef solverStyle fill:#e1f0d8,stroke:#6a9f58,color:#1e3218;
-    classDef runtimeStyle fill:#f4e5f7,stroke:#9b6bb0,color:#341d3d;
-    classDef assetStyle fill:#e8e8e8,stroke:#777777,color:#222222;
-    classDef evalStyle fill:#fce4d6,stroke:#c55a11,color:#4a1c05;
-    classDef externalStyle fill:#f5f5f5,stroke:#666666,color:#222222;
-
-    class cli,extension,controller controlStyle;
-    class rsi,goal,propose,critique,verify,exam orchestrationStyle;
-    class prompt,tools,submit,finalize solverStyle;
-    class provider,harness,models runtimeStyle;
-    class registry,knowledge,memory,rag,artifacts assetStyle;
-    class publicEval,privateEval,guard,judge evalStyle;
-    class operator,modelGateway,python externalStyle;
+    classDef main fill:#fff2cc,stroke:#b8860b,color:#3d3210;
+    classDef support fill:#e8e8e8,stroke:#777,color:#222;
+    classDef boundary fill:#fce4d6,stroke:#c55a11,color:#4a1c05;
+    class control,orchestrator,episode,evaluate main;
+    class learn,persist support;
+    class external boundary;

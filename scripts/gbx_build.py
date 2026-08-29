@@ -9,7 +9,7 @@ Each selected task becomes one problem:
     reference/        reference.json (reference_solutions steps) - judge-only input
     eval.py           reject tasks: deterministic (correct rejection = 1.0);
                       real tasks: LLM judge match score (0/1/2 -> 0/0.5/1, cached)
-    problem.json      overrides (long scripts, judge, .gisenv python)
+    problem.json      overrides (long scripts, judge, external GIS python)
 
 Control questions (empty reference, 5 of 202) are excluded: the benchmark
 itself does not score their answers.
@@ -29,6 +29,7 @@ TOOLS_PY = os.path.join(ROOT, "benchmarks", "GeoBenchX", "geobenchx", "tools.py"
 DATA_ROOT = os.path.join(ROOT, "benchmarks", "GeoBenchX", "data")
 MAX_FILE_MB = 60
 MAX_TOTAL_MB = 500
+GIS_PYTHON_CMD = os.environ.get("GEORSI_GIS_PYTHON", r"F:\GeoRSI\venvs\gis\Scripts\python.exe")
 
 # arg key -> catalog name inside tools.py
 LOADERS = {
@@ -355,7 +356,7 @@ def main(n_real, n_reject, suite, allow_raster):
                 {
                     "genre": "geobenchx",
                     "judge": True,
-                    "python_cmd": os.path.join(ROOT, ".gisenv", "Scripts", "python.exe"),
+                    "python_cmd": GIS_PYTHON_CMD,
                     "max_turns": 30,
                     "eval_cap": 3,
                     "episode_timeout_s": 3600,

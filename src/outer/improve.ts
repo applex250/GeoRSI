@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { applyEdits, type Scaffold } from "../scaffold.js";
+import type { ConfigThinkingLevel } from "../config.js";
 import { PiHarness, toolOutput } from "../piharness.js";
 
 export const ANGLES = [
@@ -44,6 +45,7 @@ export async function propose(
 	angle: string,
 	ctx: ProposeContext,
 	timeoutMs = 240_000,
+	thinkingLevel: ConfigThinkingLevel = "medium",
 ): Promise<Proposal | null> {
 	const captured: { p?: { edits: unknown[]; mechanism: string; expected_delta: string; falsification: string } } = {};
 
@@ -99,7 +101,7 @@ export async function propose(
 
 	const harness = new PiHarness({
 		model,
-		thinkingLevel: "medium",
+		thinkingLevel,
 		cwd: process.cwd(),
 		systemPrompt: "You are a precise research-engineering advisor. You always answer by calling the propose_edits tool exactly once.",
 		customTools: [proposeTool],

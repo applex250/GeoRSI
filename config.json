@@ -16,6 +16,8 @@
   "stall_s": 240,
   "episodes_per_problem": 1,
   "python_cmd": "python",
+  "sandboxie_start_path": "C:\\Program Files\\Sandboxie-Plus\\Start.exe",
+  "sandboxie_ini_path": "C:\\Program Files\\Sandboxie-Plus\\SbieIni.exe",
   "private_truth_dir": "../rsi-lab-private",
   "problems": [
     {
@@ -38,5 +40,6 @@
   "script_timeout_s": 120,
   "job_timeout_s": 14400,
   "job_poll_s": 30,
-  "openrouter_base_url": "https://openrouter.ai/api/v1"
+  "openrouter_base_url": "https://openrouter.ai/api/v1",
+  "emooo_base_url": "https://api.emooo.cc/v1"
 }

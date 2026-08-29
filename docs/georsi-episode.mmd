@@ -1,0 +1,61 @@
+sequenceDiagram
+    autonumber
+    participant Driver as RSI/TUI/Extension
+    participant Loop as RSI loop
+    participant Outer as Outer model
+    participant Suite as Suite evaluator
+    participant Inner as Inner solver
+    participant Adapter as Sandboxie adapter
+    participant Box as Sandboxie-Plus box
+    participant Exchange as Absolute exchange workspace
+    participant Tools as Guarded pi tools + Python
+    participant Public as Public eval
+    participant Private as Private eval
+    participant Guard as Guard
+    participant State as Journal/state
+
+    Driver->>Loop: start or resume run
+    Loop->>Suite: evaluate seed scaffold
+    Suite->>Inner: create episode
+    Inner->>Adapter: prepare unique box + absolute exchange path
+    Adapter->>Box: SbieIni rules, then Start.exe /reload
+    Adapter->>Adapter: query rules back + verify Enabled box
+    Adapter->>Box: launch real repo/private/network probe
+    Box-->>Adapter: blocked paths/network + verified PID
+    Adapter-->>Inner: strict execution lease
+    Inner->>Exchange: copy public data only
+    Inner->>Tools: read/write/edit/ls/grep inside exchange
+    Tools->>Box: run Python root with /box:<name>
+    Box-->>Tools: stdout/stderr files in exchange
+    Tools-->>Inner: outputs / logs
+    Inner->>Public: submit candidate artifact
+    Public-->>Inner: visible score + feedback
+    Inner->>Private: evaluate best public submission
+    Private-->>Suite: private fitness
+    Inner->>Adapter: terminate, delete data, remove box config, reload
+    Adapter-->>State: episode.json isolation/cleanup evidence
+    Suite-->>Loop: baseline + staged learning
+    Loop->>State: persist baseline
+
+    loop each generation
+        Loop->>Outer: propose bounded scaffold edits
+        Outer-->>Loop: mechanism + expectation + falsification
+        Loop->>Outer: critique all proposals
+        Outer-->>Loop: survivors
+        Loop->>Suite: evaluate survivor(s)
+        Suite-->>Loop: private means
+        alt challenger beats champion
+            Loop->>Suite: fresh verification run
+            Suite-->>Loop: second private mean
+            Loop->>Loop: accept only if verification threshold passes
+        else
+            Loop->>Loop: keep champion
+        end
+        Loop->>State: append journal + atomic state snapshot
+    end
+
+    opt after training
+        Loop->>Suite: held-out exam with empty episodic memory
+        Suite-->>Loop: held-out report
+        Loop->>State: write final report
+    end

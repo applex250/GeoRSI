@@ -19,7 +19,7 @@ export interface ProblemSpec {
 }
 
 /**
- * Fixed model support list (verified 2026-08-27):
+ * Fixed model support list (verified 2026-08-28):
  *
  * GATEWAY (opencode.ai/zen/go/v1):
  *   hy3                       direct  chat/completions  ctx 256k / max-out 128k
@@ -29,6 +29,10 @@ export interface ProblemSpec {
  *                                   unsupported (500); must NOT request reasoning params
  *                                   (gateway 400 reasoning.effort) -> reasoning:false.
  *   ox-alpha-free and stealth/ox-alpha are retained as retired historical ids.
+ *
+ * TEMPORARY EMOOO (api.emooo.cc/v1, key only from RSILAB_EMOOO_API_KEY):
+ *   mimo-v2.5-pro             direct  chat/completions  ctx 1m   / max-out 128k
+ *                             thinking/zai format; minimal/low/medium/high/xhigh verified 2026-08-28
  *
  * LOCAL (campus server, config `local_base_url`):
  *   dsv4f                     direct  chat/completions  ctx 256k / max-out 64k
@@ -46,14 +50,27 @@ export interface ProblemSpec {
  * HTTP(S)_PROXY/NO_PROXY env — see enableEnvProxy(). The local server host is
  * always appended to noProxy so muse + dsv4f can coexist in one process.
  */
+export interface ModelCompatSpec {
+	/** OpenAI-compatible request-shape overrides for custom gateways. */
+	supportsDeveloperRole?: boolean;
+	supportsReasoningEffort?: boolean;
+	supportsUsageInStreaming?: boolean;
+	supportsFinishReason?: boolean;
+	supportsStrictMode?: boolean;
+	maxTokensField?: "max_tokens" | "max_completion_tokens";
+	thinkingFormat?: "openai" | "openrouter" | "deepseek" | "together" | "baseten" | "zai" | "qwen" | "chat-template" | "qwen-chat-template" | "string-thinking" | "ant-ling";
+}
+
 export interface ModelSpec {
 	id: string;
+	/** pi-ai provider values for extended reasoning levels; null disables a level */
+	thinkingLevelMap?: Partial<Record<"off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max", string | null>>;
 	/** pi-ai API implementation selector */
 	api: "openai-completions" | "openai-responses";
 	/** how requests to this model must leave the machine */
 	route: "direct" | "proxy";
 	/** which endpoint serves this model */
-	endpoint: "zen" | "local" | "openrouter";
+	endpoint: "zen" | "local" | "openrouter" | "emooo";
 	/** true context window, tokens (drives pi compaction decisions) */
 	contextWindow: number;
 	/** provider-advertised max output, tokens (informational; we cap lower) */
@@ -61,12 +78,14 @@ export interface ModelSpec {
 	/** provider no longer serves this id; retained only for historical reports */
 	retired?: boolean;
 	note: string;
+	compat?: ModelCompatSpec;
 }
 
 export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "hy3", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 262144, maxOutput: 131072, note: "fast, strong proposer (outer, default)" },
 	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
+	{ id: "mimo-v2.5-pro", api: "openai-completions", route: "direct", endpoint: "emooo", contextWindow: 1048576, maxOutput: 131072, thinkingLevelMap: { xhigh: "xhigh", max: null }, compat: { thinkingFormat: "zai", supportsReasoningEffort: true, supportsDeveloperRole: false, supportsUsageInStreaming: true, supportsFinishReason: true, supportsStrictMode: false, maxTokensField: "max_tokens" }, note: "temporary emooo.cc route; chat/completions selected over Responses after live probe; thinking enabled/disabled with minimal/low/medium/high/xhigh" },
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
 	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: OpenRouter testing alias returned 404 and points to z-ai/glm-5.3-flash" },
@@ -78,13 +97,27 @@ export function modelSpec(id: string): ModelSpec | undefined {
 	return SUPPORTED_MODELS.find((m) => m.id === id);
 }
 
+export type ConfigThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+const CONFIG_THINKING_LEVELS = new Set<ConfigThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+
+function optionalThinkingLevel(value: unknown): ConfigThinkingLevel | undefined {
+	return typeof value === "string" && CONFIG_THINKING_LEVELS.has(value as ConfigThinkingLevel)
+		? (value as ConfigThinkingLevel)
+		: undefined;
+}
+
 export interface Config {
 	base_url: string;
 	/** campus-local OpenAI-compatible server (may be down at any time) */
 	local_base_url: string;
 	/** OpenRouter gateway (optional; key in api_key_or.txt) */
 	openrouter_base_url?: string;
+	/** optional OpenAI-compatible temporary emooo.cc endpoint */
+	emooo_base_url?: string;
 	inner_model: string;
+	/** optional model reasoning level; profile clamps it to the provider's verified levels */
+	inner_thinking_level?: ConfigThinkingLevel;
 	/** default inner for quiz-type problems when set (task-to-model routing) */
 	quiz_inner_model?: string;
 	/** enable deterministic authored RAG retrieval at episode start */
@@ -92,6 +125,8 @@ export interface Config {
 	/** max chars of retrieved material per episode */
 	rag_budget_chars?: number;
 	outer_model: string;
+	/** optional reasoning level for goal/proposal/critique calls */
+	outer_thinking_level?: ConfigThinkingLevel;
 	generations: number;
 	proposals: number;
 	critics: number;
@@ -117,6 +152,24 @@ export interface Config {
 	/** number of independent episodes averaged per problem in suite eval */
 	episodes_per_problem: number;
 	python_cmd: string;
+	/**
+	 * Python execution backend. On Windows the default is Sandboxie-Plus;
+	 * `host-audit` is an explicit compatibility mode and is not isolation.
+	 */
+	execution_backend?: "sandboxie" | "host-audit";
+	/** optional absolute/installed Sandboxie paths for deterministic CI */
+	sandboxie_start_path?: string;
+	sandboxie_ini_path?: string;
+	/** exchange root; strict episodes are placed outside the repository */
+	sandboxie_exchange_root?: string;
+	/** Sandboxie virtual root for ephemeral boxes */
+	sandboxie_root?: string;
+	/**
+	 * Python execution policy. "audit" preserves the current research workflow
+	 * and records known escape-hatch usage; "restricted" blocks common
+	 * subprocess/network imports before launch. Neither is an OS sandbox.
+	 */
+	execution_policy?: "audit" | "restricted";
 	/** paths relative to lab root */
 	private_truth_dir: string;
 	seed_scaffold?: Scaffold;
@@ -171,18 +224,21 @@ export function loadConfig(path?: string): Config {
 			);
 		}
 		if (spec.retired) {
-			throw new Error(`config.json: ${role} "${id}" is retired by the provider; choose mimo-v2.5, hy3, minimax/minimax-m3:free, z-ai/glm-5.3-flash, or another live profile`);
+			throw new Error(`config.json: ${role} "${id}" is retired by the provider; choose mimo-v2.5, mimo-v2.5-pro (temporary emooo route), hy3, minimax/minimax-m3:free, z-ai/glm-5.3-flash, or another live profile`);
 		}
 	}
 	return {
 		base_url: String(raw.base_url ?? "https://opencode.ai/zen/go/v1"),
 		local_base_url: String(raw.local_base_url ?? "http://172.27.116.56:8080/v1"),
 		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
+		emooo_base_url: String(raw.emooo_base_url ?? "https://api.emooo.cc/v1"),
 		inner_model: inner,
+		inner_thinking_level: optionalThinkingLevel(raw.inner_thinking_level),
 		quiz_inner_model: typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : undefined,
 		rag_enabled: raw.rag_enabled === true,
 		rag_budget_chars: num(raw.rag_budget_chars, 2400),
 		outer_model: outer,
+		outer_thinking_level: optionalThinkingLevel(raw.outer_thinking_level),
 		generations: num(raw.generations, 4),
 		proposals: num(raw.proposals, 3),
 		critics: num(raw.critics, 1),
@@ -199,6 +255,14 @@ export function loadConfig(path?: string): Config {
 		stall_s: num(raw.stall_s, 240),
 		episodes_per_problem: num(raw.episodes_per_problem, 1),
 		python_cmd: String(raw.python_cmd ?? "python"),
+		execution_backend:
+			raw.execution_backend === "host-audit" ? "host-audit" : raw.execution_backend === "sandboxie" ? "sandboxie" : undefined,
+		sandboxie_start_path: typeof raw.sandboxie_start_path === "string" ? raw.sandboxie_start_path : undefined,
+		sandboxie_ini_path: typeof raw.sandboxie_ini_path === "string" ? raw.sandboxie_ini_path : undefined,
+		sandboxie_exchange_root: typeof raw.sandboxie_exchange_root === "string" ? raw.sandboxie_exchange_root : undefined,
+		sandboxie_root: typeof raw.sandboxie_root === "string" ? raw.sandboxie_root : undefined,
+		execution_policy:
+			raw.execution_policy === "restricted" ? "restricted" : raw.execution_policy === "audit" ? "audit" : undefined,
 		private_truth_dir: String(raw.private_truth_dir ?? "../rsi-lab-private"),
 		problems,
 		seed_scaffold: raw.seed_scaffold as Scaffold | undefined,

@@ -7,6 +7,10 @@ Add a lesson node:
 List nodes with stats:
   python scripts/knowledge_add.py --list
 
+Promote a probation node after evidence:
+  python scripts/knowledge_add.py --promote tip_xxxx
+  # defaults: >=3 observations and >=0.80 private win rate
+
 Nodes live in knowledge/nodes.jsonl (one JSON per line). Dedup is by
 normalized text; duplicates are reported, not written.
 """
@@ -40,6 +44,10 @@ def main():
     ap.add_argument("--status", choices=["active", "probation", "retired"], default="active")
     ap.add_argument("--id", help="explicit id (default tip_NNNN)")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--promote", action="append", help="promote an existing probation node by id (repeatable)")
+    ap.add_argument("--min-uses", type=int, default=3, help="minimum observations required for promotion")
+    ap.add_argument("--min-win-rate", type=float, default=0.8, help="minimum private-fitness win rate for promotion")
+    ap.add_argument("--force", action="store_true", help="promote without probation thresholds")
     a = ap.parse_args()
 
     nodes = load()
@@ -50,6 +58,36 @@ def main():
                   f"uses={n['stats']['uses']} wins={n['stats']['wins']} avg_fit={avg:.3f}")
             print(f"   {n['text'][:100]}")
         print(f"\n{len(nodes)} nodes")
+        return
+
+    if a.promote:
+        wanted = set(a.promote)
+        changed = 0
+        for n in nodes:
+            if n.get("id") not in wanted:
+                continue
+            if n.get("status") != "probation":
+                print(f"{n['id']}: not probation ({n.get('status')}) - unchanged")
+                continue
+            stats = n.get("stats", {})
+            uses = int(stats.get("uses", 0))
+            wins = int(stats.get("wins", 0))
+            rate = wins / uses if uses else 0.0
+            if not a.force and (uses < a.min_uses or rate < a.min_win_rate):
+                print(f"{n['id']}: insufficient evidence uses={uses} win_rate={rate:.3f} - unchanged")
+                continue
+            n["status"] = "active"
+            changed += 1
+            print(f"{n['id']}: promoted uses={uses} win_rate={rate:.3f}")
+        missing = wanted - {n.get("id") for n in nodes}
+        for nid in sorted(missing):
+            print(f"{nid}: not found")
+        if changed:
+            tmp = KB + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                for n in nodes:
+                    f.write(json.dumps(n, ensure_ascii=False) + "\n")
+            os.replace(tmp, KB)
         return
 
     if not a.text or not a.tags:

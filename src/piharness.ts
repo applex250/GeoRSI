@@ -21,10 +21,11 @@ import { join } from "node:path";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
 import { resolveThinking, type ThinkingLevel } from "./models.js";
+import { createExchangeToolDefinitions } from "./workspace-tools.js";
 
 export interface HarnessOpts {
 	model: Model<any>;
-	thinkingLevel: "off" | "low" | "medium" | "high";
+	thinkingLevel: ThinkingLevel;
 	cwd: string;
 	systemPrompt: string;
 	customTools: ToolDefinition[];
@@ -32,6 +33,8 @@ export interface HarnessOpts {
 	promptTimeoutMs: number;
 	/** abort if no session event for this long */
 	stallMs: number;
+	/** explicitly attach the guarded exchange filesystem tools; default is true for inner sessions */
+	exchangeTools?: boolean;
 	/** built-in tools to enable; agent file IO but no shell (cross-platform) */
 	builtinTools?: string[];
 	onText?: (delta: string) => void;
@@ -136,6 +139,10 @@ export function toolOutput(text: string): { content: { type: "text"; text: strin
 	return { content: [{ type: "text", text }], details: undefined };
 }
 
+export function shouldAttachExchangeTools(builtinTools: string[] | undefined, explicit?: boolean): boolean {
+	return explicit ?? builtinTools === undefined;
+}
+
 export class PiHarness {
 	private session: AgentSession | null = null;
 	readonly opts: HarnessOpts;
@@ -165,18 +172,22 @@ export class PiHarness {
 				console.error(`[models] ${modelId}: ${resolved.note}`);
 			}
 			thinkingLevel = resolved.level;
-			// fold extended levels into the four pi-session levels.
-			// none/minimal go to LOW, not off: probed 2026-08-25, no supported
-			// gateway model accepts a literal "off"/none reasoning param
-			// (hy3 invalid_request, dsv4f 400), and dropping thinking entirely
-			// measurably breaks quantitative accuracy on mimo/dsv4f
-			const fold: Record<string, "off" | "low" | "medium" | "high"> = {
-				minimal: "low",
-				none: "low",
-				xhigh: "high",
-				max: "high",
-			};
-			thinkingLevel = fold[thinkingLevel] ?? thinkingLevel;
+			// pi-ai supports extended levels, but legacy GeoRSI profiles use
+			// "none" as an alias and historically folded minimal/xhigh/max to
+			// the four-level session range. Preserve the exact tested levels for
+			// the emooo model; its models.json entry maps xhigh through and
+			// explicitly disables max, so max has already clamped to xhigh.
+			if (thinkingLevel === "none") {
+				thinkingLevel = "low";
+			} else if (modelId !== "mimo-v2.5-pro") {
+				const fold: Record<string, "off" | "low" | "medium" | "high"> = {
+					minimal: "low",
+					none: "low",
+					xhigh: "high",
+					max: "high",
+				};
+				thinkingLevel = fold[thinkingLevel] ?? thinkingLevel;
+			}
 		} catch {
 			/* model without a profile: pass the request through untouched */
 		}
@@ -191,12 +202,16 @@ export class PiHarness {
 			appendSystemPromptOverride: () => [],
 		});
 		await loader.reload();
+		const exchangeTools = shouldAttachExchangeTools(this.opts.builtinTools, this.opts.exchangeTools)
+			? createExchangeToolDefinitions(this.opts.cwd)
+			: [];
+		const customTools = [...exchangeTools, ...this.opts.customTools];
 		const { session } = await createAgentSession({
 			model: this.opts.model,
 			// without an explicit modelRuntime pi builds a default one that does
 			// not know our gateway provider -> "No API key found"
 			modelRuntime: currentModelRuntime(),
-			thinkingLevel: thinkingLevel as "off" | "low" | "medium" | "high",
+			thinkingLevel: thinkingLevel as "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max",
 			// the gateway throws bursty transient "finish_reason: network_error";
 			// pi's default 3 retries can be exhausted inside one bad minute
 			settingsManager: SettingsManager.inMemory({
@@ -206,9 +221,9 @@ export class PiHarness {
 			// custom tool names must be included or they silently vanish
 			tools: [
 				...(this.opts.builtinTools ?? ["read", "write", "edit", "ls", "grep"]),
-				...this.opts.customTools.map((t) => t.name),
+				...customTools.map((t) => t.name),
 			],
-			customTools: this.opts.customTools,
+			customTools,
 			cwd: this.opts.cwd,
 			resourceLoader: loader,
 			sessionManager: SessionManager.inMemory(this.opts.cwd),
