@@ -49,29 +49,54 @@ def _save(k, v):
         pass
 
 
+def _responses_text(out):
+    direct = out.get("output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+    texts = []
+    for item in out.get("output") or []:
+        if not isinstance(item, dict):
+            continue
+        for part in item.get("content") or []:
+            if isinstance(part, dict) and isinstance(part.get("text"), str):
+                texts.append(part["text"])
+    return "\n".join(texts).strip()
+
+
 def _call(prompt, max_tokens=2000):
     base = os.environ["RSILAB_JUDGE_BASE"].rstrip("/")
     model = os.environ.get("RSILAB_JUDGE_MODEL", "hy3")
     key = os.environ["RSILAB_JUDGE_KEY"]
+    api = os.environ.get("RSILAB_JUDGE_API", "chat-completions")
     last_err = None
     for attempt in range(5):
         # Reasoning models can spend the entire completion budget on hidden
         # reasoning when no effort is specified, leaving an empty visible
         # answer. Judges need a short, parseable verdict, so default to low
         # effort; callers can override this for a controlled comparison.
-        body = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": 0,
-        }
         effort = os.environ.get("RSILAB_JUDGE_REASONING_EFFORT", "low").strip()
-        if effort and model != "muse-spark-1.2-contributor":
-            body["reasoning_effort"] = effort
+        if api == "responses":
+            body = {
+                "model": model,
+                "input": prompt,
+                "max_output_tokens": max_tokens,
+                "reasoning": {"effort": effort or "xhigh"},
+            }
+            path = "/responses"
+        else:
+            body = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": 0,
+            }
+            if effort and model != "muse-spark-1.2-contributor":
+                body["reasoning_effort"] = effort
+            path = "/chat/completions"
         body = json.dumps(body).encode()
         # the zen gateway sits behind Cloudflare and rejects non-browser user agents
         req = urllib.request.Request(
-            base + "/chat/completions",
+            base + path,
             data=body,
             headers={
                 "Content-Type": "application/json",
@@ -82,7 +107,7 @@ def _call(prompt, max_tokens=2000):
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
                 out = json.loads(r.read().decode())
-            content = (out["choices"][0]["message"].get("content") or "").strip()
+            content = _responses_text(out) if api == "responses" else (out["choices"][0]["message"].get("content") or "").strip()
             if content:
                 return content
             last_err = RuntimeError("empty judge response")  # transient: retry
@@ -96,7 +121,9 @@ def _call(prompt, max_tokens=2000):
 
 def _cached(prompt):
     model = os.environ.get("RSILAB_JUDGE_MODEL", "hy3")
-    k = hashlib.sha256((model + "\x00" + prompt).encode("utf-8")).hexdigest()
+    api = os.environ.get("RSILAB_JUDGE_API", "chat-completions")
+    effort = os.environ.get("RSILAB_JUDGE_REASONING_EFFORT", "low")
+    k = hashlib.sha256((model + "\x00" + api + "\x00" + effort + "\x00" + prompt).encode("utf-8")).hexdigest()
     cache = _load_cache()
     if k in cache:
         return cache[k]

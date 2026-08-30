@@ -61,7 +61,7 @@ export function verifyLiteratureResearch(input: LiteratureVerificationInput): Sc
 	}
 	for (const claim of input.claims.filter((claim) => claim.status === "supported")) {
 		if ((sourceClaimLinks.get(claim.id)?.support ?? 0) === 0) issues.push(errorIssue("claim-source", `supported literature claim lacks a linked source: ${claim.id}`));
-		if (input.requireContraryEvidence && (sourceClaimLinks.get(claim.id)?.contrary ?? 0) === 0) issues.push(warningIssue("contrary-evidence", `no contrary evidence recorded for claim: ${claim.id}`));
+		if (input.requireContraryEvidence && (sourceClaimLinks.get(claim.id)?.contrary ?? 0) === 0) issues.push(errorIssue("contrary-evidence", `no contrary evidence recorded for claim: ${claim.id}`));
 	}
 	for (const hypothesis of input.hypotheses) {
 		if (!hypothesis.statement.trim() || !hypothesis.expectedObservation.trim() || !hypothesis.falsifier.trim()) issues.push(errorIssue("hypothesis", `hypothesis is not falsifiable: ${hypothesis.id}`));
@@ -74,6 +74,7 @@ export function verifyLiteratureResearch(input: LiteratureVerificationInput): Sc
 		identity: input.sources.every((source) => validDoi(source.doi) || validUrl(source.url)),
 		provenance: input.sources.every((source) => /^[a-f0-9]{64}$/i.test(source.contentHash) && !Number.isNaN(Date.parse(source.retrievedAt))),
 		claimSupport: input.claims.filter((claim) => claim.status === "supported").every((claim) => (sourceClaimLinks.get(claim.id)?.support ?? 0) > 0),
+		contraryEvidence: !input.requireContraryEvidence || input.claims.filter((claim) => claim.status === "supported").every((claim) => (sourceClaimLinks.get(claim.id)?.contrary ?? 0) > 0),
 		falsifiableHypotheses: input.hypotheses.every((hypothesis) => !!hypothesis.statement && !!hypothesis.expectedObservation && !!hypothesis.falsifier),
 		noveltyBoundary: !!input.noveltyScope.trim() && !!input.noveltySearchCutoff.trim(),
 	};

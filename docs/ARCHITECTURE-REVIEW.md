@@ -244,6 +244,15 @@ RAG off/on 泛化对照
 - `src/inner/artifact-store.ts` owns authorized scratch preparation, public-data
   copy, toolkit installation, and sanitized atomic evidence persistence. Path
   authorization remains in `solve.ts`/`workspace-tools.ts` before destructive I/O.
+- `src/research/` adds the competition research application/domain slice:
+  `contracts` and `work-graph` define a verified long-horizon DAG;
+  `scheduler`, `tool-registry`, and `context-manager` provide serial execution,
+  typed receipts, bounded retries, checkpoints, and context packs; the event
+  ledger, CAS, manifests, and replay provide traceable evidence; quantitative,
+  GIS, literature, generic, and value verifiers are deterministic; deliverable
+  builders ground reports, eight-slide presentations, and defense answers in
+  Evidence IDs; StrategyBundle evolution changes one typed component at a time
+  and promotes only paired Luna-xhigh outcomes that pass replay/guard/cleanup.
 - `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
   toolkit、episode contract、prompt/submission policy 和 background-job state
   machine，保持行为稳定。进一步拆分 tool wiring/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。

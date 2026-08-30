@@ -687,6 +687,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 
 	let turns = 0;
 	let tokens = 0;
+	const modelCalls: NonNullable<EpisodeResult["modelCalls"]> = [];
 	let lastError: string | null = null;
 	const warnings: string[] = [];
 
@@ -710,6 +711,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 		}
 		const recoveredFirst = await recoverCandidateFile("turn-1");
 		tokens += out.tokens;
+		if (out.modelCall) modelCalls.push(out.modelCall);
 		turns += 1;
 		if (out.error && !recoveredFirst && st.submits === 0) lastError = out.error;
 		if (out.error && (recoveredFirst || st.submits > 0)) warnings.push(`post-submit model turn warning: ${out.error}`);
@@ -760,6 +762,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 			out = await harness.prompt(nudge, remainingMs());
 			const recovered = await recoverCandidateFile(`turn-${turn}`);
 			tokens += out.tokens;
+			if (out.modelCall) modelCalls.push(out.modelCall);
 			turns += 1;
 			if (out.error && !recovered && st.submits === 0) lastError = out.error;
 			if (out.error && (recovered || st.submits > 0)) warnings.push(`post-submit model turn warning: ${out.error}`);
@@ -836,6 +839,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 		error,
 		warnings,
 		publicHistory: st.publicHistory,
+		modelCalls,
 		workspace,
 		durableWorkspace: requestedWorkspace,
 		submissionRecovery: submissionRecovered ? "candidate-file-driver" : undefined,

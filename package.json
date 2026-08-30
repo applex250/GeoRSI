@@ -17,7 +17,9 @@
 		"extcheck": "tsx src/tui/ext-check.ts",
 		"emitcheck": "tsx src/tui/emit-check.ts",
 		"sandboxie:selftest": "tsx src/sandboxie_selftest.ts",
-		"check": "npm run typecheck && npm run selftest && npm run tuitest && python scripts/struct_selftest.py && python scripts/run_verdict_selftest.py && python scripts/architecture_selftest.py && python -m compileall -q scripts problems/_shared"
+		"research:selftest": "tsx src/research/demo_selftest.ts",
+		"research:demo": "tsx src/run.ts research-demo",
+		"check": "npm run typecheck && npm run selftest && npm run research:selftest && npm run tuitest && python scripts/struct_selftest.py && python scripts/run_verdict_selftest.py && python scripts/architecture_selftest.py && python -m compileall -q scripts problems/_shared"
 	},
 	"dependencies": {
 		"@earendil-works/pi-agent-core": "0.84.2",

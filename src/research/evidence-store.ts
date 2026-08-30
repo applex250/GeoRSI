@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { EvidenceRef } from "./contracts.js";
-import { stableJson } from "./event-ledger.js";
+import { sanitizeResearchUrl, stableJson } from "./event-ledger.js";
 
 export interface PutEvidenceOptions {
 	kind: EvidenceRef["kind"];
@@ -34,7 +34,7 @@ export class ContentAddressedEvidenceStore {
 			producerNodeId: options.producerNodeId,
 			mediaType: options.mediaType,
 			bytes: content.byteLength,
-			sourceUrl: options.sourceUrl,
+			sourceUrl: options.sourceUrl ? sanitizeResearchUrl(options.sourceUrl) : undefined,
 			retrievedAt: options.retrievedAt,
 			license: options.license,
 		};

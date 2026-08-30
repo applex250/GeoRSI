@@ -6,17 +6,19 @@ import { readyWorkNodes, transitionWorkNode, workGraphComplete } from "./work-gr
 export interface NodeExecutionResult {
 	artifactIds: string[];
 	metadata?: Record<string, unknown>;
+	usage: { modelCalls: number; toolCalls: number; outputTokens: number };
 }
 
 export interface NodeVerificationResult {
 	passed: boolean;
 	evidenceIds: string[];
 	issues: string[];
+	usage: { modelCalls: number; toolCalls: number; outputTokens: number };
 }
 
 export interface ResearchSchedulerPorts {
-	execute(node: WorkNode, graph: ResearchWorkGraph): Promise<NodeExecutionResult>;
-	verify(node: WorkNode, result: NodeExecutionResult, graph: ResearchWorkGraph): Promise<NodeVerificationResult>;
+	execute(node: WorkNode, graph: ResearchWorkGraph, signal: AbortSignal): Promise<NodeExecutionResult>;
+	verify(node: WorkNode, result: NodeExecutionResult, graph: ResearchWorkGraph, signal: AbortSignal): Promise<NodeVerificationResult>;
 	checkpoint(graph: ResearchWorkGraph): void | Promise<void>;
 	now(): Date;
 	onEvent?(event: { type: string; nodeId?: string; detail?: unknown }): void;
@@ -34,6 +36,24 @@ export interface ResearchSchedulerResult {
 export class ResearchScheduler {
 	constructor(private readonly ports: ResearchSchedulerPorts) {}
 
+	private async withinDeadline<T>(wallMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+		const controller = new AbortController();
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		try {
+			return await Promise.race([
+				operation(controller.signal),
+				new Promise<T>((_resolve, reject) => {
+					timer = setTimeout(() => {
+						controller.abort();
+						reject(new Error(`research node timed out after ${wallMs}ms`));
+					}, wallMs);
+				}),
+			]);
+		} finally {
+			if (timer) clearTimeout(timer);
+		}
+	}
+
 	private async save(graph: ResearchWorkGraph): Promise<void> {
 		await this.ports.checkpoint(graph);
 	}
@@ -46,11 +66,17 @@ export class ResearchScheduler {
 		const ready = readyWorkNodes(graph).find((node) => node.id === nodeId);
 		if (!ready) throw new Error(`research node is not ready: ${nodeId}`);
 		let next = transitionWorkNode(graph, nodeId, "running", {}, this.ports.now());
+		const deadline = Date.now() + ready.budget.wallMs;
+		const remainingWallMs = (): number => Math.max(0, deadline - Date.now());
 		await this.save(next);
 		this.emit("node-start", nodeId, { attempt: next.nodes.find((node) => node.id === nodeId)?.attempts });
 		let execution: NodeExecutionResult;
 		try {
-			execution = await this.ports.execute(next.nodes.find((node) => node.id === nodeId)!, next);
+			execution = await this.withinDeadline(remainingWallMs(), (signal) => this.ports.execute(next.nodes.find((node) => node.id === nodeId)!, next, signal));
+			const usage = execution.usage;
+			if (usage.modelCalls > ready.budget.maxModelCalls) throw new Error(`node model-call budget exceeded: ${usage.modelCalls}/${ready.budget.maxModelCalls}`);
+			if (usage.toolCalls > ready.budget.maxToolCalls) throw new Error(`node tool-call budget exceeded: ${usage.toolCalls}/${ready.budget.maxToolCalls}`);
+			if (usage.outputTokens > ready.budget.maxOutputTokens) throw new Error(`node output-token budget exceeded: ${usage.outputTokens}/${ready.budget.maxOutputTokens}`);
 		} catch (error) {
 			const failure = classifyResearchFailure(error, "node-execution");
 			next = transitionWorkNode(next, nodeId, "failed", { failureCode: failure.class, failureMessage: failure.message }, this.ports.now());
@@ -68,12 +94,20 @@ export class ResearchScheduler {
 		this.emit("node-verifying", nodeId, { artifactIds: execution.artifactIds });
 		let verification: NodeVerificationResult;
 		try {
-			verification = await this.ports.verify(next.nodes.find((node) => node.id === nodeId)!, execution, next);
+			verification = await this.withinDeadline(remainingWallMs(), (signal) => this.ports.verify(next.nodes.find((node) => node.id === nodeId)!, execution, next, signal));
 		} catch (error) {
-			verification = { passed: false, evidenceIds: [], issues: [error instanceof Error ? error.message : String(error)] };
+			verification = { passed: false, evidenceIds: [], issues: [error instanceof Error ? error.message : String(error)], usage: { modelCalls: 0, toolCalls: 0, outputTokens: 0 } };
+		}
+		const combinedUsage = {
+			modelCalls: execution.usage.modelCalls + verification.usage.modelCalls,
+			toolCalls: execution.usage.toolCalls + verification.usage.toolCalls,
+			outputTokens: execution.usage.outputTokens + verification.usage.outputTokens,
+		};
+		if (combinedUsage.modelCalls > ready.budget.maxModelCalls || combinedUsage.toolCalls > ready.budget.maxToolCalls || combinedUsage.outputTokens > ready.budget.maxOutputTokens) {
+			verification = { passed: false, evidenceIds: verification.evidenceIds, issues: [...verification.issues, `combined node budget exceeded: model=${combinedUsage.modelCalls}/${ready.budget.maxModelCalls} tool=${combinedUsage.toolCalls}/${ready.budget.maxToolCalls} output=${combinedUsage.outputTokens}/${ready.budget.maxOutputTokens}`], usage: verification.usage };
 		}
 		if (verification.passed && next.nodes.find((node) => node.id === nodeId)!.acceptanceCriteriaIds.length > 0 && verification.evidenceIds.length === 0) {
-			verification = { passed: false, evidenceIds: [], issues: ["verifier passed without acceptance evidence"] };
+			verification = { passed: false, evidenceIds: [], issues: ["verifier passed without acceptance evidence"], usage: verification.usage };
 		}
 		if (verification.passed) {
 			next = transitionWorkNode(next, nodeId, "completed", { acceptanceEvidenceIds: verification.evidenceIds }, this.ports.now());

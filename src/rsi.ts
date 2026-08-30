@@ -130,7 +130,11 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 			ragCorpusVersion,
 			modelProfiles: { version: loadProfiles().version, fingerprint: fingerprint([loadProfiles()]) },
 			requestMaxTokens: process.env.RSILAB_REQUEST_MAX_TOKENS ?? "default",
-			evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
+			evaluationMetrics: {
+				quizPublic: "public-dev-v1",
+				quizPrivate: "private-only-v2",
+				llmJudge: cfg.single_model_id === "gpt-5.6-luna" ? { metricClass: "same-model-llm-judge-proxy", model: "gpt-5.6-luna", thinking: "xhigh", independent: false } : { metricClass: "configured-llm-judge-proxy" },
+			},
 			rag: { enabled: cfg.rag_enabled === true, budgetChars: cfg.rag_budget_chars ?? 2400 },
 		});
 	}

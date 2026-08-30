@@ -36,6 +36,8 @@ def _key_for(endpoint):
         return open(p, encoding="utf-8").read().strip() if os.path.exists(p) else ""
     if endpoint == "emooo":
         return os.environ.get("RSILAB_EMOOO_API_KEY", os.environ.get("GEORSI_EMOOO_API_KEY", "")).strip()
+    if endpoint == "ai-pixel":
+        return os.environ.get("AI_PIXEL_API_KEY", "").strip()
     return open(os.path.join(ROOT, "api_key.txt"), encoding="utf-8").read().strip()
 
 
@@ -47,6 +49,8 @@ def _base_for(endpoint):
         return cfg.get("openrouter_base_url", "https://openrouter.ai/api/v1")
     if endpoint == "emooo":
         return cfg.get("emooo_base_url", "https://api.emooo.cc/v1")
+    if endpoint == "ai-pixel":
+        return os.environ.get("AI_PIXEL_BASE_URL", cfg.get("ai_pixel_base_url", "https://api.ai-pixel.online/v1"))
     return cfg["base_url"]
 
 
@@ -139,6 +143,9 @@ def complete(model_id, messages, level="low", budget_tokens=None, max_tokens=400
         if prof["api_style"] == "responses":
             body = {"model": model_id, "input": "\n".join(str(m.get("content")) for m in messages),
                     "max_output_tokens": max_tokens}
+            effort = extra.get("reasoning_effort")
+            if effort:
+                body["reasoning"] = {"effort": effort}
             path = "/responses"
         else:
             body = {"model": model_id, "messages": messages, "max_tokens": max_tokens,
@@ -150,8 +157,17 @@ def complete(model_id, messages, level="low", budget_tokens=None, max_tokens=400
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 out = json.loads(r.read().decode())
             if prof["api_style"] == "responses":
-                parts = [p.get("content", "") for p in (out.get("output") or []) if isinstance(p, dict)]
-                text = "".join(parts).strip() if parts and any(parts) else ""
+                direct = out.get("output_text")
+                if isinstance(direct, str) and direct.strip():
+                    return direct.strip()
+                texts = []
+                for item in out.get("output") or []:
+                    if not isinstance(item, dict):
+                        continue
+                    for part in item.get("content") or []:
+                        if isinstance(part, dict) and isinstance(part.get("text"), str):
+                            texts.append(part["text"])
+                text = "\n".join(texts).strip()
                 if not text:
                     raise RuntimeError(f"empty responses output: {str(out)[:120]}")
                 return text

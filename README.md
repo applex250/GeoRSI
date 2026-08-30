@@ -58,6 +58,8 @@ solved by the engine subprocess in 31s with fitness 1.0000
 
 ## Architecture
 
+- [`docs/RESEARCH-COMPETITION.md`](docs/RESEARCH-COMPETITION.md) — Luna-only long-horizon research WorkGraph, evidence/replay, scoring, and competition runbook
+
     outer loop (slow, evolves the agent — hy3)
       goal gate -> propose (think-first, <=3 edits) -> critique panel
       -> evaluate survivors on the training suite -> adversarial verify

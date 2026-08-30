@@ -20,6 +20,19 @@ export interface EpisodeIsolationEvidence {
 	cleanup?: Record<string, unknown>;
 }
 
+export interface EpisodeModelCallReceipt {
+	id: string;
+	provider: string;
+	model: string;
+	requestedThinking: string;
+	effectiveThinking: string;
+	inputTokens: number | null;
+	outputTokens: number | null;
+	reasoningTokens: number | null;
+	totalTokens: number;
+	success: boolean;
+}
+
 export interface EpisodeResult {
 	problemId: string;
 	fitness: number | null;
@@ -41,6 +54,7 @@ export interface EpisodeResult {
 	answerCount?: number;
 	answerTotal?: number;
 	publicHistory?: { score: number | null; note: string }[];
+	modelCalls?: EpisodeModelCallReceipt[];
 	/** knowledge/retrieval evidence injected into this episode */
 	knowledgeIds: string[];
 	knowledgeVersion?: string;

@@ -32,6 +32,10 @@ export function strategyOutcomeEligible(outcome: StrategyOutcome): boolean {
 	return outcome.validRate > 0 && outcome.score != null && outcome.replayPassRate === 1 && outcome.guardViolations === 0 && outcome.cleanupPassed && outcome.otherModelCalls === 0 && outcome.model === "gpt-5.6-luna" && outcome.thinkingLevel === "xhigh";
 }
 
+function stableNumberList(values: readonly number[]): string {
+	return values.join(",");
+}
+
 function mean(values: number[]): number {
 	return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
@@ -48,15 +52,23 @@ function scorePer100k(score: number, tokens: number): number {
 export function decideStrategyPromotion(baseline: readonly StrategyOutcome[], candidate: readonly StrategyOutcome[]): StrategyPromotionDecision {
 	const reasons: string[] = [];
 	if (baseline.length < 2 || candidate.length < 2) reasons.push("paired promotion requires at least two repetitions per arm");
+	if (baseline.length !== candidate.length) reasons.push("paired promotion requires equal arm sizes");
+	const baselineKeys = baseline.map((outcome) => outcome.repetition);
+	const candidateKeys = candidate.map((outcome) => outcome.repetition);
+	if (new Set(baselineKeys).size !== baselineKeys.length || new Set(candidateKeys).size !== candidateKeys.length) reasons.push("repetition keys must be unique within each arm");
+	const sortedBaselineKeys = [...baselineKeys].sort((left, right) => left - right);
+	const sortedCandidateKeys = [...candidateKeys].sort((left, right) => left - right);
+	if (stableNumberList(sortedBaselineKeys) !== stableNumberList(sortedCandidateKeys)) reasons.push("baseline and candidate repetition keys must match exactly");
 	const manifests = new Set([...baseline, ...candidate].map((outcome) => outcome.manifestFingerprint));
 	if (manifests.size !== 1) reasons.push("all paired runs must use one fixed manifest");
 	if ([...baseline, ...candidate].some((outcome) => outcome.model !== "gpt-5.6-luna" || outcome.thinkingLevel !== "xhigh" || outcome.otherModelCalls !== 0)) reasons.push("every model call must be Luna xhigh with no other model receipts");
+	if (baseline.some((outcome) => !strategyOutcomeEligible(outcome))) reasons.push("every baseline repetition must pass score/replay/guard/cleanup eligibility");
 	if (candidate.some((outcome) => !strategyOutcomeEligible(outcome))) reasons.push("every candidate repetition must pass score/replay/guard/cleanup eligibility");
-	const sortedBaseline = [...baseline].sort((left, right) => left.repetition - right.repetition);
-	const sortedCandidate = [...candidate].sort((left, right) => left.repetition - right.repetition);
-	const pairs = Math.min(sortedBaseline.length, sortedCandidate.length);
-	const scoreDeltas: number[] = [];
-	for (let index = 0; index < pairs; index++) scoreDeltas.push((sortedCandidate[index]!.score ?? 0) - (sortedBaseline[index]!.score ?? 0));
+	const baselineByRepetition = new Map(baseline.map((outcome) => [outcome.repetition, outcome]));
+	const candidateByRepetition = new Map(candidate.map((outcome) => [outcome.repetition, outcome]));
+	const matchedKeys = sortedBaselineKeys.filter((key) => candidateByRepetition.has(key));
+	const scoreDeltas = matchedKeys.map((key) => (candidateByRepetition.get(key)!.score ?? 0) - (baselineByRepetition.get(key)!.score ?? 0));
+	const pairs = scoreDeltas.length;
 	const pairedScoreDelta = pairs ? mean(scoreDeltas) : null;
 	const validRateDelta = mean(candidate.map((outcome) => outcome.validRate)) - mean(baseline.map((outcome) => outcome.validRate));
 	const baselineWorst = nullableMean(baseline.map((outcome) => outcome.worstFamilyScore));

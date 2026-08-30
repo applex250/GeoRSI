@@ -53,6 +53,9 @@ FORBIDDEN = {
     "src/research/experience-miner.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/token-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/research-evolution.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/scoring.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/orchestrator.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/runtime-attestation.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }

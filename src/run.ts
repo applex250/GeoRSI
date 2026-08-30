@@ -4,6 +4,7 @@
  *   npx tsx src/run.ts selftest            # no-LLM unit tests of core logic
  *   npx tsx src/run.ts smoke               # 1 tiny live episode (quake_b, 2 turns)
  *   npx tsx src/run.ts exam [--scaffold path]  # full suite exam incl. held-out
+ *   npx tsx src/run.ts research-demo [--run-name NAME] # deterministic full research package
  *   npx tsx src/run.ts rsi [--gens N] [--resume] [--run-name NAME]
  */
 import { readFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
@@ -43,6 +44,15 @@ async function main() {
 	if (cmd === "selftest") {
 		const ok = await selftest();
 		process.exit(ok ? 0 : 1);
+	}
+
+	if (cmd === "research-demo") {
+		const { runDeterministicResearchDemo } = await import("./research/demo.js");
+		const runName = args["run-name"] ? String(args["run-name"]) : `research-demo-${Date.now()}`;
+		const runDir = join(ROOT, "runs", runName);
+		const result = await runDeterministicResearchDemo(runDir);
+		console.log(`RESEARCH_DEMO_OK competitionEligible=${result.competitionScore.eligible} evidence=${result.evidence.length} claims=${result.claims.length} replay=${result.replay.passed ? "PASS" : "FAIL"} artifacts=${runDir}`);
+		process.exit(result.replay.passed && result.computeReplay.passed ? 0 : 2);
 	}
 
 	if (cmd === "smoke") {

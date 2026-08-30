@@ -22,6 +22,7 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
 import { getProfile, resolveThinking, type ThinkingLevel } from "./models.js";
 import { createExchangeToolDefinitions } from "./workspace-tools.js";
+import type { ModelCallReceipt } from "./research/runtime-attestation.js";
 
 export interface HarnessOpts {
 	model: Model<any>;
@@ -134,6 +135,7 @@ export interface PromptOutcome {
 	error: string | null;
 	tokens: number;
 	secs: number;
+	modelCall?: ModelCallReceipt;
 }
 
 /** Uniform tool result: text back to the model, no structured details. */
@@ -175,6 +177,8 @@ export class PiHarness {
 	private disposed = false;
 	/** session stats are cumulative; only the per-prompt delta is new usage */
 	private lastSessionTokens = 0;
+	private lastTokenDetail = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+	private effectiveThinkingLevel = "low";
 	/** env-gated raw event diagnostics (RSILAB_PROMPT_DIAG=1) */
 	private _diagPath: string | null = null;
 
@@ -186,6 +190,7 @@ export class PiHarness {
 		mkdirSync(this.opts.cwd, { recursive: true });
 		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(this.opts.cwd, "prompt_diag.jsonl") : null;
 		const thinkingLevel = resolveHarnessThinking(this.opts.model, this.opts.thinkingLevel);
+		this.effectiveThinkingLevel = thinkingLevel;
 		// Fully isolated resource loading: our system prompt only, no ambient
 		// .pi context files, no skills discovery side effects.
 		const agentDir = join(this.opts.cwd, ".pi-agent");
@@ -324,16 +329,31 @@ export class PiHarness {
 		}
 
 		let tokens = 0;
+		let tokenDetail: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } = {};
 		try {
 			const stats = this.session.getSessionStats();
-			const total = stats?.tokens?.total ?? 0;
+			const tokenStats = stats?.tokens as { total?: number; input?: number; output?: number; cacheRead?: number; cacheWrite?: number } | undefined;
+			const total = tokenStats?.total ?? 0;
 			tokens = Math.max(0, total - this.lastSessionTokens);
 			this.lastSessionTokens = total;
+			tokenDetail = {
+				input: typeof tokenStats?.input === "number" ? Math.max(0, tokenStats.input - this.lastTokenDetail.input) : undefined,
+				output: typeof tokenStats?.output === "number" ? Math.max(0, tokenStats.output - this.lastTokenDetail.output) : undefined,
+				cacheRead: typeof tokenStats?.cacheRead === "number" ? Math.max(0, tokenStats.cacheRead - this.lastTokenDetail.cacheRead) : undefined,
+				cacheWrite: typeof tokenStats?.cacheWrite === "number" ? Math.max(0, tokenStats.cacheWrite - this.lastTokenDetail.cacheWrite) : undefined,
+			};
+			this.lastTokenDetail = {
+				input: tokenStats?.input ?? this.lastTokenDetail.input,
+				output: tokenStats?.output ?? this.lastTokenDetail.output,
+				cacheRead: tokenStats?.cacheRead ?? this.lastTokenDetail.cacheRead,
+				cacheWrite: tokenStats?.cacheWrite ?? this.lastTokenDetail.cacheWrite,
+			};
 		} catch {
 			/* stats are best-effort */
 		}
 		TOKENS.record(tokens, timedOut || stalled || !!error);
 
+		const modelMeta = this.opts.model as { id?: string; provider?: string };
 		return {
 			aborted: timedOut || stalled,
 			timedOut,
@@ -341,6 +361,18 @@ export class PiHarness {
 			error,
 			tokens,
 			secs: (Date.now() - t0) / 1000,
+			modelCall: {
+				id: `prompt-${t0}-${this.lastSessionTokens}`,
+				provider: modelMeta.id === "gpt-5.6-luna" ? "ai-pixel" : modelMeta.provider ?? "unknown",
+				model: modelMeta.id ?? "unknown",
+				requestedThinking: this.opts.thinkingLevel,
+				effectiveThinking: this.effectiveThinkingLevel,
+				inputTokens: typeof tokenDetail.input === "number" ? tokenDetail.input : null,
+				outputTokens: typeof tokenDetail.output === "number" ? tokenDetail.output : null,
+				reasoningTokens: null,
+				totalTokens: tokens,
+				success: !timedOut && !stalled && !error,
+			},
 		};
 	}
 

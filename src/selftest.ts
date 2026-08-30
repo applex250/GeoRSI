@@ -52,7 +52,7 @@ import { createWorkGraph, createWorkNode, readyWorkNodes, transitionWorkNode, va
 import { validateDecisionRecord, validateResearchClaim } from "./research/decision-policy.js";
 import { classifyResearchFailure } from "./research/failure-taxonomy.js";
 import { profileResearchTask } from "./research/task-profile.js";
-import { ResearchEventLedger, readResearchLedger, sanitizeResearchEvidence } from "./research/event-ledger.js";
+import { ResearchEventLedger, readResearchLedger, sanitizeResearchEvidence, sanitizeResearchHeaders } from "./research/event-ledger.js";
 import { ContentAddressedEvidenceStore } from "./research/evidence-store.js";
 import { captureResearchEnvironment } from "./research/environment-capture.js";
 import { createResearchPackageManifest } from "./research/artifact-manifest.js";
@@ -74,6 +74,8 @@ import { compareStrategyOutcomes, decideStrategyPromotion, type StrategyOutcome 
 import { mineStrategyExperience } from "./research/experience-miner.js";
 import { escalatedOutputCap, roleOutputCap, tokenEfficiency } from "./research/token-policy.js";
 import { runStrategyGeneration } from "./research/research-evolution.js";
+import { validateRuntimeAttestation, type ResearchRuntimeAttestation } from "./research/runtime-attestation.js";
+import { scoreResearchCompetition } from "./research/scoring.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -223,15 +225,23 @@ export async function selftest(): Promise<boolean> {
 		now: () => new Date(schedulerNow += 1000),
 		execute: async (node) => {
 			if (node.id === "audit" && auditAttempts++ === 0) throw new Error("execution timed out");
-			return { artifactIds: [`artifact-${node.id}`] };
+			return { artifactIds: [`artifact-${node.id}`], usage: { modelCalls: 0, toolCalls: 1, outputTokens: 0 } };
 		},
-		verify: async (node) => ({ passed: true, evidenceIds: [`verify-${node.id}`], issues: [] }),
+		verify: async (node) => ({ passed: true, evidenceIds: [`verify-${node.id}`], issues: [], usage: { modelCalls: 0, toolCalls: 0, outputTokens: 0 } }),
 		checkpoint: (graph) => { checkpoints.push(graph.updatedAt); },
 	});
 	const scheduled = await scheduler.run(schedulerGraph);
 	schedulerGraph = scheduled.graph;
 	check("research scheduler retries only the failed node and completes DAG", scheduled.completed && scheduled.executedNodes.join(",") === "frame,audit,audit" && scheduled.failures[0]?.failure.class === "timeout" && workGraphComplete(schedulerGraph));
 	check("research scheduler checkpoints every state transition", checkpoints.length >= 8);
+	const budgetNode = createWorkNode({ ...frameNode, id: "budget-node", budget: { ...nodeBudget, maxToolCalls: 0, maxAttempts: 1 } });
+	const budgetScheduler = new ResearchScheduler({ now: () => new Date(), execute: async () => ({ artifactIds: ["artifact"], usage: { modelCalls: 0, toolCalls: 1, outputTokens: 0 } }), verify: async () => ({ passed: true, evidenceIds: ["verify"], issues: [], usage: { modelCalls: 0, toolCalls: 0, outputTokens: 0 } }), checkpoint: () => {} });
+	const budgetScheduled = await budgetScheduler.run(createWorkGraph("budget-mission", [budgetNode]));
+	check("research scheduler enforces attested tool-call budget", !budgetScheduled.completed && budgetScheduled.graph.nodes[0]?.state === "failed");
+	const timeoutNode = createWorkNode({ ...frameNode, id: "timeout-node", budget: { ...nodeBudget, wallMs: 5, maxAttempts: 1 } });
+	const timeoutScheduler = new ResearchScheduler({ now: () => new Date(), execute: async (_node, _graph, signal) => new Promise((resolve, reject) => { const timer = setTimeout(() => resolve({ artifactIds: ["late"], usage: { modelCalls: 0, toolCalls: 0, outputTokens: 0 } }), 100); signal.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("aborted")); }); }), verify: async () => ({ passed: true, evidenceIds: ["verify"], issues: [], usage: { modelCalls: 0, toolCalls: 0, outputTokens: 0 } }), checkpoint: () => {} });
+	const timeoutScheduled = await timeoutScheduler.run(createWorkGraph("timeout-mission", [timeoutNode]));
+	check("research scheduler aborts work at node wall-clock deadline", !timeoutScheduled.completed && timeoutScheduled.failures[0]?.failure.class === "timeout");
 	console.log("== research scientific verifiers ==");
 	const quantitativePass = verifyQuantitativeResearch({ rowCount: 100, missingCount: 0, duplicateCount: 0, columnsAudited: ["magnitude"], units: { magnitude: "Mw", b: "dimensionless" }, estimand: "Gutenberg-Richter b-value", method: "Aki MLE", referenceCalibration: { performed: true, expected: 0.9, actual: 0.91, tolerance: 0.02 }, randomSeed: 7, stochasticMethod: true, finiteOutputs: true, uncertainty: { method: "bootstrap", lower: 0.75, upper: 0.95 }, sensitivityRuns: 3, independentCheck: { method: "alternate Mc", relativeDifference: 0.02, tolerance: 0.05 }, targetWithinObservedRange: true });
 	check("quantitative verifier accepts audited uncertainty and independent check", quantitativePass.passed && quantitativePass.score === 1);
@@ -268,6 +278,10 @@ export async function selftest(): Promise<boolean> {
 	const candidateOutcomes = [makeOutcome("c1", 1, 0.74, 70000), makeOutcome("c2", 2, 0.75, 70000)];
 	const promotion = decideStrategyPromotion(baselineOutcomes, candidateOutcomes);
 	check("paired StrategyBundle promotion requires quality and honest gates", promotion.promote && promotion.status === "active" && (promotion.pairedScoreDelta ?? 0) > 0.01 && (promotion.tokenRatio ?? 1) === 0.7);
+	const invalidBaselinePromotion = decideStrategyPromotion([{ ...baselineOutcomes[0]!, replayPassRate: 0 }, baselineOutcomes[1]!], candidateOutcomes);
+	const mismatchedPromotion = decideStrategyPromotion(baselineOutcomes, [{ ...candidateOutcomes[0]!, repetition: 1 }, { ...candidateOutcomes[1]!, repetition: 3 }]);
+	const duplicatePromotion = decideStrategyPromotion(baselineOutcomes, [{ ...candidateOutcomes[0]!, repetition: 1 }, { ...candidateOutcomes[1]!, repetition: 1 }]);
+	check("Strategy promotion rejects invalid baselines and mismatched pairs", !invalidBaselinePromotion.promote && !mismatchedPromotion.promote && !duplicatePromotion.promote);
 	check("Strategy selection is quality-first then token-efficient within score band", compareStrategyOutcomes(makeOutcome("quality", 1, 0.8, 200000), makeOutcome("cheap", 1, 0.7, 10000)) < 0 && compareStrategyOutcomes(makeOutcome("same-cheap", 1, 0.795, 50000), makeOutcome("same-expensive", 1, 0.8, 100000)) < 0);
 	const timeoutExperience = mineStrategyExperience({ failure: classifyResearchFailure("execution timed out"), taskFamily: "quantitative", evidenceIds: ["ev-timeout"], runId: "run", episodeId: "episode", nodeId: "analysis", id: "experience-1" });
 	check("experience miner creates evidence-linked probation hypotheses", timeoutExperience?.status === "probation" && timeoutExperience.component === "budget" && timeoutExperience.evidenceIds[0] === "ev-timeout");
@@ -283,6 +297,13 @@ export async function selftest(): Promise<boolean> {
 		originRun: "selftest-evolution",
 	});
 	check("typed research evolution accepts only paired promoted winner", evolvedGeneration.acceptedCandidate === 0 && evolvedGeneration.champion.lineage.changedComponent === "budget" && evolvedGeneration.candidates.length === 2 && !evolvedGeneration.candidates[1]?.promotion.promote);
+	const lunaReceipt = { id: "call-1", provider: "ai-pixel", model: "gpt-5.6-luna", requestedThinking: "xhigh", effectiveThinking: "xhigh", inputTokens: 100, outputTokens: 50, reasoningTokens: null, totalTokens: 150, success: true };
+	const attestationMission: ResearchMission = { ...mission, sourcePolicy: { ...mission.sourcePolicy, requireContraryEvidence: false }, taskProfile: { ...mission.taskProfile, family: "quantitative", verifierProfile: "quantitative-v1", sourceRequirements: [] } };
+	const competitionAttestation: ResearchRuntimeAttestation = { version: 1, runMode: "competition", unitTestsPassed: true, guardViolations: [], cleanupPassed: true, isolationBackend: "sandboxie-app-level", modelCalls: [lunaReceipt], familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidence[0]!.id] }], contraryEvidenceLinks: [], totalTokens: 150, wallSeconds: 10 };
+	const sandboxReplay = { passed: true, backend: "sandboxie-app-level" as const, processOwnershipVerified: true };
+	check("competition attestation requires receipt-backed Luna xhigh and Sandboxie", validateRuntimeAttestation(competitionAttestation, sandboxReplay, attestationMission, evidence, []).length === 0 && validateRuntimeAttestation({ ...competitionAttestation, modelCalls: [], totalTokens: 0 }, sandboxReplay, attestationMission, evidence, []).some((issue) => issue.includes("model-call receipts")));
+	const attestedScore = scoreResearchCompetition({ runtime: { unitTestsPassed: true, runtimeAttestationPassed: true, traceComplete: true, manifestValid: true, verifyReplayPassed: true, computeReplayPassed: true, guardViolations: 0, cleanupPassed: true, validResultCount: 1 }, science: { taskOutcome: 1, methodValidity: 1, claimEvidenceQuality: 1, reproducibility: 1, scientificValue: 1 }, communication: { report: 1, presentation: 1, defense: 1 }, totalTokens: 100000, wallSeconds: 10, perFamily: { quantitative: 1 } });
+	check("three-layer score is non-compensable and token-aware", attestedScore.eligible && attestedScore.overall === 1 && attestedScore.scorePer100kTokens === 1 && !scoreResearchCompetition({ runtime: { unitTestsPassed: true, runtimeAttestationPassed: false, traceComplete: true, manifestValid: true, verifyReplayPassed: true, computeReplayPassed: true, guardViolations: 0, cleanupPassed: true, validResultCount: 1 }, science: { taskOutcome: 1, methodValidity: 1, claimEvidenceQuality: 1, reproducibility: 1, scientificValue: 1 }, communication: { report: 1, presentation: 1, defense: 1 }, totalTokens: 1, wallSeconds: 1, perFamily: {} }).eligible);
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");
@@ -309,19 +330,29 @@ export async function selftest(): Promise<boolean> {
 	recoveredLedger.close();
 	check("research event ledger recovers only a torn final record", readResearchLedger(tornLedgerPath).valid && !readResearchLedger(tornLedgerPath).tornTail && readResearchLedger(tornLedgerPath).events.length === 2);
 	check("research evidence sanitizer catches generated secret text", JSON.stringify(sanitizeResearchEvidence({ token: "x", text: "sk-" + "a".repeat(24) })).includes("REDACTED_CREDENTIAL"));
+	const sanitizedUrl = String(sanitizeResearchEvidence("https://user:pass@example.com/data?api_key=opaque&X-Amz-Signature=signed&safe=1"));
+	const sanitizedHeaders = sanitizeResearchHeaders({ "set-cookie": "session=opaque", "x-api-key": "opaque", "content-type": "text/plain" });
+	check("research evidence sanitizer strips URL userinfo query secrets and cookies", !sanitizedUrl.includes("opaque") && !sanitizedUrl.includes("user") && sanitizedUrl.includes("safe=1") && sanitizedHeaders["set-cookie"] === "[REDACTED_CREDENTIAL]" && sanitizedHeaders["x-api-key"] === "[REDACTED_CREDENTIAL]");
 	const evidenceStore = new ContentAddressedEvidenceStore(join(researchDir, "cas"));
 	const evidenceRef = evidenceStore.putJson({ estimate: 0.85, unit: "dimensionless" }, { kind: "verifier", logicalName: "results/verification.json", producerNodeId: "frame" });
 	check("content-addressed evidence verifies bytes and hash", evidenceRef.logicalName === "verification.json" && evidenceStore.verify(evidenceRef) && evidenceStore.read(evidenceRef).length > 0);
-	const genericMission: ResearchMission = { ...mission, taskProfile: { ...mission.taskProfile, family: "quantitative", requiredStages: ["frame-question"], capabilities: ["claim-record"], verifierProfile: "quantitative-v1", deliverableSchema: "generic-test", sourceRequirements: [], networkMode: "blocked" } };
+	const genericMission: ResearchMission = { ...mission, sourcePolicy: { networkMode: "blocked", requireProvenance: false, requireContentHash: true, requireLicenseMetadata: false, requireRetrievedAt: false, requireContraryEvidence: false }, taskProfile: { ...mission.taskProfile, family: "quantitative", requiredStages: ["frame-question"], capabilities: ["claim-record"], verifierProfile: "quantitative-v1", deliverableSchema: "generic-test", sourceRequirements: [], networkMode: "blocked" } };
 	let genericGraph = createWorkGraph(genericMission.id, [frameNode]);
 	genericGraph = transitionWorkNode(genericGraph, "frame", "running");
 	genericGraph = transitionWorkNode(genericGraph, "frame", "verifying", { outputArtifactIds: [evidenceRef.id] });
 	genericGraph = transitionWorkNode(genericGraph, "frame", "completed", { acceptanceEvidenceIds: [evidenceRef.id] });
 	const genericClaim = { id: "generic-claim", text: "verified estimate", status: "supported" as const, evidenceIds: [evidenceRef.id], uncertainty: "fixture", limitations: [] };
-	const genericPass = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: [], cleanupPassed: true });
+	const genericPass = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: [], cleanupPassed: true, familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidenceRef.id] }], contraryEvidenceLinks: [] });
 	check("generic research verifier enforces complete package gates", genericPass.passed);
-	const genericGuardFail = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: ["protected path"], cleanupPassed: true });
+	const genericGuardFail = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: ["protected path"], cleanupPassed: true, familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidenceRef.id] }], contraryEvidenceLinks: [] });
 	check("generic research verifier makes guard violations ineligible", !genericGuardFail.passed && genericGuardFail.issues.some((issue) => issue.code === "guard-violation"));
+	const deliverableSource = evidenceStore.putJson({ title: "fixture source" }, { kind: "source", logicalName: "source.json", producerNodeId: "frame", sourceUrl: "https://example.com/source", retrievedAt: "2026-08-30T00:00:00Z", license: "fixture" });
+	const deliverableGeo = evidenceStore.putJson({ type: "FeatureCollection", features: [] }, { kind: "geodata", logicalName: "map.geojson", producerNodeId: "frame" });
+	const deliverableTable = evidenceStore.putJson({ sensitivity: [0.8, 0.9] }, { kind: "table", logicalName: "sensitivity.json", producerNodeId: "frame" });
+	const deliverableEvidence = [evidenceRef, deliverableSource, deliverableGeo, deliverableTable];
+	const sourceGatedMission: ResearchMission = { ...genericMission, sourcePolicy: { networkMode: "open", requireProvenance: true, requireContentHash: true, requireLicenseMetadata: true, requireRetrievedAt: true, requireContraryEvidence: true }, taskProfile: { ...genericMission.taskProfile, sourceRequirements: [{ id: "sources", description: "sources", minimumCount: 2 }] } };
+	const sourceGated = verifyGenericResearch({ mission: sourceGatedMission, graph: genericGraph, evidence: [evidenceRef, deliverableSource], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: [], cleanupPassed: true, familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidenceRef.id] }], contraryEvidenceLinks: [] });
+	check("generic verifier enforces source counts metadata contrary evidence and family gates", !sourceGated.passed && sourceGated.issues.some((issue) => issue.code === "source-requirement") && sourceGated.issues.some((issue) => issue.code === "contrary-evidence"));
 	const deliverableValueDimension = { score: 3 as const, rationale: "verified fixture evidence", evidenceIds: [evidenceRef.id] };
 	const deliverableValueCard: ScientificValueCard = { significance: deliverableValueDimension, novelty: deliverableValueDimension, falsifiability: deliverableValueDimension, dataFeasibility: deliverableValueDimension, methodologicalValue: deliverableValueDimension, potentialImpact: deliverableValueDimension, limitations: ["frozen fixture"], recommendation: "proceed" };
 	const deliverableBundle = buildResearchDeliverables({
@@ -329,10 +360,17 @@ export async function selftest(): Promise<boolean> {
 		valueCard: deliverableValueCard,
 		hypotheses: [{ id: "hypothesis-1", statement: "the estimate is stable", rationaleEvidenceIds: [evidenceRef.id], expectedObservation: "small sensitivity delta", falsifier: "delta exceeds tolerance", status: "supported" }],
 		claims: [genericClaim],
-		evidence: [evidenceRef],
-		narrative: { dataSummary: "A frozen, hashed fixture was audited.", methodSummary: "A deterministic estimator and independent check were executed.", resultSummary: "The verified fixture estimate is supported.", uncertaintySummary: "Sensitivity and uncertainty were evaluated.", innovationSummary: "The workflow links every conclusion to replayable evidence.", reproducibilitySummary: "Run verify-only replay and then compute replay in Sandboxie." },
+		evidence: deliverableEvidence,
+		narrative: {
+			dataSummary: { text: "A frozen, hashed fixture was audited.", evidenceIds: [deliverableTable.id] },
+			methodSummary: { text: "A deterministic estimator, GIS artifact, and independent check were executed.", evidenceIds: [evidenceRef.id, deliverableGeo.id], claimIds: [genericClaim.id] },
+			resultSummary: { text: "The verified fixture estimate is supported.", evidenceIds: [evidenceRef.id], claimIds: [genericClaim.id] },
+			uncertaintySummary: { text: "Sensitivity and uncertainty were evaluated.", evidenceIds: [deliverableTable.id, evidenceRef.id], claimIds: [genericClaim.id] },
+			innovationSummary: { text: "The workflow links every conclusion to replayable evidence.", evidenceIds: [deliverableSource.id] },
+			reproducibilitySummary: { text: "Run verify-only replay and then compute replay in Sandboxie.", evidenceIds: [evidenceRef.id] },
+		},
 	});
-	check("research deliverables include report eight slides and grounded defense", validateResearchDeliverables(deliverableBundle, [evidenceRef]).length === 0 && deliverableBundle.defense.items.length === 12);
+	check("research deliverables include report eight slides and grounded defense", validateResearchDeliverables(deliverableBundle, deliverableEvidence).length === 0 && deliverableBundle.defense.items.length === 12);
 	const persistedDeliverables = persistResearchDeliverables(join(researchDir, "deliverables"), deliverableBundle);
 	check("research deliverable store writes hashed report presentation and defense", persistedDeliverables.length === 3 && persistedDeliverables.every((item) => /^[a-f0-9]{64}$/.test(item.sha256) && existsSync(join(researchDir, "deliverables", item.path))));
 	const networkTool = createWebFetchTool({
@@ -344,9 +382,14 @@ export async function selftest(): Promise<boolean> {
 	check("literature URL builders bound and encode queries", crossrefWorksUrl("a b", 100).includes("rows=50") && openAlexWorksUrl("a b", 0).includes("per-page=1"));
 	const environment = captureResearchEnvironment({ gitCommit: "fake", gitDirty: false, configFingerprint: "cfg", strategyFingerprint: "strategy", modelProfileVersion: "profile", modelProfileFingerprint: "profile-hash", pythonPath: "python", pythonPackages: ["numpy==2", "pandas==2"], networkMode: "open", evaluatorMetrics: { private: "v1" }, randomSeeds: [7] }, new Date("2026-08-30T01:02:00Z"));
 	const replayClaims = [{ id: "claim-1", text: "The computed estimate is 0.85", status: "supported" as const, evidenceIds: [evidenceRef.id], uncertainty: "bootstrap interval pending", limitations: ["frozen fixture"] }];
-	const packageManifest = createResearchPackageManifest({ mission, graph: researchGraph, eventLedgerRootHash: ledgerRoot, environment, evidence: [evidenceRef], claims: replayClaims, deliverables: [{ id: "report", path: "report.md", sha256: "b".repeat(64), required: true }], now: new Date("2026-08-30T01:03:00Z") });
-	const replayReport = verifyResearchPackage({ manifest: packageManifest, ledgerPath, graph: researchGraph, evidence: [evidenceRef], claims: replayClaims, evidenceStore, now: new Date("2026-08-30T01:04:00Z") });
-	check("verify-only research replay validates manifest ledger evidence and claims", replayReport.passed && replayReport.checks.every((item) => item.passed));
+	const replayRuntimeAttestation = { version: 1 as const, runMode: "deterministic-demo" as const, unitTestsPassed: true, guardViolations: [], cleanupPassed: true, isolationBackend: "deterministic-test-double" as const, modelCalls: [], familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidenceRef.id] }], contraryEvidenceLinks: [], totalTokens: 0, wallSeconds: 0 };
+	const replayDeliverable = { id: "report", path: "verification.json", sha256: evidenceRef.sha256, bytes: evidenceRef.bytes, required: true };
+	const packageManifest = createResearchPackageManifest({ mission: genericMission, graph: genericGraph, eventLedgerRootHash: ledgerRoot, environment, runtimeAttestation: replayRuntimeAttestation, evidence: [evidenceRef], claims: replayClaims, deliverables: [replayDeliverable], now: new Date("2026-08-30T01:03:00Z") });
+	const replayInput = { manifest: packageManifest, ledgerPath, mission: genericMission, graph: genericGraph, environment, runtimeAttestation: replayRuntimeAttestation, evidence: [evidenceRef], claims: replayClaims, evidenceStore, readDeliverable: () => evidenceStore.read(evidenceRef), now: new Date("2026-08-30T01:04:00Z") };
+	const replayReport = verifyResearchPackage(replayInput);
+	check("verify-only research replay validates all manifest commitments", replayReport.passed && replayReport.checks.every((item) => item.passed));
+	check("verify-only replay rejects a swapped valid graph", !verifyResearchPackage({ ...replayInput, graph: { ...genericGraph, nodes: genericGraph.nodes.map((node) => ({ ...node, title: node.title + " tampered" })) } }).passed);
+	check("verify-only replay rejects changed claims and deliverable bytes", !verifyResearchPackage({ ...replayInput, claims: [{ ...replayClaims[0]!, text: "tampered claim" }] }).passed && !verifyResearchPackage({ ...replayInput, readDeliverable: () => Buffer.from("tampered") }).passed);
 	const artifactProblem = join(tmp, "artifact-problem");
 	const artifactScratch = join(tmp, "artifact-scratch");
 	const artifactDurable = join(tmp, "artifact-durable");
@@ -471,6 +514,8 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(lunaCfgPath, JSON.stringify({ inner_model: "gpt-5.6-luna", inner_thinking_level: "xhigh", outer_model: "gpt-5.6-luna", outer_thinking_level: "xhigh", quiz_inner_model: "gpt-5.6-luna", single_model_id: "gpt-5.6-luna", single_model_thinking_level: "xhigh", problems: [{ id: "quake_b" }] }));
 	const lunaCfg = loadConfig(lunaCfgPath);
 	check("Luna-only config exposes one routed model", JSON.stringify(configuredModelIds(lunaCfg, tmp)) === JSON.stringify(["gpt-5.6-luna"]));
+	const researchLunaCfg = loadConfig(join(process.cwd(), "config", "research-competition-luna.json"));
+	check("research competition config is Luna xhigh open-network GIS", researchLunaCfg.single_model_id === "gpt-5.6-luna" && researchLunaCfg.single_model_thinking_level === "xhigh" && researchLunaCfg.network_mode === "open" && /GeoRSI[\\/]venvs[\\/]gis/i.test(researchLunaCfg.python_cmd));
 	let mixedLunaRouteRejected = false;
 	try { configuredModelIds({ ...lunaCfg, quiz_inner_model: "hy3" }, tmp); }
 	catch (error) { mixedLunaRouteRejected = String(error).includes("single-model policy"); }
@@ -484,6 +529,8 @@ export async function selftest(): Promise<boolean> {
 	const priorAiPixelKey = process.env.AI_PIXEL_API_KEY;
 	process.env.AI_PIXEL_API_KEY = "selftest-placeholder";
 	check("ai-pixel credential loader is environment-only", loadAiPixelApiKey() === "selftest-placeholder");
+	const lunaJudgeContext = makeEvalContext(lunaCfg, tmp);
+	check("Luna-only judge uses ai-pixel Responses xhigh and declares non-independence", lunaJudgeContext.judgeEnv?.RSILAB_JUDGE_MODEL === "gpt-5.6-luna" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_API === "responses" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_REASONING_EFFORT === "xhigh" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_INDEPENDENT === "false");
 	if (priorAiPixelKey === undefined) delete process.env.AI_PIXEL_API_KEY;
 	else process.env.AI_PIXEL_API_KEY = priorAiPixelKey;
 	const muse = modelSpec("muse-spark-1.2-contributor");
@@ -941,6 +988,7 @@ export async function selftest(): Promise<boolean> {
 	const blockedNetworkRules = sandboxieRulePaths(process.cwd(), join(process.cwd(), "..", "rsi-lab-private"), exchange);
 	const openNetworkRules = sandboxieRulePaths(process.cwd(), join(process.cwd(), "..", "rsi-lab-private"), exchange, "open");
 	check("Sandboxie network modes preserve file denies while changing egress", blockedNetworkRules.networkAccess === "*,Block" && openNetworkRules.networkAccess === "*,Allow" && blockedNetworkRules.closedFilePaths.join("|") === openNetworkRules.closedFilePaths.join("|"));
+	check("open-network rules close netrc config and browser credential stores", ["_netrc", ".config", "Chrome", "Edge", "Firefox"].every((name) => openNetworkRules.closedFilePaths.some((path) => path.toLowerCase().includes(name.toLowerCase()))));
 	const rootArgs = sandboxieRootCommandArgs("GeoRSI_test", "python.exe", "C:/tmp/runner.py");
 	check("/box root command does not misuse /fcp", rootArgs[0] === "/box:GeoRSI_test" && !rootArgs.includes("/fcp"));
 	check("delete sandbox uses command token", sandboxieDeleteCommandArgs("GeoRSI_test")[1] === "delete_sandbox_silent");

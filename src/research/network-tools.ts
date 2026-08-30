@@ -1,6 +1,7 @@
 /** Typed network research tools; transport is injected so strict runs use a boxed port. */
 import type { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import type { ScientificTool } from "./tool-registry.js";
+import { sanitizeResearchHeaders, sanitizeResearchUrl } from "./event-ledger.js";
 
 export interface NetworkFetchRequest {
 	url: string;
@@ -54,17 +55,19 @@ export function createWebFetchTool(
 			if (response.status < 200 || response.status >= 400) throw new Error(`web fetch HTTP ${response.status}`);
 			if (response.body.byteLength > (input.maxBytes ?? 5_000_000)) throw new Error("web fetch exceeded maxBytes");
 			const contentType = response.headers["content-type"] ?? "application/octet-stream";
+			const safeFinalUrl = sanitizeResearchUrl(response.finalUrl);
+			const safeHeaders = sanitizeResearchHeaders(response.headers);
 			const evidence = method === "HEAD" ? undefined : evidenceStore.putBuffer(response.body, {
 				kind: "source",
 				logicalName: new URL(response.finalUrl).pathname.split("/").pop() || "download",
 				producerNodeId: context.nodeId,
 				mediaType: contentType,
-				sourceUrl: response.finalUrl,
+				sourceUrl: safeFinalUrl,
 				retrievedAt: response.retrievedAt || now().toISOString(),
-				license: response.headers["license"],
+				license: safeHeaders["license"],
 			});
 			return {
-				output: { status: response.status, finalUrl: response.finalUrl, headers: response.headers, evidenceId: evidence?.id },
+				output: { status: response.status, finalUrl: safeFinalUrl, headers: safeHeaders, evidenceId: evidence?.id },
 				artifactIds: evidence ? [evidence.id] : [],
 			};
 		},

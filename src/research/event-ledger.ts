@@ -34,8 +34,26 @@ export interface LedgerVerification {
 	tornTail: boolean;
 }
 
-const SECRET_KEY = /(?:api[_-]?key|token|authorization|password|passwd|secret|private[_-]?key|credential)/i;
+const SECRET_KEY = /(?:api[_-]?key|token|authorization|password|passwd|secret|private[_-]?key|credential|cookie|signature)/i;
 const SECRET_TEXT = /(?:Bearer\s+[A-Za-z0-9._~+\/-]{12,}|sk-[A-Za-z0-9_-]{20,})/gi;
+const SENSITIVE_QUERY_KEY = /(?:key|token|auth|authorization|credential|signature|password|secret|cookie)/i;
+
+export function sanitizeResearchUrl(value: string): string {
+	try {
+		const url = new URL(value);
+		if (url.protocol !== "http:" && url.protocol !== "https:") return value;
+		url.username = "";
+		url.password = "";
+		for (const key of [...url.searchParams.keys()]) if (SENSITIVE_QUERY_KEY.test(key)) url.searchParams.set(key, "[REDACTED]");
+		return url.toString();
+	} catch {
+		return value;
+	}
+}
+
+export function sanitizeResearchHeaders(headers: Record<string, string>): Record<string, string> {
+	return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, SECRET_KEY.test(key) ? "[REDACTED_CREDENTIAL]" : String(sanitizeResearchEvidence(value))]));
+}
 
 function stableValue(value: unknown): unknown {
 	if (Array.isArray(value)) return value.map(stableValue);
@@ -51,7 +69,7 @@ export function stableJson(value: unknown): string {
 
 export function sanitizeResearchEvidence(value: unknown, protectedStrings: readonly string[] = []): unknown {
 	if (typeof value === "string") {
-		let output = value.replace(SECRET_TEXT, "[REDACTED_CREDENTIAL]");
+		let output = sanitizeResearchUrl(value).replace(SECRET_TEXT, "[REDACTED_CREDENTIAL]");
 		for (const protectedString of protectedStrings.filter(Boolean)) {
 			output = output.split(protectedString).join("[REDACTED_PROTECTED_PATH]");
 		}
@@ -109,6 +127,7 @@ export class ResearchEventLedger {
 	private readonly handle: number;
 	private seq: number;
 	private previousHash: string | null;
+	private closed = false;
 
 	constructor(
 		readonly path: string,
@@ -150,6 +169,8 @@ export class ResearchEventLedger {
 	}
 
 	close(): void {
+		if (this.closed) return;
+		this.closed = true;
 		closeSync(this.handle);
 	}
 }

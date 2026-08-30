@@ -1,0 +1,141 @@
+/** End-to-end research application service composed entirely through ports. */
+import type { EvidenceRef, HypothesisRecord, ResearchClaim, ResearchMission, ResearchWorkGraph } from "./contracts.js";
+import type { ResearchEnvironment } from "./environment-capture.js";
+import type { ScientificValueCard } from "./value-evaluator.js";
+import { evaluateScientificValue } from "./value-evaluator.js";
+import type { ResearchNarrative } from "./deliverables.js";
+import { buildResearchDeliverables, validateResearchDeliverables } from "./deliverables.js";
+import type { PersistedResearchDeliverable } from "./deliverable-store.js";
+import { createResearchPackageManifest, createResearchPackageSeal } from "./artifact-manifest.js";
+import { verifyResearchPackage, type ResearchReplayReport } from "./replay.js";
+import { verifyGenericResearch } from "./verifiers/generic.js";
+import { scoreResearchCompetition, type ResearchCompetitionScore } from "./scoring.js";
+import { ResearchScheduler, type NodeExecutionResult, type NodeVerificationResult } from "./scheduler.js";
+import type { ContentAddressedEvidenceStore } from "./evidence-store.js";
+import type { ResearchEventLedger } from "./event-ledger.js";
+import { validateRuntimeAttestation, type ComputeReplayAttestation, type ResearchRuntimeAttestation } from "./runtime-attestation.js";
+
+export interface ResearchSynthesis {
+	hypotheses: HypothesisRecord[];
+	claims: ResearchClaim[];
+	valueCard: ScientificValueCard;
+	narrative: ResearchNarrative;
+}
+
+export interface OutcomeAttestation {
+	taskOutcome: number;
+	perFamily: Record<string, number | null>;
+}
+
+export interface ResearchOrchestratorPorts {
+	executeNode(node: ResearchWorkGraph["nodes"][number], graph: ResearchWorkGraph, signal: AbortSignal): Promise<NodeExecutionResult>;
+	verifyNode(node: ResearchWorkGraph["nodes"][number], result: NodeExecutionResult, graph: ResearchWorkGraph, signal: AbortSignal): Promise<NodeVerificationResult>;
+	checkpointGraph(graph: ResearchWorkGraph): void | Promise<void>;
+	currentEvidence(): EvidenceRef[];
+	synthesize(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ResearchSynthesis>;
+	runtimeAttestation(): ResearchRuntimeAttestation;
+	outcomeAttestation(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<OutcomeAttestation>;
+	persistJson(path: string, value: unknown): void;
+	persistText(path: string, value: string): void;
+	persistDeliverables(bundle: ReturnType<typeof buildResearchDeliverables>): PersistedResearchDeliverable[];
+	readDeliverable(path: string): Buffer;
+	computeReplay(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ComputeReplayAttestation>;
+	now(): Date;
+	stopRequested?(): boolean;
+}
+
+export interface ResearchRunResult {
+	graph: ResearchWorkGraph;
+	evidence: EvidenceRef[];
+	hypotheses: HypothesisRecord[];
+	claims: ResearchClaim[];
+	replay: ResearchReplayReport;
+	competitionScore: ResearchCompetitionScore;
+	deliverables: PersistedResearchDeliverable[];
+	manifestHash: string;
+	runtimeAttestation: ResearchRuntimeAttestation;
+	computeReplay: ComputeReplayAttestation;
+}
+
+export async function runResearchOrchestrator(input: {
+	mission: ResearchMission;
+	graph: ResearchWorkGraph;
+	environment: ResearchEnvironment;
+	ledger: ResearchEventLedger;
+	evidenceStore: ContentAddressedEvidenceStore;
+	ledgerPath: string;
+	ports: ResearchOrchestratorPorts;
+}): Promise<ResearchRunResult> {
+	const { mission, environment, ledger, ports } = input;
+	let phase = "start";
+	let ledgerClosed = false;
+	try {
+		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "controller", type: "research-mission-start", status: "start", payload: { family: mission.taskProfile.family, networkMode: mission.taskProfile.networkMode, nodes: input.graph.nodes.length } });
+		phase = "schedule";
+		const scheduler = new ResearchScheduler({
+			now: ports.now,
+			execute: ports.executeNode,
+			verify: ports.verifyNode,
+			checkpoint: ports.checkpointGraph,
+			stopRequested: ports.stopRequested,
+			onEvent: (event) => ledger.append({ missionId: mission.id, episodeId: mission.id, nodeId: event.nodeId, actor: event.type.includes("verif") ? "verifier" : "controller", type: event.type, status: event.type.includes("failed") ? "failure" : event.type.includes("completed") ? "success" : "progress", payload: event.detail }),
+		});
+		const scheduled = await scheduler.run(input.graph);
+		if (!scheduled.completed) throw new Error(`research mission did not complete its WorkGraph (stopped=${scheduled.stopped})`);
+		phase = "synthesis";
+		const evidence = ports.currentEvidence();
+		const synthesis = await ports.synthesize(scheduled.graph, evidence);
+		const value = evaluateScientificValue(synthesis.valueCard, evidence.map((item) => item.id));
+		if (!value.passed) throw new Error(`scientific value card failed: ${value.issues.join("; ")}`);
+		phase = "deliverables";
+		const bundle = buildResearchDeliverables({ mission, valueCard: synthesis.valueCard, hypotheses: synthesis.hypotheses, claims: synthesis.claims, evidence, narrative: synthesis.narrative });
+		const deliverableIssues = validateResearchDeliverables(bundle, evidence);
+		if (deliverableIssues.length > 0) throw new Error(`research deliverables failed: ${deliverableIssues.join("; ")}`);
+		const deliverables = ports.persistDeliverables(bundle);
+		phase = "runtime-attestation";
+		const runtimeAttestation = ports.runtimeAttestation();
+		const computeReplay = await ports.computeReplay(scheduled.graph, evidence);
+		const runtimeIssues = validateRuntimeAttestation(runtimeAttestation, computeReplay, mission, evidence, synthesis.claims.map((claim) => claim.id));
+		const generic = verifyGenericResearch({ mission, graph: scheduled.graph, evidence, claims: synthesis.claims, deliverables, ledgerValid: true, replayPassed: true, guardViolations: runtimeAttestation.guardViolations, cleanupPassed: runtimeAttestation.cleanupPassed, familyVerifications: runtimeAttestation.familyVerifications, contraryEvidenceLinks: runtimeAttestation.contraryEvidenceLinks });
+		const outcome = await ports.outcomeAttestation(scheduled.graph, evidence);
+		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "research-precommit-attested", status: runtimeIssues.length || !generic.passed || !computeReplay.passed ? "failure" : "success", artifactIds: evidence.map((item) => item.id), payload: { runtimeIssues, genericPassed: generic.passed, computeReplay } });
+		const ledgerRoot = ledger.rootHash();
+		ledger.close();
+		ledgerClosed = true;
+		phase = "manifest-replay";
+		const manifest = createResearchPackageManifest({ mission, graph: scheduled.graph, eventLedgerRootHash: ledgerRoot, environment, runtimeAttestation, evidence, claims: synthesis.claims, deliverables, now: ports.now() });
+		const replay = verifyResearchPackage({ manifest, ledgerPath: input.ledgerPath, mission, graph: scheduled.graph, environment, runtimeAttestation, evidence, claims: synthesis.claims, evidenceStore: input.evidenceStore, readDeliverable: ports.readDeliverable, now: ports.now() });
+		const familyMethodScore = runtimeAttestation.familyVerifications.length ? runtimeAttestation.familyVerifications.reduce((sum, item) => sum + item.result.score, 0) / runtimeAttestation.familyVerifications.length : 0;
+		const runtimeAttestationPassed = runtimeIssues.length === 0;
+		const competitionScore = scoreResearchCompetition({
+			runtime: { unitTestsPassed: runtimeAttestation.unitTestsPassed, runtimeAttestationPassed, traceComplete: generic.passed, manifestValid: replay.checks.find((check) => check.id === "manifest-hash")?.passed === true, verifyReplayPassed: replay.passed, computeReplayPassed: computeReplay.passed, guardViolations: runtimeAttestation.guardViolations.length, cleanupPassed: runtimeAttestation.cleanupPassed, validResultCount: synthesis.claims.filter((claim) => claim.status === "supported").length },
+			science: { taskOutcome: outcome.taskOutcome, methodValidity: familyMethodScore, claimEvidenceQuality: generic.score, reproducibility: replay.passed && computeReplay.passed && computeReplay.processOwnershipVerified ? 1 : 0, scientificValue: value.score },
+			communication: { report: deliverableIssues.length ? 0 : 1, presentation: deliverableIssues.length ? 0 : 1, defense: deliverableIssues.length ? 0 : 1 },
+			totalTokens: runtimeAttestation.totalTokens,
+			wallSeconds: runtimeAttestation.wallSeconds,
+			perFamily: outcome.perFamily,
+		});
+		const replayDocument = { ...replay, computeReplay };
+		const seal = createResearchPackageSeal(manifest, replayDocument, competitionScore, ports.now());
+		phase = "persist";
+		ports.persistJson("mission.json", mission);
+		ports.persistJson("research-manifest.json", manifest);
+		ports.persistJson("plan.json", scheduled.graph);
+		ports.persistJson("claims.json", synthesis.claims);
+		ports.persistJson("evidence-index.json", evidence);
+		ports.persistJson("environment.json", environment);
+		ports.persistJson("runtime-attestation.json", runtimeAttestation);
+		ports.persistJson("replay.json", replayDocument);
+		ports.persistJson("research-score.json", competitionScore);
+		ports.persistJson("package-seal.json", seal);
+		ports.persistText("README.txt", "GeoRSI research package: verify manifest, ledger, attestation, evidence, deliverables, and replay before trusting the score.\n");
+		return { graph: scheduled.graph, evidence, hypotheses: synthesis.hypotheses, claims: synthesis.claims, replay, competitionScore, deliverables, manifestHash: manifest.manifestHash, runtimeAttestation, computeReplay };
+	} catch (error) {
+		if (!ledgerClosed) {
+			try { ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "controller", type: "research-mission-failed", status: "failure", payload: { phase, error: error instanceof Error ? error.message : String(error) } }); } catch { /* preserve original failure */ }
+		}
+		throw error;
+	} finally {
+		ledger.close();
+	}
+}

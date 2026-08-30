@@ -40,6 +40,7 @@ export interface ExamProblemResult {
 	tokens: number;
 	submissionRecovery?: "candidate-file-driver";
 	isolation?: Record<string, unknown>;
+	modelCalls?: EpisodeResult["modelCalls"];
 }
 
 export interface ExamReport {
@@ -184,6 +185,7 @@ export async function runExam(
 				tokens: res.tokens,
 				submissionRecovery: res.submissionRecovery,
 				isolation: res.isolation as Record<string, unknown> | undefined,
+				modelCalls: res.modelCalls,
 			});
 			log(`[exam] ${problem.id}: fitness=${res.fitness?.toFixed(4) ?? "ERR"} public=${res.bestPublic?.toFixed(4) ?? "—"} (${Math.round(res.secs)}s)`);
 		}
@@ -222,7 +224,11 @@ export async function runExam(
 		requestMaxTokens: process.env.RSILAB_REQUEST_MAX_TOKENS ?? "default",
 		profileVersion: profileEvidence.version,
 		profileFingerprint: profileEvidence.fingerprint,
-		evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
+		evaluationMetrics: {
+			quizPublic: "public-dev-v1",
+			quizPrivate: "private-only-v2",
+			llmJudge: cfg.single_model_id === "gpt-5.6-luna" ? { metricClass: "same-model-llm-judge-proxy", model: "gpt-5.6-luna", thinking: "xhigh", independent: false } : { metricClass: "configured-llm-judge-proxy" },
+		},
 		repeats,
 		config: cfg,
 		scaffoldName,
@@ -314,6 +320,7 @@ export async function runHeldoutExam(
 				tokens: res.tokens,
 				submissionRecovery: res.submissionRecovery,
 				isolation: res.isolation as Record<string, unknown> | undefined,
+				modelCalls: res.modelCalls,
 			});
 			log(`[heldout] ${problem.id}: fitness=${res.fitness?.toFixed(4) ?? "ERR"}`);
 		}
@@ -334,7 +341,11 @@ export async function runHeldoutExam(
 		thinkingLevel: cfg.inner_thinking_level ?? "low",
 		profileVersion: profileEvidence.version,
 		profileFingerprint: profileEvidence.fingerprint,
-		evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
+		evaluationMetrics: {
+			quizPublic: "public-dev-v1",
+			quizPrivate: "private-only-v2",
+			llmJudge: cfg.single_model_id === "gpt-5.6-luna" ? { metricClass: "same-model-llm-judge-proxy", model: "gpt-5.6-luna", thinking: "xhigh", independent: false } : { metricClass: "configured-llm-judge-proxy" },
+		},
 		repeats,
 		champion,
 		results,

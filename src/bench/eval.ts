@@ -153,13 +153,27 @@ export function makeEvalContext(cfg: Config, root: string): EvalContext {
 	// judge credentials for problems whose eval needs LLM grading (private split
 	// only; never present in the agent's own python subprocesses)
 	let judgeEnv: Record<string, string> | undefined;
-	const p = join(root, "api_key.txt");
-	if (existsSync(p)) {
-		judgeEnv = {
-			RSILAB_JUDGE_BASE: cfg.base_url,
-			RSILAB_JUDGE_KEY: readFileSync(p, "utf8").trim(),
-			RSILAB_JUDGE_MODEL: (cfg as { judge?: { model?: string } }).judge?.model ?? "hy3",
-		};
+	if (cfg.single_model_id === "gpt-5.6-luna") {
+		const key = (process.env.AI_PIXEL_API_KEY ?? "").trim();
+		if (key) {
+			judgeEnv = {
+				RSILAB_JUDGE_BASE: cfg.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1",
+				RSILAB_JUDGE_KEY: key,
+				RSILAB_JUDGE_MODEL: "gpt-5.6-luna",
+				RSILAB_JUDGE_API: "responses",
+				RSILAB_JUDGE_REASONING_EFFORT: "xhigh",
+				RSILAB_JUDGE_INDEPENDENT: "false",
+			};
+		}
+	} else {
+		const p = join(root, "api_key.txt");
+		if (existsSync(p)) {
+			judgeEnv = {
+				RSILAB_JUDGE_BASE: cfg.base_url,
+				RSILAB_JUDGE_KEY: readFileSync(p, "utf8").trim(),
+				RSILAB_JUDGE_MODEL: (cfg as { judge?: { model?: string } }).judge?.model ?? "hy3",
+			};
+		}
 	}
 	const privateTruthDir = resolve(root, cfg.private_truth_dir);
 	return {
