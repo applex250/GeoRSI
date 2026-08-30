@@ -22,7 +22,7 @@ import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
 import { getPiRuntime, TOKENS } from "./provider.js";
 import { loadProblems, makeEvalContext, type Problem } from "./bench/eval.js";
-import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
+import { SEED_SCAFFOLD, scaffoldFingerprint, type Scaffold } from "./scaffold.js";
 import { Journal, loadRunState, saveRunState, fingerprint, readJournalTail, atomicWriteJson, type RunState } from "./journal.js";
 import { solveEpisode, setBudgetExhausted } from "./inner/solve.js";
 import { propose, ANGLES, type Proposal } from "./outer/improve.js";
@@ -32,6 +32,8 @@ import { writeReports, type EpisodeRecord, type FindingRow } from "./board.js";
 import { openMemory } from "./memory.js";
 import { loadKnowledge, storeVersion } from "./knowledge.js";
 import { loadProfiles } from "./models.js";
+import { corpusVersion } from "./retrieval.js";
+import { profileTask } from "./task-profile.js";
 import { protectedManifest } from "./guard.js";
 import { runHeldoutExam } from "./exam.js";
 import type { RsiEvent } from "./tui/events.js";
@@ -93,10 +95,13 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 	const problems = allProblems.filter((p) => !p.heldout);
 	const nGens = opts.gensOverride ?? cfg.generations;
 	const initialKnowledge = loadKnowledge();
+	const knowledgeVersion = storeVersion(initialKnowledge);
+	const ragCorpusVersion = corpusVersion();
 	const manifestEvalContext = makeEvalContext(cfg, ROOT);
 	const fp = fingerprint([
 		{ config: cfg, gens: nGens },
 		{ problems: allProblems.map((p) => ({ id: p.id, genre: p.genre, heldout: p.heldout, weight: p.weight, overrides: p.overrides })) },
+		{ knowledgeVersion, ragCorpusVersion },
 	]);
 	const manifestPath = join(runDir, "run-manifest.json");
 	if (!opts.resume || !existsSync(manifestPath)) {
@@ -121,7 +126,8 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				),
 			})),
 			seedScaffold: cfg.seed_scaffold ?? SEED_SCAFFOLD,
-			knowledgeVersion: storeVersion(initialKnowledge),
+			knowledgeVersion,
+			ragCorpusVersion,
 			modelProfiles: { version: loadProfiles().version, fingerprint: fingerprint([loadProfiles()]) },
 			requestMaxTokens: process.env.RSILAB_REQUEST_MAX_TOKENS ?? "default",
 			evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
@@ -247,6 +253,7 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 		// 1) propose (angle-rotated diversity)
 		emit({ type: "phase", phase: `gen ${gen}: proposing`, detail: `${cfg.proposals} angles` });
 		const proposals: Proposal[] = [];
+		const seenChildren = new Set<string>();
 		for (let k = 0; k < cfg.proposals; k++) {
 			if (TOKENS.total >= cfg.cost_cap_tokens || controller?.stopRequested) {
 				setBudgetExhausted(TOKENS.total >= cfg.cost_cap_tokens);
@@ -263,8 +270,17 @@ export async function runRsi(opts: RsiOptions): Promise<{ state: RunState; runDi
 				240_000,
 				cfg.outer_thinking_level ?? "medium",
 			);
-				if (p) proposals.push(p);
-				else log(`  [propose ${k + 1}] invalid/empty proposal`);
+				if (p) {
+					const key = scaffoldFingerprint(p.child);
+					if (key === scaffoldFingerprint(state.champion)) {
+						log(`  [propose ${k + 1}] no-op proposal rejected`);
+					} else if (seenChildren.has(key)) {
+						log(`  [propose ${k + 1}] duplicate child rejected`);
+					} else {
+						seenChildren.add(key);
+						proposals.push(p);
+					}
+				} else log(`  [propose ${k + 1}] invalid/empty proposal`);
 			} catch (e) {
 				log(`  [propose ${k + 1}] failed: ${errStr(e)}`);
 			}
@@ -552,11 +568,11 @@ function defaultGoalText(cfg: Config): string {
 function buildSuiteSummary(problems: Problem[]): string {
 	return problems
 		.map((p) => {
-			const o = p.overrides ?? ({} as Problem["overrides"]);
-			if (o.type === "quiz") {
+			const profile = profileTask(p);
+			if (profile.isQuiz) {
 				return `- ${p.id}: quiz batch, scope key "${p.genre}" — the agent answers a JSONL question sheet (mcq/tf/fill/value) in one episode and submits an answers file; strategy space: answering discipline, batching, verification, time allocation`;
 			}
-			if (o.judge) {
+			if (profile.usesJudge) {
 				return `- ${p.id}: open analysis task, scope key "${p.genre}" — the agent works with python on data/ and submits results graded against a hidden reference`;
 			}
 			return `- ${p.id}: quantitative analysis task, scope key "${p.genre}"`;

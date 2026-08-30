@@ -62,6 +62,19 @@ def shutil_copy(a, b):
     shutil.copyfile(a, b)
 
 
+def safe_artifact_path(ws, value):
+    """Resolve a submitted artifact only inside the episode workspace."""
+    if not isinstance(value, str) or not value.strip() or os.path.isabs(value):
+        return None
+    root = os.path.realpath(ws)
+    candidate = os.path.realpath(os.path.join(root, value))
+    try:
+        if os.path.commonpath((root, candidate)) != root:
+            return None
+    except ValueError:
+        return None
+    return candidate
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--submission", required=True)
@@ -101,7 +114,12 @@ def main():
                     break
         num_score = matched / max(1, len(ref_vals))
         ws = os.path.dirname(os.path.dirname(os.path.abspath(a.submission)))  # agent workspace
-        present = sum(1 for f in out_files if any(os.path.exists(p) for p in (f, os.path.join(ws, f))))
+        present = sum(
+            1 for f in out_files
+            if (path := safe_artifact_path(ws, f))
+            and os.path.isfile(path)
+            and os.path.getsize(path) > 1024
+        )
         file_score = present / max(1, len(out_files)) if out_files else 0.0
         score = 0.8 * num_score + 0.2 * file_score if agent_vals else max(0.0, num_score - 0.2)
         print(f"##SCORE##{max(0.0, min(1.0, score)):.4f}")

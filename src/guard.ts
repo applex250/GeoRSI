@@ -164,24 +164,49 @@ function walkFiles(dir: string): string[] {
 	return out;
 }
 
-/** sha256 of every grading-critical file under the problem dir. */
+function directoryFingerprint(dir: string): string {
+	if (!existsDirectory(dir)) return "<missing>";
+	const files = walkFiles(dir)
+		.map((file) => file.slice(dir.length + 1).replace(/\\/g, "/"))
+		.sort();
+	return createHash("sha256").update(files.join("\n")).digest("hex");
+}
+
+/** sha256 of every grading-critical file under the problem dir. The reference
+ * directory listing is also committed to the manifest so host-audit cannot
+ * add a new hidden reference file without invalidating the episode. */
 export function protectedManifest(problemDir: string, extraFiles: readonly string[] = []): Record<string, string> {
 	const manifest: Record<string, string> = {};
+	const referenceDir = join(problemDir, "reference");
 	const wanted = ["eval.py", "answers.private.jsonl"].map((file) => join(problemDir, file));
-	for (const file of [...wanted, ...walkFiles(join(problemDir, "reference")), ...extraFiles]) {
+	for (const file of [...wanted, ...walkFiles(referenceDir), ...extraFiles]) {
 		try {
 			manifest[file] = createHash("sha256").update(readFileSync(file)).digest("hex");
 		} catch {
 			/* optional file (quiz problems have no reference/) */
 		}
 	}
+	manifest[`__directory__:${referenceDir}`] = directoryFingerprint(referenceDir);
 	return manifest;
 }
 
-/** Files whose hash changed or that went missing since the manifest. */
+function existsDirectory(path: string): boolean {
+	try {
+		return statSync(path).isDirectory();
+	} catch {
+		return false;
+	}
+}
+
+/** Files whose hash or protected-directory listing changed since the manifest. */
 export function verifyManifest(problemDir: string, manifest: Record<string, string>): string[] {
 	const bad: string[] = [];
 	for (const [f, hash] of Object.entries(manifest)) {
+		if (f.startsWith("__directory__:")) {
+			const dir = f.slice("__directory__:".length);
+			if (!existsDirectory(dir) || directoryFingerprint(dir) !== hash) bad.push(`${dir.slice(problemDir.length + 1)}/<directory-listing>`);
+			continue;
+		}
 		let now: string | null = null;
 		try {
 			now = createHash("sha256").update(readFileSync(f)).digest("hex");

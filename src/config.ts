@@ -206,6 +206,50 @@ function loadJson(path: string): Record<string, unknown> {
 	}
 }
 
+export interface ProblemRuntimeOverride {
+	execution_backend?: Config["execution_backend"];
+	execution_policy?: Config["execution_policy"];
+	python_cmd?: string;
+	max_turns?: number;
+	eval_cap?: number;
+	episode_timeout_s?: number;
+	patience?: number;
+	script_timeout_s?: number;
+	job_timeout_s?: number;
+}
+
+export function applyProblemRuntimeOverride(base: Config, override: ProblemRuntimeOverride): Config {
+	return {
+		...base,
+		execution_backend: override.execution_backend ?? base.execution_backend,
+		execution_policy: override.execution_policy ?? base.execution_policy,
+		python_cmd: override.python_cmd ?? base.python_cmd,
+		max_turns: override.max_turns ?? base.max_turns,
+		eval_cap: override.eval_cap ?? base.eval_cap,
+		episode_timeout_s: override.episode_timeout_s ?? base.episode_timeout_s,
+		patience: override.patience ?? base.patience,
+		script_timeout_s: override.script_timeout_s ?? base.script_timeout_s,
+		job_timeout_s: override.job_timeout_s ?? base.job_timeout_s,
+	};
+}
+
+export function configuredModelIds(cfg: Config, root = ROOT): string[] {
+	const ids = [cfg.inner_model, cfg.outer_model, cfg.quiz_inner_model].filter((id): id is string => !!id);
+	for (const problem of cfg.problems) {
+		const path = join(root, "problems", problem.id, "problem.json");
+		if (!existsSync(path)) continue;
+		try {
+			const raw = JSON.parse(readFileSync(path, "utf8")) as { inner_model?: unknown };
+			if (typeof raw.inner_model === "string" && raw.inner_model.trim()) ids.push(raw.inner_model.trim());
+		} catch {
+			// Provider discovery does not invent routes from malformed metadata;
+			// loadProblems reports the task metadata failure when it is evaluated.
+		}
+	}
+	return [...new Set(ids)];
+}
+
+
 function num(v: unknown, dflt: number): number {
 	const n = Number(v);
 	return Number.isFinite(n) && n > 0 ? n : dflt;

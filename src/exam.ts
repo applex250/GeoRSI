@@ -12,7 +12,7 @@ import { ROOT } from "./config.js";
 import { getPiRuntime } from "./provider.js";
 import { loadProblems, makeEvalContext } from "./bench/eval.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
-import { solveEpisode } from "./inner/solve.js";
+import { solveEpisode, type EpisodeResult } from "./inner/solve.js";
 import { emptyMemory } from "./memory.js";
 import { atomicWriteJson, fingerprint, writeTextAtomic } from "./journal.js";
 import { protectedManifest } from "./guard.js";
@@ -58,6 +58,24 @@ export function examHasValidTrainingResult(results: readonly ExamProblemResult[]
 	return results.some((result) => !result.heldout && result.fitness != null);
 }
 
+function failedEpisode(problemId: string, workspace: string, error: unknown): EpisodeResult {
+	return {
+		problemId,
+		fitness: null,
+		bestPublic: null,
+		submits: 0,
+		turns: 0,
+		tokens: 0,
+		secs: 0,
+		error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500),
+		warnings: [],
+		workspace,
+		durableWorkspace: workspace,
+		knowledgeIds: [],
+	};
+}
+
+
 export async function runExam(
 	cfg: Config,
 	scaffold: Scaffold,
@@ -83,18 +101,24 @@ export async function runExam(
 				results.push({ problem: problem.id, heldout: problem.heldout, weight: problem.weight, fitness: null, bestPublic: null, submits: 0, secs: 0, error: "token budget exhausted", warnings: [], tokens: 0 });
 				continue;
 			}
-			const res = await solveEpisode({
-				cfg,
-				problem,
-				evalCtx,
-				scaffold,
-				model: inner,
-				workspace: join(runDir, "exam", repeats === 1 ? problem.id : `r${repeat + 1}-${problem.id}`),
-				memory,
-				log,
-				tag: repeats === 1 ? `exam-${problem.id}` : `exam-r${repeat + 1}-${problem.id}`,
-				persistKnowledgeUsage: false,
-			});
+			const workspace = join(runDir, "exam", repeats === 1 ? problem.id : `r${repeat + 1}-${problem.id}`);
+			let res: EpisodeResult;
+			try {
+				res = await solveEpisode({
+					cfg,
+					problem,
+					evalCtx,
+					scaffold,
+					model: inner,
+					workspace,
+					memory,
+					log,
+					tag: repeats === 1 ? `exam-${problem.id}` : `exam-r${repeat + 1}-${problem.id}`,
+					persistKnowledgeUsage: false,
+				});
+			} catch (error) {
+				res = failedEpisode(problem.id, workspace, error);
+			}
 			results.push({
 				problem: problem.id,
 				heldout: problem.heldout,
@@ -206,18 +230,25 @@ export async function runHeldoutExam(
 				});
 				continue;
 			}
-			const res = await solveEpisode({
-				cfg,
-				problem,
-				evalCtx,
-				scaffold: champion,
-				model: inner,
-				workspace: join(runDir, "heldout", repeats === 1 ? problem.id : `r${repeat + 1}-${problem.id}`),
-				memory,
-				tag: repeats === 1 ? `heldout-${problem.id}` : `heldout-r${repeat + 1}-${problem.id}`,
-				persistKnowledgeUsage: false,
-				controller,
-			});
+			const workspace = join(runDir, "heldout", repeats === 1 ? problem.id : `r${repeat + 1}-${problem.id}`);
+			let res: EpisodeResult;
+			try {
+				res = await solveEpisode({
+					cfg,
+					problem,
+					evalCtx,
+					scaffold: champion,
+					model: inner,
+					workspace,
+					memory,
+					log,
+					tag: repeats === 1 ? `heldout-${problem.id}` : `heldout-r${repeat + 1}-${problem.id}`,
+					persistKnowledgeUsage: false,
+					controller,
+				});
+			} catch (error) {
+				res = failedEpisode(problem.id, workspace, error);
+			}
 			results.push({
 				problem: problem.id,
 				heldout: true,

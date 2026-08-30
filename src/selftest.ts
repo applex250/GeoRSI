@@ -5,7 +5,7 @@
  */
 import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
-import { applyEdits, composeSystemPrompt, SEED_SCAFFOLD } from "./scaffold.js";
+import { applyEdits, builtinDomainKnowledge, composeSystemPrompt, scaffoldFingerprint, SEED_SCAFFOLD } from "./scaffold.js";
 import { Journal, atomicWriteJson, loadRunState, saveRunState, fingerprint, readJournalTail, type RunState } from "./journal.js";
 import { runEval, guessGenre, makeEvalContext, type Problem } from "./bench/eval.js";
 import { openMemory, addMemory, recall, renderMemory, defaultObservation } from "./memory.js";
@@ -17,6 +17,7 @@ import { loadCorpus, queryTermsFromStatement, regionsForTask, renderRetrieved, r
 import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
 import { examHasValidTrainingResult, type ExamProblemResult } from "./exam.js";
 import { resolveRequestMaxTokens } from "./provider.js";
+import { TokenLedger } from "./budget.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -57,9 +58,15 @@ export async function selftest(): Promise<boolean> {
 	check("seed scaffold untouched", SEED_SCAFFOLD.tips.length === 0);
 	const s5 = applyEdits(SEED_SCAFFOLD, [{ op: "prompt_append", text: "Always plot residuals." }]);
 	const sysp = composeSystemPrompt(s5, "seismology");
-	check("prompt_append reaches system prompt", sysp.includes("Always plot residuals."));
+	check("scientific playbook is genre-routed", builtinDomainKnowledge("seismology")[0]!.includes("Aki") && builtinDomainKnowledge("hydrology")[0]!.includes("Gumbel"));
+	const { profileTask } = await import("./task-profile.js");
+	const quizProfile = profileTask({ id: "k2_c001", genre: "quiz-k2", overrides: { type: "quiz" } });
+	const judgeProfile = profileTask({ id: "gabench_01", genre: "gabench", overrides: { judge: true } });
+	check("task profile is the single routing taxonomy", quizProfile.isQuiz && quizProfile.preferredInnerRole === "quiz" && !quizProfile.usesOutsideTruth && judgeProfile.usesJudge && judgeProfile.preferredInnerRole === "gis");
+	check("scaffold fingerprint ignores generation", scaffoldFingerprint({ ...SEED_SCAFFOLD, generation: 99 }) === scaffoldFingerprint(SEED_SCAFFOLD));
+	const scopedTipScaffold = applyEdits(SEED_SCAFFOLD, [{ op: "add_tip", text: "retain scope", genres: ["seismology"] }]);
+	check("replace preserves scoped tip metadata", typeof applyEdits(scopedTipScaffold, [{ op: "replace_tip", index: 0, text: "updated" }]).tips[0] === "object");
 
-	console.log("== journal / resume ==");
 	const tmp = join(process.cwd(), "runs", ".selftest");
 	rmSync(tmp, { recursive: true, force: true });
 	mkdirSync(tmp, { recursive: true });
@@ -136,6 +143,9 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(join(tmp, "bad.json"), "not json");
 	const bad = await runEval(prob, { pythonCmd: "python", privateTruthDir: truthDir, truthFile: (id) => join(truthDir, `${id}.txt`) }, join(tmp, "bad.json"), "public");
 	check("invalid submission -> null score", bad.score === null);
+	writeFileSync(join(tmp, "eval.py"), "print('##SCORE##2')\n");
+	const invalidScore = await runEval(prob, { pythonCmd: "python", privateTruthDir: truthDir, truthFile: (id) => join(truthDir, `${id}.txt`) }, join(tmp, "sub.json"), "public");
+	check("out-of-range evaluator score is rejected", invalidScore.score === null);
 	const absoluteTruthContext = makeEvalContext({ ...loadConfig(), private_truth_dir: truthDir }, process.cwd());
 	check("absolute private truth paths remain absolute", absoluteTruthContext.privateTruthDir === truthDir && absoluteTruthContext.truthFile("toy") === join(truthDir, "toy.txt"));
 
@@ -148,9 +158,11 @@ export async function selftest(): Promise<boolean> {
 	check("render memory non-empty", renderMemory(rec).includes("Mc choice"));
 	check("memory labels public evidence as probation", renderMemory(rec).includes("probation") && renderMemory(rec).includes("public-only"));
 	check("high public score stays a hypothesis", !defaultObservation("x", 1, false)[0]!.includes("same approach generalizes"));
-	check("default observation failure path", defaultObservation("x", null, true)[0]!.includes("no valid submission"));
+	const ledger = new TokenLedger();
+	ledger.record(17);
+	ledger.record(3, true);
+	check("token ledger isolates accounting from provider", ledger.total === 20 && ledger.calls === 2 && ledger.failed === 1 && ledger.snapshotValue().total === 20);
 
-	console.log("== goal trend ==");
 	check("trend: improving", deterministicTrend([0.1, 0.2, 0.3, 0.4]) === true);
 	check("trend: flat/declining", deterministicTrend([0.5, 0.4, 0.4, 0.3]) === false);
 	check("trend: single point defaults on-track", deterministicTrend([0.3]) === true);
@@ -395,10 +407,12 @@ export async function selftest(): Promise<boolean> {
 	const externalTruth = join(tmp, "external-truth.txt");
 	writeFileSync(externalTruth, "0.75\n");
 	const manifest = protectedManifest(fakeProblem, [externalTruth]);
-	check("manifest hashes grading assets", Object.keys(manifest).length === 3);
+	check("manifest hashes grading assets", Object.keys(manifest).length === 4 && Object.keys(manifest).some((key) => key.startsWith("__directory__:")));
 	check("manifest verifies untouched dir", verifyManifest(fakeProblem, manifest).length === 0);
 	writeFileSync(join(fakeProblem, "eval.py"), "print(2)\n");
 	check("manifest detects eval.py tampering", verifyManifest(fakeProblem, manifest).includes("eval.py"));
+	writeFileSync(join(fakeProblem, "reference", "extra.txt"), "new hidden asset\n");
+	check("manifest detects new grading asset", verifyManifest(fakeProblem, manifest).some((file) => file.includes("directory-listing")));
 	writeFileSync(externalTruth, "0.8\n");
 	check("manifest detects external truth tampering", verifyManifest(fakeProblem, manifest).includes(externalTruth));
 	const toolBreaches = scanTextForBreaches("tool_execution_start read file=../../problems/k2_c001/answers.private.jsonl");

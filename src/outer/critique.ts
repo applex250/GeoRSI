@@ -105,6 +105,9 @@ export async function critiquePanel(
 				try {
 					await harness.init();
 					await harness.prompt(prompt);
+				} catch {
+					// A critic is advisory. Missing/failed panel votes become zero
+					// quality; the deterministic fallback still evaluates a proposal.
 				} finally {
 					harness.dispose();
 				}
@@ -125,9 +128,10 @@ export async function critiquePanel(
 	});
 
 	if (survivors.length === 0) {
-		// salvage: never waste a generation on over-pruning
-		const best = scores.reduce((a, b) => (b.quality > a.quality ? b : a), scores[0]);
-		if (best && best.quality > 0) survivors.push(proposals[best.index]);
+		// Never turn a transient critic outage into a silently wasted generation.
+		// The fallback is still evaluated by the real public/private protocol.
+		const best = scores.reduce((a, b) => (b.quality > a.quality ? b : a), scores[0]!);
+		if (best) survivors.push(proposals[best.index]!);
 	}
 
 	return { survivors, scores };

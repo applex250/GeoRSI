@@ -9,6 +9,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "_shared"))
 
 
+def safe_artifact_path(ws, value):
+    """Resolve a submitted artifact only inside the episode workspace."""
+    if not isinstance(value, str) or not value.strip() or os.path.isabs(value):
+        return None
+    root = os.path.realpath(ws)
+    candidate = os.path.realpath(os.path.join(root, value))
+    try:
+        if os.path.commonpath((root, candidate)) != root:
+            return None
+    except ValueError:
+        return None
+    return candidate
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--submission", required=True)
@@ -21,21 +34,12 @@ def main():
 
     out_files = sub.get("output_files") if isinstance(sub.get("output_files"), list) else []
     ws = os.path.dirname(os.path.dirname(os.path.abspath(a.submission)))
-    present, degenerate = 0, 0
-    for f in out_files:
-        for cand in (f, os.path.join(ws, f)):
-            if os.path.exists(cand) and os.path.getsize(cand) > 1024:
-                present += 1
-                break
-        else:
-            continue
-        # degeneracy: empty-ish images / zero-feature layers
-        try:
-            sz = max(os.path.getsize(os.path.join(ws, f)), os.path.getsize(f)) if os.path.exists(f) else os.path.getsize(os.path.join(ws, f))
-            if sz < 8192:
-                degenerate += 1
-        except OSError:
-            pass
+    present = sum(
+        1 for f in out_files
+        if (path := safe_artifact_path(ws, f))
+        and os.path.isfile(path)
+        and os.path.getsize(path) > 1024
+    )
 
     if a.split == "public":
         ok = isinstance(sub.get("summary"), str) and len(sub["summary"]) > 40

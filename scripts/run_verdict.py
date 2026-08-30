@@ -26,7 +26,11 @@ def load(path):
         return None
 
 
-def answers_count(ws):
+def answers_count(ws, rec=None):
+    # Durable strict episodes intentionally copy only canonical solutions, so
+    # use recorded coverage when answers.json is not preserved.
+    if rec and isinstance(rec.get("answerCount"), int):
+        return rec["answerCount"]
     try:
         return len(json.load(open(os.path.join(ws, "answers.json"), encoding="utf-8")))
     except Exception:
@@ -37,7 +41,10 @@ def classify_episode(ws, rec):
     if rec.get("fitness") is None:
         return "eval-err"
     f = rec["fitness"]
-    n = answers_count(ws)
+    n = answers_count(ws, rec)
+    total = rec.get("answerTotal") if isinstance(rec.get("answerTotal"), int) else None
+    if total is not None and total > 0 and n < total * 0.5 and f < 0.5:
+        return "premature-submit"
     if n and n < 50 and (f is None or f < 0.5):
         return "premature-submit"
     return None

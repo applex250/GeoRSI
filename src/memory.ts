@@ -105,10 +105,11 @@ export function recall(store: MemoryStore, problem: string, genre: string, k = 6
 		if (m.problem === problem) s += 5;
 		if (m.genre === genre) s += 2;
 		if (m.publicScore != null) s += Math.min(3, m.publicScore);
-		s += (2 * (m.ts - now)) / (now - 1 || 1) + 2; // mild recency, always > 0
+		s += Math.max(0, 2 / (1 + Math.max(0, now - m.ts) / 86_400_000));
 		return { m, s };
 	});
-	scored.sort((a, b) => b.s - a.s);
+	// keep equal-scored evidence deterministic across filesystems/runs
+	scored.sort((a, b) => b.s - a.s || b.m.ts - a.m.ts || a.m.problem.localeCompare(b.m.problem) || a.m.text.localeCompare(b.m.text));
 	return scored.slice(0, k).map((x) => x.m);
 }
 

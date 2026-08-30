@@ -35,6 +35,18 @@ maintained source views:
    before box creation rather than falling back to host Python. Sandboxie is
    app-level isolation, not VM security. `host-audit` remains an explicit
    non-sandbox compatibility mode; strict failures never fall back to host Python.
-8. The Python policy is defense-in-depth in both backends. `restricted` blocks
-   common subprocess/network/native-extension imports, while the Sandboxie
-   backend provides the OS-enforced app-level boundary.
+8. `src/process-env.ts`, `src/budget.ts`, and `src/task-profile.ts` are pure
+   policy seams shared by adapters: evaluator code must not import the
+   Sandboxie adapter merely to sanitize an environment; provider code reports
+   token usage but does not own run-budget policy; task taxonomy is defined once
+   for grading and model routing.
+9. `Config` is immutable input at the application boundary. Per-problem runtime
+   overrides go through `applyProblemRuntimeOverride()` and must not be created
+   by an unchecked object spread/cast. Provider model discovery is performed by
+   the config layer, so the provider adapter does not depend on benchmark loading.
+10. New state or evidence fields must be optional/backward-compatible, written
+    atomically, and covered by a deterministic selftest before any paid or real
+    Sandboxie test is added.
+11. `scripts/architecture_selftest.py` is a lightweight dependency-direction
+    gate included in `npm run check`; it rejects forbidden adapter edges and
+    unchecked Config casts.

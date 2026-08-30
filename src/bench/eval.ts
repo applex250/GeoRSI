@@ -17,27 +17,17 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { terminateProcessTree } from "../process.js";
-import { assertSupportedModel, type Config, type ProblemSpec } from "../config.js";
+import { assertSupportedModel, type Config, type ProblemRuntimeOverride, type ProblemSpec } from "../config.js";
+import { sanitizeExecutionEnvironment } from "../process-env.js";
+import { profileTask } from "../task-profile.js";
 
-export interface ProblemOverride {
+export interface ProblemOverride extends ProblemRuntimeOverride {
 	type?: "standard" | "quiz";
 	genre?: string;
-	/** execution backend override for this task */
-	execution_backend?: "sandboxie" | "host-audit";
-	/** execution policy override for this task's Python scripts */
-	execution_policy?: "audit" | "restricted";
 	/** eval needs the LLM judge on private split (credentials injected) */
 	judge?: boolean;
-	/** isolated python env for this problem (e.g. the GIS venv) */
-	python_cmd?: string;
 	/** per-eval timeout seconds (oracle references may run minutes) */
 	eval_timeout_s?: number;
-	max_turns?: number;
-	eval_cap?: number;
-	episode_timeout_s?: number;
-	patience?: number;
-	script_timeout_s?: number;
-	job_timeout_s?: number;
 	/** per-problem inner model override (task-to-model routing, e.g. quiz
 	 * batches -> the cheap fast Pareto winner instead of the heavy default) */
 	inner_model?: string;
@@ -201,11 +191,15 @@ export function runEval(
 			"--split",
 			split,
 		];
-		const env = { ...process.env, PYTHONIOENCODING: "utf-8" } as NodeJS.ProcessEnv;
+		const env = sanitizeExecutionEnvironment({ ...process.env, PYTHONIOENCODING: "utf-8" });
+		// Evaluators are trusted host-side code, but they must not inherit the
+		// controller's provider credentials by accident. Add back only the one
+		// private capability needed for this split and judge route.
 		if (split === "private" && ctx.judgeEnv && problem.overrides.judge) {
 			Object.assign(env, ctx.judgeEnv);
 		}
-		if (split === "private" && problem.overrides?.type !== "quiz" && !problem.overrides?.judge && !problem.overrides?.self_graded) {
+		const taskProfile = profileTask(problem);
+		if (split === "private" && taskProfile.usesOutsideTruth) {
 			// quiz batches carry gold in answers.private.jsonl; judge/oracle
 			// problems grade internally against a hidden reference — neither
 			// needs the outside-tree truth file; standard problems do
@@ -243,10 +237,12 @@ export function runEval(
 			for (const line of out.split(/\r?\n/)) {
 				if (line.startsWith("##SCORE##")) {
 					const v = Number(line.slice("##SCORE##".length).trim());
-					if (Number.isFinite(v)) {
-						resolve({ score: v, detail: extractJson(out), secs });
+					if (Number.isFinite(v) && v >= 0 && v <= 1) {
+						resolve({ score: v, detail: split === "private" ? "private score computed" : extractJson(out), secs });
 						return;
 					}
+					resolve({ score: null, detail: `invalid score outside [0,1]: ${line.slice("##SCORE##".length).trim()}`, secs });
+					return;
 				}
 			}
 			resolve({ score: null, detail: "no ##SCORE## marker", secs });

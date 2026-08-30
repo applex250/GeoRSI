@@ -27,6 +27,7 @@ import { homedir, tmpdir } from "node:os";
 import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import type { Config } from "./config.js";
 import { isProcessAlive, terminateProcessTree } from "./process.js";
+import { sanitizeExecutionEnvironment } from "./process-env.js";
 
 export const SANDBOXIE_MAX_BOX_NAME = 38;
 export const SANDBOXIE_BACKEND = "sandboxie-app-level" as const;
@@ -377,24 +378,8 @@ export function credentialClosedKeys(): string[] {
 	];
 }
 
-/** Remove provider, judge, proxy, and path-injection variables from agent Python. */
-export function sanitizeSandboxEnvironment(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-	const safe = { ...(env ?? process.env) } as NodeJS.ProcessEnv;
-	for (const key of Object.keys(safe)) {
-		if (
-			/^RSILAB_/i.test(key) ||
-			/^(https?|all|no)_proxy$/i.test(key) ||
-			/^(?:PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|NODE_PATH|NODE_OPTIONS)$/i.test(key) ||
-			/^(?:SSH_AUTH_SOCK|GIT_ASKPASS|SSH_ASKPASS|DOCKER_AUTH_CONFIG|KUBECONFIG|AWS_SHARED_CREDENTIALS_FILE|AZURE_CONFIG_DIR)$/i.test(key) ||
-			/(?:API[_-]?KEY|TOKEN|ACCESS[_-]?(?:KEY|TOKEN)|AUTH[_-]?TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE[_-]?KEY|CREDENTIAL)/i.test(key)
-		) {
-			delete safe[key];
-		}
-	}
-	safe.PYTHONUNBUFFERED = "1";
-	safe.PYTHONIOENCODING = "utf-8";
-	return safe;
-}
+/** Shared environment policy; retained export for existing callers. */
+export { sanitizeExecutionEnvironment as sanitizeSandboxEnvironment } from "./process-env.js";
 
 export function sandboxieGlobalLeasePath(): string {
 	return join(tmpdir(), "GeoRSI", "sandboxie-global-wfp.lock");
@@ -904,7 +889,7 @@ export class SandboxieAdapter {
 	}
 
 	private safePythonEnv(env?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-		return sanitizeSandboxEnvironment(env);
+		return sanitizeExecutionEnvironment(env);
 	}
 
 	private launchPython(options: SandboxiePythonRunOptions): {

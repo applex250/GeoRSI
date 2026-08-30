@@ -178,7 +178,46 @@ RAG off/on 泛化对照
 
 在完成前三项之前，扩大题量或增加 prompt tips 只会增加实验规模，不会自动增加结论可信度。
 
-## 7. 当前验证状态
+## 8. 本轮软件工程架构整理（2026-08-30）
+
+本轮按职责单一、依赖倒置、显式契约和失败隔离原则整理了实现边界：
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Interfaces / control: run.ts · TUI · extension · RunController │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ use cases
+┌──────────────────────────────▼───────────────────────────────┐
+│ Application: rsi.ts · rsi_eval.ts · exam.ts · inner/solve.ts │
+│ generation / suite / exam / one episode                      │
+└──────────────┬───────────────────────┬───────────────────────┘
+               │ pure policy            │ ports/contracts
+┌──────────────▼──────────────┐   ┌────▼───────────────────────┐
+│ Domain/policy seams           │   │ Adapters                    │
+│ scaffold · task-profile      │   │ provider · piharness        │
+│ metrics · budget · memory    │   │ sandboxie · process-env      │
+│ knowledge · retrieval        │   │ filesystem/process/eval      │
+└──────────────────────────────┘   └─────────────────────────────┘
+```
+
+关键整理：
+
+- `src/process-env.ts` 将凭据/代理清理从 Sandboxie adapter 中抽出，评测器只
+  依赖环境策略，不依赖 Windows 实现。
+- `src/budget.ts` 集中 token ledger；provider 负责获取模型 usage，应用层负责
+  budget stop。
+- `src/task-profile.ts` 是任务类型、judge/private truth、quiz 和模型角色的
+  单一分类来源，避免多个字符串规则漂移。
+- `applyProblemRuntimeOverride()` 负责有限的题目运行参数合并，替代
+  `({...base, ...override} as Config)` 的不安全 cast。
+- `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
+  toolkit 和 evidence contract，保持行为稳定。进一步拆分 submit/job/cleanup
+  应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。
+
+架构规则：trusted grading、agent workspace 和 provider credentials 的边界
+不能由 UI 或 model adapter 改写；application service 只能通过显式 context 和
+result contract 传递数据；任何新 adapter 都必须具备 deterministic fake 或
+selftest seam。
 
 本轮代码修改后的回归：
 

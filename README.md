@@ -85,7 +85,11 @@ private-truth root, credential files/registry locations, and network are closed
 inside that box. `host-audit` is an explicit compatibility backend only; it is
 not an OS sandbox and is never an automatic fallback from strict mode.
 
-## Gateway models (fixed support list)
+## Competition and long-horizon science runs
+
+For a stratified campaign, use `python scripts/make_curriculum.py` to create a fixed train/held-out config from public task metadata, then keep its `run-manifest.json` immutable. The full operating procedure, geology playbooks, model routing, and honest score-improvement priorities are in [`docs/COMPETITION-RUNBOOK.md`](docs/COMPETITION-RUNBOOK.md).
+
+
 
 Verified 2026-08-28 and pinned in `src/config.ts` (`SUPPORTED_MODELS`);
 `loadConfig` rejects anything else. Per-model reasoning-parameter quirks,

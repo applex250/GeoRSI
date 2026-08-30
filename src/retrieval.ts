@@ -2,6 +2,7 @@
  * Deterministic retrieval over the RAG corpus (docs/RAG.md).
  * Region-routed keyword scoring; no embeddings by design in v0.1.
  */
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./config.js";
@@ -75,7 +76,7 @@ export function retrieve(
 			return { d, s };
 		})
 		.filter((x) => x.s > 0 && regions.includes(x.d.region))
-		.sort((a, b) => b.s - a.s);
+		.sort((a, b) => b.s - a.s || a.d.id.localeCompare(b.d.id));
 	const picked: DocBlock[] = [];
 	let used = 0;
 	for (const { d } of scored) {
@@ -89,11 +90,20 @@ export function retrieve(
 	return picked;
 }
 
+export function corpusVersion(): string {
+	const canon = loadCorpus()
+		.map((doc) => JSON.stringify([doc.id, doc.region, doc.source, doc.license ?? null, doc.derived ?? false, doc.text]))
+		.sort()
+		.join("\n");
+	return createHash("sha256").update(canon).digest("hex").slice(0, 16);
+}
+
 export function renderRetrieved(docs: DocBlock[]): string {
 	if (docs.length === 0) return "";
 	const lines = docs.map((d) => `- [${d.id}] ${d.text}`);
 	return "\n\nReference material retrieved for this task:\n" + lines.join("\n");
 }
+
 
 /** Map task metadata to authored corpus regions. No benchmark text/gold is used. */
 export function regionsForTask(genre: string | undefined, problemId: string): string[] {

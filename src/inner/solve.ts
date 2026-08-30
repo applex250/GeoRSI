@@ -18,7 +18,7 @@ import { join, resolve, sep } from "node:path";
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
-import { ROOT, type Config } from "../config.js";
+import { ROOT, applyProblemRuntimeOverride, type Config } from "../config.js";
 import type { EvalContext, EvalResult, Problem } from "../bench/eval.js";
 import { runEval } from "../bench/eval.js";
 import { composeSystemPrompt, type Scaffold } from "../scaffold.js";
@@ -39,9 +39,11 @@ import {
 	type SandboxieBoxRecord,
 	type SandboxieCleanupResult,
 } from "../sandboxie.js";
-import { queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "../retrieval.js";
+import { queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve, corpusVersion } from "../retrieval.js";
 import { atomicWriteJson } from "../journal.js";
 import { assertExchangeWorkspace } from "../workspace-tools.js";
+import { profileTask } from "../task-profile.js";
+import { SCIENCE_TOOLKIT_SOURCE } from "../science-toolkit.js";
 
 export interface EpisodeResult {
 	problemId: string;
@@ -68,8 +70,15 @@ export interface EpisodeResult {
 	};
 	/** true when the driver routed a workspace candidate through submit after a model turn ended without a tool call */
 	submissionRecovery?: "candidate-file-driver";
+	/** quiz coverage recorded in durable evidence for crash diagnosis */
+	answerCount?: number;
+	answerTotal?: number;
+	publicHistory?: { score: number | null; note: string }[];
 	/** knowledge nodes injected into this episode, for deferred accounting */
 	knowledgeIds: string[];
+	knowledgeVersion?: string;
+	ragDocumentIds?: string[];
+	ragCorpusVersion?: string;
 }
 
 interface SubmitState {
@@ -305,7 +314,7 @@ export interface SolveOpts {
 export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	const { problem, evalCtx, scaffold } = opts;
 	// per-problem overrides (quiz batches, long-job problems) win over config
-	const cfg: Config = { ...opts.cfg, ...problem.overrides } as Config;
+	const cfg: Config = applyProblemRuntimeOverride(opts.cfg, problem.overrides);
 	const sandboxed = isSandboxieBackend(cfg);
 	const repoRoot = resolve(ROOT);
 	const privateRoot = resolve(ROOT, cfg.private_truth_dir);
@@ -341,14 +350,19 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	if (sandboxed) assertExchangeWorkspace(workspace, repoRoot, privateRoot, extraProtectedRoots);
 	emit({ type: "episode_start", tag: opts.tag, problem: problem.id, role: opts.tag.split("-")[0], generation: scaffold.generation });
 
-	// knowledge-base routing (deterministic; see src/knowledge.ts): pick the
+	// Provide a small public, reproducible methods library. It improves first
+	// pass reliability on quantitative geology without exposing graders or
+	// answers; the agent may inspect or import it from the exchange workspace.
+	writeFileSync(join(workspace, "georsi_science.py"), SCIENCE_TOOLKIT_SOURCE, "utf8");
+	const taskProfile = profileTask(problem);
+
 	// proven lessons tagged for this problem's regions, inject into the prompt
 	// task-to-model routing: quiz batches may run a different (cheaper/faster)
 	// inner than the suite default; per-problem override wins over the
 	// quiz-wide default
 	const routedInner =
 		problem.overrides.inner_model ??
-		(problem.overrides.type === "quiz" && cfg.quiz_inner_model ? cfg.quiz_inner_model : undefined);
+		(taskProfile.isQuiz && cfg.quiz_inner_model ? cfg.quiz_inner_model : undefined);
 	const inner = routedInner ? resolveModel(routedInner) : opts.model;
 	if (routedInner && routedInner !== (opts.model as { id?: string }).id) {
 		log(`[route] ${problem.id}: inner -> ${routedInner}`);
@@ -480,7 +494,10 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		}
 	}
 
-	const isQuiz = problem.overrides.type === "quiz";
+	const isQuiz = taskProfile.isQuiz;
+	const quizQuestionTotal = isQuiz
+		? readFileSync(join(workspace, "data", "quiz.jsonl"), "utf8").split(/\r?\n/).filter((line) => line.trim()).length
+		: undefined;
 	const st: SubmitState = {
 		answer: null,
 		publicHistory: [],
@@ -926,7 +943,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			);
 			const res: EvalResult = await runEval(problem, evalCtx, subPath, "public", publicEvalTimeout);
 			st.publicHistory.push({ score: res.score, note: params.note ?? "" });
-			const improved = res.score != null && (st.bestPublic == null || res.score > st.bestPublic);
+			const improved = res.score != null && (st.bestPublic == null || res.score >= st.bestPublic);
 			if (improved) {
 				st.bestPublic = res.score;
 				st.bestAnswer = answer;
@@ -1049,7 +1066,10 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 			`There is NO shell — write scripts to files (write tool) and execute them with the ` +
 			`run_python tool (quick scripts) — for computations longer than a couple of minutes ` +
 			`use start_job instead: it runs detached in the background and the system wakes you ` +
-			`when it finishes (hours are fine). Budget your time: a complete analysis in 2-4 scripts is ideal.\n` +
+			`when it finishes (hours are fine). A public georsi_science.py toolkit is available ` +
+			`for Aki b-values, Gumbel return levels, OLS slopes, and log-linear fits; inspect ` +
+			`its source and validate its output on data/reference data rather than copying constants. ` +
+			`Budget your time: a complete analysis in 2-4 scripts is ideal.\n` +
 			quizFirstPass +
 			openFirstPass +
 			`You may submit up to ${cfg.eval_cap} times; target at most ${softSubmitTarget} submissions unless public feedback shows a specific fix worth testing. ` +
@@ -1212,6 +1232,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		secs: (Date.now() - t0) / 1000,
 		error,
 		warnings,
+		publicHistory: st.publicHistory,
 		workspace,
 		durableWorkspace: requestedWorkspace,
 		submissionRecovery: submissionRecovered ? "candidate-file-driver" : undefined,
@@ -1227,6 +1248,11 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				}
 			: { backend: "host-audit", exchangeWorkspace: workspace },
 		knowledgeIds: kbSel.nodes.map((n) => n.id),
+		knowledgeVersion: kbSel.version,
+		ragDocumentIds: ragDocs.map((doc) => doc.id),
+		ragCorpusVersion: cfg.rag_enabled ? corpusVersion() : undefined,
+		answerCount: isQuiz ? Object.keys(st.bestAnswer ?? st.answer ?? {}).length : undefined,
+		answerTotal: quizQuestionTotal,
 	};
 
 	let breaches = scanWorkspaceForBreaches(workspace);

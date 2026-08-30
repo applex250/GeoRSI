@@ -46,26 +46,31 @@ export async function makeGoalPlan(
 			return toolOutput("criteria recorded");
 		},
 	});
-	const harness = new PiHarness({
-		model,
-		thinkingLevel,
-		cwd: process.cwd(),
-		systemPrompt: "You write run-gating criteria. You always answer by calling set_criteria exactly once.",
-		customTools: [planTool],
-		promptTimeoutMs: timeoutMs,
-		stallMs: 90_000,
-		builtinTools: [],
-	});
 	try {
-		await harness.init();
-		await harness.prompt(
-			`RUN GOAL: ${goalText}\n\n` +
-				`Write 3-5 gating criteria for a multi-day self-improvement run. Each must be atomic, ` +
-				`observable from run artifacts (fitness numbers, journal), and anchored to the goal. ` +
-				`Answer via set_criteria.`,
-		);
-	} finally {
-		harness.dispose();
+		const harness = new PiHarness({
+			model,
+			thinkingLevel,
+			cwd: process.cwd(),
+			systemPrompt: "You write run-gating criteria. You always answer by calling set_criteria exactly once.",
+			customTools: [planTool],
+			promptTimeoutMs: timeoutMs,
+			stallMs: 90_000,
+			builtinTools: [],
+		});
+		try {
+			await harness.init();
+			await harness.prompt(
+				`RUN GOAL: ${goalText}\n\n` +
+					`Write 3-5 gating criteria for a multi-day self-improvement run. Each must be atomic, ` +
+					`observable from run artifacts (fitness numbers, journal), and anchored to the goal. ` +
+					`Answer via set_criteria.`,
+			);
+		} finally {
+			harness.dispose();
+		}
+	} catch {
+		// Goal planning is advisory. A gateway outage must not destroy a
+		// scientifically valid run; deterministic criteria remain authoritative.
 	}
 	const criteria = captured.p?.criteria?.filter((c) => typeof c === "string" && c.trim()).map((c) => c.trim()) ?? [];
 	return { goal: goalText, criteria: criteria.length >= 3 ? criteria.slice(0, 5) : FALLBACK_CRITERIA };
@@ -109,28 +114,32 @@ export async function checkGoal(
 			return toolOutput("verdict recorded");
 		},
 	});
-	const harness = new PiHarness({
-		model,
-		thinkingLevel,
-		cwd: process.cwd(),
-		systemPrompt: "You are a run supervisor. You always answer by calling goal_verdict exactly once.",
-		customTools: [checkTool],
-		promptTimeoutMs: timeoutMs,
-		stallMs: 90_000,
-		builtinTools: [],
-	});
 	try {
-		await harness.init();
-		await harness.prompt(
-			`GOAL: ${plan.goal}\nCRITERIA:\n${plan.criteria.map((c) => `- ${c}`).join("\n")}\n\n` +
-				`FITNESS HISTORY (chronological): [${fitnessHistory.map((f) => f.toFixed(3)).join(", ")}]\n` +
-				`DETERMINISTIC TREND SAYS: ${det ? "on track" : "stalling"}\n\n` +
-				`RECENT EVENTS:\n${recentSummary}\n\n` +
-				`Judge whether the run is meeting its criteria and write one concrete steer for the next ` +
-				`generation. Answer via goal_verdict.`,
-		);
-	} finally {
-		harness.dispose();
+		const harness = new PiHarness({
+			model,
+			thinkingLevel,
+			cwd: process.cwd(),
+			systemPrompt: "You are a run supervisor. You always answer by calling goal_verdict exactly once.",
+			customTools: [checkTool],
+			promptTimeoutMs: timeoutMs,
+			stallMs: 90_000,
+			builtinTools: [],
+		});
+		try {
+			await harness.init();
+			await harness.prompt(
+				`GOAL: ${plan.goal}\nCRITERIA:\n${plan.criteria.map((c) => `- ${c}`).join("\n")}\n\n` +
+					`FITNESS HISTORY (chronological): [${fitnessHistory.map((f) => f.toFixed(3)).join(", ")}]\n` +
+					`DETERMINISTIC TREND SAYS: ${det ? "on track" : "stalling"}\n\n` +
+					`RECENT EVENTS:\n${recentSummary}\n\n` +
+					`Judge whether the run is meeting its criteria and write one concrete steer for the next ` +
+					`generation. Answer via goal_verdict.`,
+			);
+		} finally {
+			harness.dispose();
+		}
+	} catch {
+		return { onTrack: det, steer: det ? "" : "variance is high: favor robust, validated methods over novelty", source: "deterministic" };
 	}
 	if (!captured.p) {
 		return { onTrack: det, steer: det ? "" : "variance is high: favor robust, validated methods over novelty", source: "deterministic" };

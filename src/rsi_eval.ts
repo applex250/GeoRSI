@@ -82,20 +82,42 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 			}
 			const tag = repeats === 1 ? `${role}-${problem.id}` : `${role}-r${repeat + 1}-${problem.id}`;
 			const workspace = join(runDir, "episodes", tag);
-			const result = await solveEpisode({
-				cfg,
-				problem,
-				evalCtx,
-				scaffold,
-				model,
-				workspace,
-				memory: evalMemory,
-				log,
-				tag,
-				emit,
-				persistKnowledgeUsage: false,
-				controller,
-			});
+			let result: EpisodeResult;
+			try {
+				result = await solveEpisode({
+					cfg,
+					problem,
+					evalCtx,
+					scaffold,
+					model,
+					workspace,
+					memory: evalMemory,
+					log,
+					tag,
+					emit,
+					persistKnowledgeUsage: false,
+					controller,
+				});
+			} catch (error) {
+				// A single broken task must remain a fixed-denominator failure, not
+				// abort the whole curriculum. Security failures stay visible in the
+				// episode error and never become a valid score.
+				cancelled = cancelled || controller?.stopRequested === true;
+				result = {
+					problemId: problem.id,
+					fitness: null,
+					bestPublic: null,
+					submits: 0,
+					turns: 0,
+					tokens: 0,
+					secs: 0,
+					error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500),
+					warnings: [],
+					workspace,
+					durableWorkspace: workspace,
+					knowledgeIds: [],
+				};
+			}
 			evaluated.push({ problem, result });
 			weighted.push({ fitness: result.fitness, weight: problem.weight });
 			detail.push({
@@ -112,7 +134,8 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 	}
 	// Fixed denominator: an ERR/null episode is a failed task, not missing data.
 	if (problems.length === 0) return { mean: null, detail, learning: { memoryItems: [], knowledgeUsage: [] }, cancelled };
-	const mean = weightedFitnessMean(weighted);
+	const validFitnesses = weighted.filter((value) => value.fitness != null);
+	const mean = validFitnesses.length > 0 ? weightedFitnessMean(weighted) : null;
 	emit({
 		type: "suite_done",
 		mean,

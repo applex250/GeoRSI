@@ -11,7 +11,8 @@ Windows strict 路径通过 Sandboxie-Plus app-level box 执行；`host-audit` �
 - `docs/georsi-security.mmd`：Agent 执行与评测信任边界
 - `docs/ARCHITECTURE-VIEWS.md`：依赖规则和当前安全限制
 
-旧的单页 Drawio 图仍保留作历史导出，但不再承担所有层次的唯一视图。
+本轮软件工程整理新增三个共享 policy seam：`src/task-profile.ts` 统一任务分类和路由语义，`src/budget.ts` 统一 token ledger，`src/process-env.ts` 统一凭据/代理清理；它们不依赖 UI 或 Sandboxie 实现。题目 override 必须经过 `applyProblemRuntimeOverride()`，不允许用对象 spread + 类型断言绕过 Config 契约。具体依赖规则见 `docs/ARCHITECTURE-VIEWS.md` 和 `docs/ARCHITECTURE-REVIEW.md`。
+
 
 ## 总体架构（简图）
 ```

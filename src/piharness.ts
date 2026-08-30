@@ -332,9 +332,7 @@ export class PiHarness {
 		} catch {
 			/* stats are best-effort */
 		}
-		TOKENS.total += tokens;
-		TOKENS.calls += 1;
-		if (timedOut || stalled || error) TOKENS.failed += 1;
+		TOKENS.record(tokens, timedOut || stalled || !!error);
 
 		return {
 			aborted: timedOut || stalled,

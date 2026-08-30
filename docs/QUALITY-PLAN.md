@@ -1,6 +1,6 @@
 # GeoRSI quality remediation plan
 
-Status: implemented and validated
+Status: second optimization round implemented; final validation in progress
 Baseline: `master` at `2ed6a09` (2026-08-29)
 Inputs: parent audit plus three independent read-only reviews (security/isolation, architecture/reliability, scientific evaluation/model quality).
 
@@ -187,3 +187,25 @@ Deferred exactly as non-goals rather than silently claimed complete:
 - `npm audit --omit=dev --registry=https://registry.npmjs.org`: 0 vulnerabilities.
 - `git diff --check`, changed-diff secret scan, and tracked-tree secret scan passed.
 - Final Sandboxie read-back: enabled boxes=`DefaultBox`; global `NetworkEnableWFP` restored to its original empty value; no WFP lease file remained.
+
+## 8. Subsequent self-evolution/science optimization round (2026-08-30)
+
+A parent-side audit of the complete self-evolution and AI-for-science path is recorded in [`docs/EVOLUTION-SCIENCE-AUDIT.md`](EVOLUTION-SCIENCE-AUDIT.md). The three attempted review lanes were unavailable due to the shared service returning HTTP 503 `account_share_recovering`; this round therefore does not claim independent reviewer approval.
+
+Implemented in the current worktree after that audit:
+
+- all-failed scaffold suites are not eligible to become champions;
+- GIS artifact graders reject absolute/traversal/reparse paths and existing generated graders were updated;
+- reference-directory additions/removals are covered by the grading manifest;
+- immutable, genre-routed public geology/GIS playbooks and a public `georsi_science.py` methods toolkit;
+- bounded scaffold evolution, scoped-tip preservation, no-op/duplicate proposal rejection, public-tie latest-candidate retention;
+- deterministic memory/RAG ordering and retrieval fingerprints;
+- per-problem exception isolation in suite/exam orchestration;
+- a deterministic public-metadata curriculum builder and a core `config/geology-competition.json` profile;
+- public trajectory, quiz coverage, knowledge, and RAG evidence in durable episode records.
+- software-engineering seams: `src/process-env.ts` (environment policy),
+  `src/budget.ts` (token ledger), `src/task-profile.ts` (single task taxonomy),
+  `applyProblemRuntimeOverride()` (typed override merge), and
+  `scripts/architecture_selftest.py` (dependency-direction gate).
+
+This round has passed its validation gates (see `docs/EVOLUTION-SCIENCE-AUDIT.md`) and remains uncommitted/unpushed.

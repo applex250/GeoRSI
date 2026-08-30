@@ -26,11 +26,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
-import { SUPPORTED_MODELS, assertSupportedModel, modelSpec, type Config, type ModelSpec } from "./config.js";
-import { loadProblems } from "./bench/eval.js";
+import { SUPPORTED_MODELS, assertSupportedModel, modelSpec, configuredModelIds, type Config, type ModelSpec } from "./config.js";
 import { getProfile } from "./models.js";
+import { TOKENS } from "./budget.js";
 
-export const TOKENS = { total: 0, calls: 0, failed: 0 };
+export { TOKENS };
 
 /**
  * Boot-time diagnostics sink. Defaults to stderr; the TUI replaces it so
@@ -294,12 +294,7 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	const localApiKey = loadLocalApiKey(root);
 	const orApiKey = loadOpenRouterApiKey(root);
 	const emoooApiKey = loadEmoooApiKey();
-	const configuredRoutes = loadProblems(cfg, root, true)
-		.map((problem) => problem.overrides.inner_model)
-		.filter((id): id is string => !!id);
-	const selected = [cfg.inner_model, cfg.outer_model, cfg.quiz_inner_model, ...configuredRoutes]
-		.filter((id): id is string => !!id)
-		.filter((id, index, all) => all.indexOf(id) === index);
+	const selected = configuredModelIds(cfg, root);
 	const specOf = (id: string): ModelSpec => assertSupportedModel("selected model", id);
 
 	for (const id of selected) {
