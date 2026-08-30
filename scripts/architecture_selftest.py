@@ -25,6 +25,11 @@ FORBIDDEN = {
     "src/sandboxie-ini.ts": ["provider", "piharness", "inner/", "bench/eval", "node:fs", "node:child_process"],
     "src/sandboxie-lease.ts": ["provider", "piharness", "inner/", "bench/eval", "node:child_process"],
     "src/sandboxie-cleanup.ts": ["provider", "piharness", "inner/", "bench/eval", "node:"],
+    "src/research/contracts.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/work-graph.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
+    "src/research/decision-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/failure-taxonomy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/task-profile.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }

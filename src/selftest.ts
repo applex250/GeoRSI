@@ -47,6 +47,11 @@ import {
 	sandboxiePartialCleanupReadyForLease,
 } from "./sandboxie-cleanup.js";
 import { selectTopSurvivors } from "./outer/critique.js";
+import { validateResearchMission, type ResearchMission } from "./research/contracts.js";
+import { createWorkGraph, createWorkNode, readyWorkNodes, transitionWorkNode, validateWorkGraph, workGraphComplete, workGraphFingerprint } from "./research/work-graph.js";
+import { validateDecisionRecord, validateResearchClaim } from "./research/decision-policy.js";
+import { classifyResearchFailure } from "./research/failure-taxonomy.js";
+import { profileResearchTask } from "./research/task-profile.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -111,6 +116,54 @@ export async function selftest(): Promise<boolean> {
 	);
 	check("quiz preflight is gold-free and catches shape errors", quizPreflight.issues.length === 3 && quizPreflight.covered === 2);
 
+	console.log("== research mission and work graph ==");
+	const researchProfile = profileResearchTask({ id: "seismic-capstone", genre: "capstone-seismology", research: { networkMode: "open" } });
+	check("research task profile routes capstone stages and capabilities", researchProfile.family === "capstone" && researchProfile.requiredStages.includes("literature-search") && researchProfile.requiredStages.includes("gis-analysis") && researchProfile.capabilities.includes("network"));
+	const mission: ResearchMission = {
+		version: 1,
+		id: "mission-1",
+		question: "Does seismic b-value vary across time and space?",
+		scope: "A frozen Southern California catalog",
+		estimands: ["b-value"],
+		units: ["dimensionless"],
+		assumptions: ["catalog magnitude scale is comparable"],
+		constraints: ["private truth is unavailable"],
+		successCriteria: [{ id: "criterion-frame", description: "research question and estimand are explicit", kind: "evidence", required: true }],
+		requiredDeliverables: [{ id: "report", kind: "report", path: "report.md", required: true, description: "scientific report" }],
+		sourcePolicy: { networkMode: "open", requireProvenance: true, requireContentHash: true, requireLicenseMetadata: true, requireRetrievedAt: true, requireContraryEvidence: true },
+		taskProfile: researchProfile,
+	};
+	check("research mission contract validates explicit estimand and deliverable", validateResearchMission(mission).length === 0);
+	const nodeBudget = { wallMs: 60_000, maxModelCalls: 1, maxToolCalls: 5, maxOutputTokens: 4096, maxAttempts: 2 };
+	const frameNode = createWorkNode({ id: "frame", kind: "frame-question", title: "Frame question", dependsOn: [], inputEvidenceIds: [], expectedOutputs: ["mission"], acceptanceCriteriaIds: ["criterion-frame"], allowedCapabilities: ["claim-record"], budget: nodeBudget });
+	const auditNode = createWorkNode({ id: "audit", kind: "data-audit", title: "Audit data", dependsOn: ["frame"], inputEvidenceIds: [], expectedOutputs: ["audit-table"], acceptanceCriteriaIds: ["criterion-frame"], allowedCapabilities: ["python"], budget: nodeBudget });
+	let researchGraph = createWorkGraph(mission.id, [frameNode, auditNode], new Date("2026-08-30T00:00:00Z"));
+	check("work graph exposes only dependency-free ready nodes", readyWorkNodes(researchGraph).map((node) => node.id).join(",") === "frame");
+	const initialGraphFingerprint = workGraphFingerprint(researchGraph);
+	researchGraph = transitionWorkNode(researchGraph, "frame", "running", {}, new Date("2026-08-30T00:01:00Z"));
+	let missingOutputRejected = false;
+	try { transitionWorkNode(researchGraph, "frame", "verifying"); }
+	catch { missingOutputRejected = true; }
+	check("work graph refuses verification without expected artifacts", missingOutputRejected);
+	researchGraph = transitionWorkNode(researchGraph, "frame", "verifying", { outputArtifactIds: ["artifact-mission"] });
+	let missingAcceptanceRejected = false;
+	try { transitionWorkNode(researchGraph, "frame", "completed"); }
+	catch { missingAcceptanceRejected = true; }
+	check("work graph refuses completion without acceptance evidence", missingAcceptanceRejected);
+	researchGraph = transitionWorkNode(researchGraph, "frame", "completed", { acceptanceEvidenceIds: ["evidence-frame"] });
+	check("work graph unlocks dependent nodes only after verified completion", readyWorkNodes(researchGraph).map((node) => node.id).join(",") === "audit" && workGraphFingerprint(researchGraph) === initialGraphFingerprint);
+	let prematureRunRejected = false;
+	const blockedGraph = createWorkGraph(mission.id, [frameNode, auditNode]);
+	try { transitionWorkNode(blockedGraph, "audit", "running"); }
+	catch { prematureRunRejected = true; }
+	check("work graph rejects running nodes before dependencies", prematureRunRejected);
+	const cycleA = createWorkNode({ ...frameNode, id: "a", dependsOn: ["b"] });
+	const cycleB = createWorkNode({ ...auditNode, id: "b", dependsOn: ["a"] });
+	check("work graph validator detects dependency cycles", validateWorkGraph({ version: 1, missionId: mission.id, createdAt: "now", updatedAt: "now", nodes: [cycleA, cycleB] }).some((issue) => issue.includes("cycle")));
+	const evidence = [{ id: "ev-1", kind: "verifier" as const, sha256: "a".repeat(64), logicalName: "verification", producerNodeId: "frame", mediaType: "application/json", bytes: 10 }];
+	check("decision policy rejects unsupported selections", validateDecisionRecord({ id: "d-1", nodeId: "frame", question: "Which estimator?", alternatives: ["Aki", "OLS"], selected: "Aki", evidenceIds: ["missing"], assumptions: [], expectedObservation: "stable b", falsifier: "sensitivity fails", uncertainty: "sampling uncertainty" }, evidence).some((issue) => issue.includes("unknown evidence")));
+	check("claim policy requires evidence for supported conclusions", validateResearchClaim({ id: "c-1", text: "b is stable", status: "supported", evidenceIds: [], uncertainty: "bootstrap", limitations: [] }, evidence).some((issue) => issue.includes("requires evidence")));
+	check("research failure taxonomy routes CRS and timeout failures", classifyResearchFailure("CRS projection mismatch").class === "crs" && classifyResearchFailure("execution timed out").affectedComponent === "budget");
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");
