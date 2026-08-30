@@ -15,7 +15,13 @@ import { renderLeaderboard, renderFindings } from "./board.js";
 import { loadConfig, SUPPORTED_MODELS, modelSpec } from "./config.js";
 import { loadCorpus, queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "./retrieval.js";
 import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
-import { examHasValidTrainingResult, type ExamProblemResult } from "./exam.js";
+import {
+	examHasValidTrainingResult,
+	runExam,
+	runHeldoutExam,
+	type ExamEvidenceStore,
+	type ExamProblemResult,
+} from "./exam.js";
 import { resolveRequestMaxTokens } from "./provider.js";
 import { TokenLedger } from "./budget.js";
 import { failedEpisodeResult, type EpisodeExecutor } from "./inner/episode-contract.js";
@@ -335,6 +341,51 @@ export async function selftest(): Promise<boolean> {
 
 	check("all-error standalone exam is not successful", !examHasValidTrainingResult(failedExam));
 	check("standalone exam succeeds only with valid training fitness", examHasValidTrainingResult([{ ...failedExam[0]!, fitness: 0 }]));
+	const examWrites = new Map<string, unknown>();
+	const examDirs: string[] = [];
+	const fakeExamStore: ExamEvidenceStore = {
+		ensureDir: (path) => examDirs.push(path),
+		writeText: (path, content) => examWrites.set(path, content),
+		writeJson: (path, value) => examWrites.set(path, value),
+	};
+	const examProblems = [
+		{ ...prob, id: "exam-train", heldout: false, weight: 2 },
+		{ ...prob, id: "exam-heldout", heldout: true, weight: 1 },
+	];
+	const fakeExamExecutor: EpisodeExecutor = async (request) => {
+		if (request.problem.heldout) throw new Error("synthetic heldout failure");
+		return { ...failedEpisodeResult(request.problem.id, request.workspace, "unused"), fitness: 0.6, bestPublic: 0.7, error: null, secs: 1.4, tokens: 12 };
+	};
+	const examPorts = {
+		loadRuntime: async () => ({ inner: {} as never, problems: examProblems, evalCtx: fakeEvalContext }),
+		executeEpisode: fakeExamExecutor,
+		tokenTotal: () => 0,
+		now: () => new Date("2026-08-30T12:00:00Z"),
+		gitSnapshot: () => ({ commit: "fake-commit", dirty: false }),
+		profileEvidence: () => ({ version: "fake-profile", fingerprint: "fake-fingerprint" }),
+		gradingAssets: (problem: { id: string }) => ({ [`${problem.id}/eval.py`]: "fake-hash" }),
+		evidenceStore: fakeExamStore,
+	};
+	const examPortRunDir = join(tmp, "exam-port-run");
+	const portExam = await runExam({ ...goodCfg, episodes_per_problem: 1 }, SEED_SCAFFOLD, "fake", examPortRunDir, () => {}, examPorts);
+	const capturedExamReport = examWrites.get(join(examPortRunDir, "exam-report.json")) as { generatedAt?: string; git?: { commit?: string }; profileVersion?: string } | undefined;
+	check("standalone exam runs through injected runtime and executor", portExam.results.length === 2 && portExam.trainMean === 0.6 && portExam.heldoutMean === 0 && !portExam.complete);
+	check("standalone exam recovers injected executor errors", portExam.results[1]?.fitness === null && portExam.results[1]?.error?.includes("synthetic heldout failure") === true);
+	check("exam evidence store captures deterministic metadata", examDirs.includes(examPortRunDir) && capturedExamReport?.generatedAt === "2026-08-30T12:00:00.000Z" && capturedExamReport.git?.commit === "fake-commit" && capturedExamReport.profileVersion === "fake-profile");
+	examWrites.clear();
+	const heldoutPortExam = await runHeldoutExam(
+		{ ...goodCfg, episodes_per_problem: 1 },
+		"selftest-port-heldout",
+		SEED_SCAFFOLD,
+		() => {},
+		undefined,
+		{
+			...examPorts,
+			executeEpisode: async (request) => ({ ...failedEpisodeResult(request.problem.id, request.workspace, "unused"), fitness: 0.75, bestPublic: 0.7, error: null }),
+		},
+	);
+	check("held-out exam filters runtime problems and uses injected executor", heldoutPortExam.results.length === 1 && heldoutPortExam.results[0]?.problem === "exam-heldout" && heldoutPortExam.heldoutMean === 0.75 && heldoutPortExam.complete);
+	check("held-out exam writes through injected evidence store", [...examWrites.keys()].some((path) => path.endsWith("heldout-report.json")));
 	check("submit budget is positive", goodCfg.eval_cap > 0);
 	const proposalA = { angle: "a" } as Proposal;
 	const proposalB = { angle: "b" } as Proposal;

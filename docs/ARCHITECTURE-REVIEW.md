@@ -213,7 +213,10 @@ RAG off/on 泛化对照
 - `src/inner/episode-contract.ts` owns the stable episode request/result/evidence
   contract, the `EpisodeExecutor` port, and the fixed-denominator failure
   factory shared by suite and exam. `rsi_eval.ts` accepts injected executor and
-  eval-context ports for deterministic application tests.
+  eval-context ports for deterministic application tests. `exam.ts` accepts
+  injected runtime, clock/token, episode executor, grading-evidence and
+  artifact-store ports, so standalone and held-out error recovery can be
+  tested without a model, provider, Git process or filesystem writes.
 - `src/inner/prompt-policy.ts` contains pure initial/follow-up prompt decisions;
   it has deterministic tests and no provider, evaluator, or Sandboxie dependency.
 - `src/inner/submission-policy.ts` owns public best/tie/stale state and

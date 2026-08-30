@@ -51,6 +51,11 @@ for required in ("executeEpisode?: EpisodeExecutor", "evalCtx?: EvalContext"):
     if required not in rsi_eval:
         errors.append(f"rsi_eval.ts missing injectable application port: {required}")
 
+exam = (ROOT / "src/exam.ts").read_text(encoding="utf-8")
+for required in ("interface ExamPorts", "loadRuntime?:", "executeEpisode?: EpisodeExecutor", "evidenceStore?: ExamEvidenceStore"):
+    if required not in exam:
+        errors.append(f"exam.ts missing injectable application port: {required}")
+
 if errors:
     for error in errors:
         print("ARCH_FAIL:", error)

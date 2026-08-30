@@ -10,10 +10,15 @@ import { join } from "node:path";
 import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
 import { getPiRuntime } from "./provider.js";
-import { loadProblems, makeEvalContext } from "./bench/eval.js";
+import { loadProblems, makeEvalContext, type EvalContext, type Problem } from "./bench/eval.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
 import { solveEpisode } from "./inner/solve.js";
-import { failedEpisodeResult, type EpisodeResult } from "./inner/episode-contract.js";
+import {
+	failedEpisodeResult,
+	type EpisodeExecutor,
+	type EpisodeRequest,
+	type EpisodeResult,
+} from "./inner/episode-contract.js";
 import { emptyMemory } from "./memory.js";
 import { atomicWriteJson, fingerprint, writeTextAtomic } from "./journal.js";
 import { protectedManifest } from "./guard.js";
@@ -46,6 +51,69 @@ export interface ExamReport {
 	summary: string;
 }
 
+export interface ExamRuntimeContext {
+	inner: EpisodeRequest["model"];
+	problems: Problem[];
+	evalCtx: EvalContext;
+}
+
+export interface ExamEvidenceStore {
+	ensureDir(path: string): void;
+	writeText(path: string, content: string): void;
+	writeJson(path: string, value: unknown): void;
+}
+
+export interface ExamPorts {
+	loadRuntime?: (cfg: Config) => Promise<ExamRuntimeContext>;
+	executeEpisode?: EpisodeExecutor;
+	tokenTotal?: () => number;
+	now?: () => Date;
+	gitSnapshot?: () => { commit: string | null; dirty: boolean | null };
+	profileEvidence?: () => { version: string; fingerprint: string };
+	gradingAssets?: (problem: Problem, evalCtx: EvalContext) => Record<string, string>;
+	evidenceStore?: ExamEvidenceStore;
+}
+
+const DEFAULT_EXAM_EVIDENCE_STORE: ExamEvidenceStore = {
+	ensureDir: (path) => mkdirSync(path, { recursive: true }),
+	writeText: writeTextAtomic,
+	writeJson: atomicWriteJson,
+};
+
+async function loadDefaultExamRuntime(cfg: Config): Promise<ExamRuntimeContext> {
+	const { inner } = await getPiRuntime(cfg, ROOT);
+	return {
+		inner,
+		problems: loadProblems(cfg, ROOT, true),
+		evalCtx: makeEvalContext(cfg, ROOT),
+	};
+}
+
+function defaultProfileEvidence(): { version: string; fingerprint: string } {
+	const profiles = loadProfiles();
+	return { version: profiles.version, fingerprint: fingerprint([profiles]) };
+}
+
+function defaultGradingAssets(problem: Problem, evalCtx: EvalContext): Record<string, string> {
+	return protectedManifest(
+		problem.dir,
+		existsSync(evalCtx.truthFile(problem.id)) ? [evalCtx.truthFile(problem.id)] : [],
+	);
+}
+
+function resolveExamPorts(ports: ExamPorts): Required<ExamPorts> {
+	return {
+		loadRuntime: ports.loadRuntime ?? loadDefaultExamRuntime,
+		executeEpisode: ports.executeEpisode ?? solveEpisode,
+		tokenTotal: ports.tokenTotal ?? (() => TOKENS.total),
+		now: ports.now ?? (() => new Date()),
+		gitSnapshot: ports.gitSnapshot ?? examGitSnapshot,
+		profileEvidence: ports.profileEvidence ?? defaultProfileEvidence,
+		gradingAssets: ports.gradingAssets ?? defaultGradingAssets,
+		evidenceStore: ports.evidenceStore ?? DEFAULT_EXAM_EVIDENCE_STORE,
+	};
+}
+
 function examGitSnapshot(): { commit: string | null; dirty: boolean | null } {
 	const commit = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", windowsHide: true });
 	const status = spawnSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8", windowsHide: true });
@@ -66,11 +134,11 @@ export async function runExam(
 	scaffoldName: string,
 	runDir: string,
 	log: (m: string) => void,
+	ports: ExamPorts = {},
 ): Promise<ExamReport> {
-	mkdirSync(runDir, { recursive: true });
-	const { inner } = await getPiRuntime(cfg, ROOT);
-	const problems = loadProblems(cfg, ROOT, true);
-	const evalCtx = makeEvalContext(cfg, ROOT);
+	const runtimePorts = resolveExamPorts(ports);
+	runtimePorts.evidenceStore.ensureDir(runDir);
+	const { inner, problems, evalCtx } = await runtimePorts.loadRuntime(cfg);
 	// Exams must measure the supplied scaffold, not memories left by an
 	// earlier run. Training episodes may build memory; standalone exams start
 	// with an empty episodic store.
@@ -81,14 +149,14 @@ export async function runExam(
 	for (let repeat = 0; repeat < repeats; repeat++) {
 		for (const problem of problems) {
 			log(`[exam] ${problem.id}${problem.heldout ? " (held-out)" : ""} ...`);
-			if (TOKENS.total >= cfg.cost_cap_tokens) {
+			if (runtimePorts.tokenTotal() >= cfg.cost_cap_tokens) {
 				results.push({ problem: problem.id, heldout: problem.heldout, weight: problem.weight, fitness: null, bestPublic: null, submits: 0, secs: 0, error: "token budget exhausted", warnings: [], tokens: 0 });
 				continue;
 			}
 			const workspace = join(runDir, "exam", repeats === 1 ? problem.id : `r${repeat + 1}-${problem.id}`);
 			let res: EpisodeResult;
 			try {
-				res = await solveEpisode({
+				res = await runtimePorts.executeEpisode({
 					cfg,
 					problem,
 					evalCtx,
@@ -141,18 +209,19 @@ export async function runExam(
 			)
 			.join("\n") +
 		`\n\n**train mean = ${trainMean?.toFixed(4) ?? "ERR"}  ·  held-out mean = ${heldoutMean?.toFixed(4) ?? "—"}**\n`;
-	writeTextAtomic(join(runDir, "RESULTS.md"), md);
-	atomicWriteJson(join(runDir, "exam-report.json"), {
+	runtimePorts.evidenceStore.writeText(join(runDir, "RESULTS.md"), md);
+	const profileEvidence = runtimePorts.profileEvidence();
+	runtimePorts.evidenceStore.writeJson(join(runDir, "exam-report.json"), {
 		version: 1,
-		generatedAt: new Date().toISOString(),
+		generatedAt: runtimePorts.now().toISOString(),
 		node: process.version,
 		platform: `${process.platform}/${process.arch}`,
-		git: examGitSnapshot(),
+		git: runtimePorts.gitSnapshot(),
 		model: cfg.inner_model,
 		thinkingLevel: cfg.inner_thinking_level ?? "low",
 		requestMaxTokens: process.env.RSILAB_REQUEST_MAX_TOKENS ?? "default",
-		profileVersion: loadProfiles().version,
-		profileFingerprint: fingerprint([loadProfiles()]),
+		profileVersion: profileEvidence.version,
+		profileFingerprint: profileEvidence.fingerprint,
 		evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
 		repeats,
 		config: cfg,
@@ -163,10 +232,7 @@ export async function runExam(
 			heldout: problem.heldout,
 			weight: problem.weight,
 			genre: problem.genre,
-			gradingAssets: protectedManifest(
-				problem.dir,
-				existsSync(evalCtx.truthFile(problem.id)) ? [evalCtx.truthFile(problem.id)] : [],
-			),
+			gradingAssets: runtimePorts.gradingAssets(problem, evalCtx),
 		})),
 		results,
 		trainMean,
@@ -183,12 +249,14 @@ export async function runHeldoutExam(
 	champion: Scaffold,
 	log: (m: string) => void,
 	controller?: RunController,
+	ports: ExamPorts = {},
 ): Promise<ExamReport> {
+	const runtimePorts = resolveExamPorts(ports);
 	const runDir = join(ROOT, "runs", runName);
-	mkdirSync(runDir, { recursive: true });
-	const { inner } = await getPiRuntime(cfg, ROOT);
-	const problems = loadProblems(cfg, ROOT, true).filter((p) => p.heldout);
-	const evalCtx = makeEvalContext(cfg, ROOT);
+	runtimePorts.evidenceStore.ensureDir(runDir);
+	const runtime = await runtimePorts.loadRuntime(cfg);
+	const { inner, evalCtx } = runtime;
+	const problems = runtime.problems.filter((problem) => problem.heldout);
 	// Held-out must not receive train-episode memories. It tests the champion
 	// scaffold with an independent episodic context.
 	const memory = emptyMemory(runDir);
@@ -199,7 +267,7 @@ export async function runHeldoutExam(
 		for (const problem of problems) {
 			await controller?.waitIfPaused();
 			log(`[heldout] ${problem.id} ...`);
-			if (controller?.stopRequested || TOKENS.total >= cfg.cost_cap_tokens) {
+			if (controller?.stopRequested || runtimePorts.tokenTotal() >= cfg.cost_cap_tokens) {
 				results.push({
 					problem: problem.id,
 					heldout: true,
@@ -217,7 +285,7 @@ export async function runHeldoutExam(
 			const workspace = join(runDir, "heldout", repeats === 1 ? problem.id : `r${repeat + 1}-${problem.id}`);
 			let res: EpisodeResult;
 			try {
-				res = await solveEpisode({
+				res = await runtimePorts.executeEpisode({
 					cfg,
 					problem,
 					evalCtx,
@@ -256,15 +324,16 @@ export async function runHeldoutExam(
 		`| problem | weight | fitness | warnings | error |\n|---|---:|---:|---|---|\n` +
 		results.map((r) => `| ${r.problem} | ${r.weight} | ${r.fitness?.toFixed(4) ?? "ERR"} | ${r.warnings.join("; ").slice(0, 80)} | ${r.error?.slice(0, 60) ?? ""} |`).join("\n") +
 		`\n\n**held-out mean = ${heldoutMean?.toFixed(4) ?? "—"}**\n`;
-	writeTextAtomic(join(runDir, "RESULTS.md"), md);
-	atomicWriteJson(join(runDir, "heldout-report.json"), {
+	runtimePorts.evidenceStore.writeText(join(runDir, "RESULTS.md"), md);
+	const profileEvidence = runtimePorts.profileEvidence();
+	runtimePorts.evidenceStore.writeJson(join(runDir, "heldout-report.json"), {
 		version: 1,
-		generatedAt: new Date().toISOString(),
-		git: examGitSnapshot(),
+		generatedAt: runtimePorts.now().toISOString(),
+		git: runtimePorts.gitSnapshot(),
 		model: cfg.inner_model,
 		thinkingLevel: cfg.inner_thinking_level ?? "low",
-		profileVersion: loadProfiles().version,
-		profileFingerprint: fingerprint([loadProfiles()]),
+		profileVersion: profileEvidence.version,
+		profileFingerprint: profileEvidence.fingerprint,
 		evaluationMetrics: { quizPublic: "public-dev-v1", quizPrivate: "private-only-v2" },
 		repeats,
 		champion,
