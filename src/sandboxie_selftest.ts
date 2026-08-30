@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { loadConfig, ROOT } from "./config.js";
-import { sandboxProbeSource, hostNetworkReachable } from "./inner/solve.js";
+import { sandboxProbeSource, hostNetworkReachable } from "./isolation-probe.js";
 import { SandboxieAdapter, assertSandboxPythonCommand, makeSandboxieBoxName, resolveExchangeWorkspace, sandboxieGlobalLeasePath, type SandboxieBoxRecord } from "./sandboxie.js";
 
 const cfg = loadConfig();

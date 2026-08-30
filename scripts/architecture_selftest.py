@@ -18,6 +18,7 @@ FORBIDDEN = {
     "src/inner/prompt-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
     "src/inner/submission-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs"],
     "src/inner/python-execution.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
+    "src/isolation-probe.ts": ["provider", "sandboxie", "piharness", "inner/solve", "bench/eval"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }
