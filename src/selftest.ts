@@ -68,6 +68,12 @@ import { verifyGenericResearch } from "./research/verifiers/generic.js";
 import { evaluateScientificValue, type ScientificValueCard } from "./research/value-evaluator.js";
 import { buildResearchDeliverables, validateResearchDeliverables } from "./research/deliverables.js";
 import { persistResearchDeliverables } from "./research/deliverable-store.js";
+import { SEED_STRATEGY_BUNDLE, strategyBundleFingerprint, validateStrategyBundle } from "./research/strategy-bundle.js";
+import { applyStrategyEdit } from "./research/strategy-edits.js";
+import { compareStrategyOutcomes, decideStrategyPromotion, type StrategyOutcome } from "./research/promotion.js";
+import { mineStrategyExperience } from "./research/experience-miner.js";
+import { escalatedOutputCap, roleOutputCap, tokenEfficiency } from "./research/token-policy.js";
+import { runStrategyGeneration } from "./research/research-evolution.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -243,6 +249,40 @@ export async function selftest(): Promise<boolean> {
 	const valueDimension = { score: 3 as const, rationale: "supported by the frozen catalog", evidenceIds: ["source-1"] };
 	const valueCard: ScientificValueCard = { significance: valueDimension, novelty: valueDimension, falsifiability: valueDimension, dataFeasibility: valueDimension, methodologicalValue: valueDimension, potentialImpact: valueDimension, limitations: ["regional scope"], recommendation: "proceed" };
 	check("scientific value evaluator requires evidence and explicit limitations", evaluateScientificValue(valueCard, ["source-1"]).passed && !evaluateScientificValue({ ...valueCard, novelty: { ...valueDimension, evidenceIds: ["missing"] } }, ["source-1"]).passed);
+	console.log("== research StrategyBundle evolution ==");
+	check("seed StrategyBundle is bounded and Luna xhigh only", validateStrategyBundle(SEED_STRATEGY_BUNDLE).length === 0 && SEED_STRATEGY_BUNDLE.routing.model === "gpt-5.6-luna" && SEED_STRATEGY_BUNDLE.routing.thinkingLevel === "xhigh");
+	const budgetStrategy = applyStrategyEdit(SEED_STRATEGY_BUNDLE, [{ component: "budget", op: "set-role-output-cap", role: "quantitative", tokens: 12000 }], "selftest");
+	check("StrategyBundle edits one component with lineage", budgetStrategy.budget.roleOutputCaps.quantitative === 12000 && budgetStrategy.lineage.changedComponent === "budget" && budgetStrategy.lineage.parentFingerprint === strategyBundleFingerprint(SEED_STRATEGY_BUNDLE));
+	let multiComponentEditRejected = false;
+	try { applyStrategyEdit(SEED_STRATEGY_BUNDLE, [{ component: "planner", op: "set-max-replans", value: 1 }, { component: "budget", op: "set-role-output-cap", role: "quantitative", tokens: 12000 }]); }
+	catch { multiComponentEditRejected = true; }
+	check("StrategyBundle rejects multi-component challengers", multiComponentEditRejected);
+	let strategyNoopRejected = false;
+	try { applyStrategyEdit(SEED_STRATEGY_BUNDLE, [{ component: "planner", op: "set-max-replans", value: SEED_STRATEGY_BUNDLE.planner.maxReplans }]); }
+	catch { strategyNoopRejected = true; }
+	check("StrategyBundle rejects no-op edits", strategyNoopRejected);
+	check("role output caps remain xhigh-efficient and bounded", roleOutputCap(SEED_STRATEGY_BUNDLE.budget, "quantitative") === 16384 && escalatedOutputCap({ policy: SEED_STRATEGY_BUNDLE.budget, role: "quantitative", attemptedEscalations: 0, stopReason: "length", validArtifactProduced: false }) === 32768 && escalatedOutputCap({ policy: SEED_STRATEGY_BUNDLE.budget, role: "quantitative", attemptedEscalations: 1, stopReason: "length", validArtifactProduced: false }) === null);
+	check("token efficiency reports artifacts claims and score", tokenEfficiency({ role: "quantitative", calls: 1, failedCalls: 0, usage: { input: 50000, output: 10000, reasoning: null, cacheRead: null, cacheWrite: null, total: 60000 }, validArtifacts: 2, supportedClaims: 1, score: 0.9 }).scorePer100kTokens === 1.5);
+	const makeOutcome = (runId: string, repetition: number, score: number, tokens: number, worstFamilyScore = 0.7): StrategyOutcome => ({ runId, manifestFingerprint: "fixed-manifest", model: "gpt-5.6-luna", thinkingLevel: "xhigh", repetition, validRate: 1, score, worstFamilyScore, totalTokens: tokens, replayPassRate: 1, guardViolations: 0, cleanupPassed: true, otherModelCalls: 0 });
+	const baselineOutcomes = [makeOutcome("b1", 1, 0.70, 100000), makeOutcome("b2", 2, 0.71, 100000)];
+	const candidateOutcomes = [makeOutcome("c1", 1, 0.74, 70000), makeOutcome("c2", 2, 0.75, 70000)];
+	const promotion = decideStrategyPromotion(baselineOutcomes, candidateOutcomes);
+	check("paired StrategyBundle promotion requires quality and honest gates", promotion.promote && promotion.status === "active" && (promotion.pairedScoreDelta ?? 0) > 0.01 && (promotion.tokenRatio ?? 1) === 0.7);
+	check("Strategy selection is quality-first then token-efficient within score band", compareStrategyOutcomes(makeOutcome("quality", 1, 0.8, 200000), makeOutcome("cheap", 1, 0.7, 10000)) < 0 && compareStrategyOutcomes(makeOutcome("same-cheap", 1, 0.795, 50000), makeOutcome("same-expensive", 1, 0.8, 100000)) < 0);
+	const timeoutExperience = mineStrategyExperience({ failure: classifyResearchFailure("execution timed out"), taskFamily: "quantitative", evidenceIds: ["ev-timeout"], runId: "run", episodeId: "episode", nodeId: "analysis", id: "experience-1" });
+	check("experience miner creates evidence-linked probation hypotheses", timeoutExperience?.status === "probation" && timeoutExperience.component === "budget" && timeoutExperience.evidenceIds[0] === "ev-timeout");
+	const evolvedGeneration = await runStrategyGeneration({
+		champion: SEED_STRATEGY_BUNDLE,
+		candidateEdits: [
+			[{ component: "budget" as const, op: "set-role-output-cap" as const, role: "quantitative", tokens: 12000 }],
+			[{ component: "planner" as const, op: "set-max-replans" as const, value: 1 }],
+		],
+		evaluator: {
+			evaluate: async (_bundle, role, index) => role === "baseline" ? baselineOutcomes : index === 0 ? candidateOutcomes : [makeOutcome("p1", 1, 0.69, 50000), makeOutcome("p2", 2, 0.70, 50000)],
+		},
+		originRun: "selftest-evolution",
+	});
+	check("typed research evolution accepts only paired promoted winner", evolvedGeneration.acceptedCandidate === 0 && evolvedGeneration.champion.lineage.changedComponent === "budget" && evolvedGeneration.candidates.length === 2 && !evolvedGeneration.candidates[1]?.promotion.promote);
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");

@@ -47,6 +47,12 @@ FORBIDDEN = {
     "src/research/verifiers/literature.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/deliverables.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/deliverable-store.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:child_process"],
+    "src/research/strategy-bundle.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
+    "src/research/strategy-edits.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/promotion.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/experience-miner.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/token-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/research-evolution.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }
