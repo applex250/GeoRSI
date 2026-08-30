@@ -23,6 +23,7 @@ FORBIDDEN = {
     "src/isolation-probe.ts": ["provider", "sandboxie", "piharness", "inner/solve", "bench/eval"],
     "src/sandboxie-cli.ts": ["provider", "piharness", "inner/", "bench/eval", "node:fs"],
     "src/sandboxie-ini.ts": ["provider", "piharness", "inner/", "bench/eval", "node:fs", "node:child_process"],
+    "src/sandboxie-lease.ts": ["provider", "piharness", "inner/", "bench/eval", "node:child_process"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }

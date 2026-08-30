@@ -12,7 +12,7 @@
  * the sandboxie backend. Sandboxie is app-level isolation, not a VM boundary.
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
 	existsSync,
 	closeSync,
@@ -30,6 +30,9 @@ import { isProcessAlive, terminateProcessTree } from "./process.js";
 import { sanitizeExecutionEnvironment } from "./process-env.js";
 import { SandboxieCli, type SandboxieCommandResult } from "./sandboxie-cli.js";
 import { SandboxieIni } from "./sandboxie-ini.js";
+import { SandboxieGlobalLease } from "./sandboxie-lease.js";
+
+export { sandboxieGlobalLeasePath } from "./sandboxie-lease.js";
 
 export type { SandboxieCommandResult } from "./sandboxie-cli.js";
 
@@ -372,22 +375,12 @@ export function credentialClosedKeys(): string[] {
 /** Shared environment policy; retained export for existing callers. */
 export { sanitizeExecutionEnvironment as sanitizeSandboxEnvironment } from "./process-env.js";
 
-export function sandboxieGlobalLeasePath(): string {
-	return join(tmpdir(), "GeoRSI", "sandboxie-global-wfp.lock");
-}
-
-interface SandboxieLeaseRecord {
-	pid: number;
-	token: string;
-	boxName: string;
-	createdAt: string;
-}
-
 export class SandboxieAdapter {
 	readonly paths: SandboxiePaths;
 	readonly sandboxRoot: string;
 	private readonly cli: SandboxieCli;
 	private readonly ini: SandboxieIni;
+	private readonly globalLease: SandboxieGlobalLease;
 	private readonly log: (message: string) => void;
 	private runtimeCounter = 0;
 
@@ -396,6 +389,7 @@ export class SandboxieAdapter {
 		this.sandboxRoot = resolve(options.sandboxRoot);
 		this.cli = new SandboxieCli(options.commandTimeoutMs ?? 20_000);
 		this.ini = new SandboxieIni(this.cli, this.paths.iniPath);
+		this.globalLease = new SandboxieGlobalLease();
 		this.log = options.log ?? (() => {});
 	}
 
@@ -406,44 +400,11 @@ export class SandboxieAdapter {
 	}
 
 	private acquireGlobalLease(boxName: string): { path: string; token: string } {
-		const path = sandboxieGlobalLeasePath();
-		mkdirSync(resolve(path, ".."), { recursive: true });
-		const token = randomUUID();
-		const record: SandboxieLeaseRecord = { pid: process.pid, token, boxName, createdAt: new Date().toISOString() };
-		let handle: number;
-		try {
-			handle = openSync(path, "wx", 0o600);
-		} catch (error) {
-			let owner = "unknown owner";
-			try {
-				const existing = JSON.parse(readFileSync(path, "utf8")) as Partial<SandboxieLeaseRecord>;
-				owner = `pid=${existing.pid ?? "?"} box=${existing.boxName ?? "?"} created=${existing.createdAt ?? "?"}`;
-			} catch {
-				/* retain generic owner text */
-			}
-			throw new Error(
-				`strict Sandboxie global-WFP lease is already present (${owner}) at ${path}. ` +
-				`Concurrent strict episodes are refused. If the owner crashed, inspect/terminate stale GeoRSI boxes, restore Sandboxie.ini, run npm run sandboxie:selftest, then remove the stale lease manually. ` +
-				`Original error: ${error instanceof Error ? error.message : String(error)}`,
-			);
-		}
-		try {
-			writeFileSync(handle, JSON.stringify(record), "utf8");
-		} finally {
-			closeSync(handle);
-		}
-		return { path, token };
+		return this.globalLease.acquire(boxName);
 	}
 
 	private releaseGlobalLease(path: string, token: string): boolean {
-		try {
-			const current = JSON.parse(readFileSync(path, "utf8")) as Partial<SandboxieLeaseRecord>;
-			if (current.token !== token || current.pid !== process.pid) return false;
-			rmSync(path, { force: true });
-			return !existsSync(path);
-		} catch {
-			return false;
-		}
+		return this.globalLease.release(path, token);
 	}
 
 	private runCli(file: string, args: string[], timeoutMs?: number): Promise<SandboxieCommandResult> {

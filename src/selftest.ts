@@ -27,6 +27,7 @@ import { BackgroundJobRegistry, type BackgroundJob, type BackgroundJobPort } fro
 import { persistEpisodeArtifacts, prepareEpisodeArtifacts } from "./inner/artifact-store.js";
 import { SandboxieCli, formatSandboxieCommand } from "./sandboxie-cli.js";
 import { SandboxieIni } from "./sandboxie-ini.js";
+import { SandboxieGlobalLease } from "./sandboxie-lease.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -541,6 +542,15 @@ export async function selftest(): Promise<boolean> {
 	check("Sandboxie INI adapter parses query output", JSON.stringify(await iniAdapter.queryRaw("Box", "Setting")) === JSON.stringify(["a", "b"]));
 	iniAdapter.restoreSync("GlobalSettings", "NetworkEnableWFP", ["y", "n"]);
 	check("Sandboxie INI adapter preserves multi-value restore order", iniCommands[0]?.join("|") === "set|GlobalSettings|NetworkEnableWFP|y" && iniCommands[1]?.join("|") === "append|GlobalSettings|NetworkEnableWFP|n");
+	const leasePath = join(tmp, "sandboxie-test.lock");
+	const leaseManager = new SandboxieGlobalLease(leasePath, 1234, () => new Date("2026-08-30T00:00:00Z"));
+	const leaseHandle = leaseManager.acquire("GeoRSI_test");
+	let duplicateLeaseRejected = false;
+	try { new SandboxieGlobalLease(leasePath, 5678).acquire("GeoRSI_other"); }
+	catch (error) { duplicateLeaseRejected = String(error).includes("pid=1234") && String(error).includes("GeoRSI_test"); }
+	check("Sandboxie WFP lease rejects concurrent owner with diagnostics", duplicateLeaseRejected);
+	check("Sandboxie WFP lease rejects wrong token", !leaseManager.release(leaseHandle.path, "wrong-token") && existsSync(leasePath));
+	check("Sandboxie WFP lease releases only matching owner token", leaseManager.release(leaseHandle.path, leaseHandle.token) && !existsSync(leasePath));
 	check("generated box names retain the GeoRSI separator", /^GeoRSI_[0-9a-f]{16}$/.test(makeSandboxieBoxName("selftest")));
 	check("Sandboxie box names are length bounded", sanitizeSandboxieBoxName("x".repeat(100)).length <= 38);
 	const exchange = resolveExchangeWorkspace(join(process.cwd(), "runs", "demo", "episodes", "tag"));
