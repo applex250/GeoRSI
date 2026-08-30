@@ -31,8 +31,17 @@ import { sanitizeExecutionEnvironment } from "./process-env.js";
 import { SandboxieCli, type SandboxieCommandResult } from "./sandboxie-cli.js";
 import { SandboxieIni } from "./sandboxie-ini.js";
 import { SandboxieGlobalLease } from "./sandboxie-lease.js";
+import {
+	addSandboxieCleanupError,
+	advanceSandboxieCleanup,
+	initialSandboxieCleanupState,
+	sandboxieCleanupResult,
+	sandboxiePartialCleanupReadyForLease,
+	type SandboxieCleanupResult,
+} from "./sandboxie-cleanup.js";
 
 export { sandboxieGlobalLeasePath } from "./sandboxie-lease.js";
+export type { SandboxieCleanupResult } from "./sandboxie-cleanup.js";
 
 export type { SandboxieCommandResult } from "./sandboxie-cli.js";
 
@@ -50,17 +59,6 @@ export interface SandboxieRuleSet {
 	closedFilePaths: string[];
 	closedKeyPaths: string[];
 	networkAccess: string;
-}
-
-export interface SandboxieCleanupResult {
-	terminated: boolean;
-	deletedData: boolean;
-	removedConfig: boolean;
-	reloaded: boolean;
-	boxStillEnabled: boolean;
-	globalWfpRestored: boolean;
-	leaseReleased: boolean;
-	errors: string[];
 }
 
 export interface SandboxieBoxRecord {
@@ -118,6 +116,13 @@ interface SandboxieAdapterOptions {
 	sandboxRoot: string;
 	commandTimeoutMs?: number;
 	log?: (message: string) => void;
+}
+
+interface SandboxieCleanupReadback {
+	globalWfpRestored: boolean;
+	boxReadbackVerified: boolean;
+	boxStillEnabled: boolean;
+	errors: string[];
 }
 
 function lines(text: string): string[] {
@@ -198,7 +203,7 @@ function uniqueCaseInsensitive(values: readonly string[]): string[] {
 	return out;
 }
 
-function settingValuesMatch(actual: readonly string[], expected: readonly string[]): boolean {
+export function sandboxieSettingValuesMatch(actual: readonly string[], expected: readonly string[]): boolean {
 	const a = uniqueCaseInsensitive(actual);
 	const e = uniqueCaseInsensitive(expected);
 	return a.length === e.length && e.every((value) => a.some((candidate) => settingComparable(candidate) === settingComparable(value)));
@@ -550,12 +555,14 @@ export class SandboxieAdapter {
 		const lease = this.acquireGlobalLease(name);
 		let globalWfpOriginalValues: string[] = [];
 		let globalWfpWasEnabled = true;
+		let globalWfpSnapshotCaptured = false;
 
 		// ConfigLevel=10 + Enabled=y is the critical fix for the recurring
 		// "invalid sandbox name parameter DefaultBox" error. A section that is
 		// merely present in Sandboxie.ini is not a usable box.
 		try {
 			globalWfpOriginalValues = await this.query("GlobalSettings", "NetworkEnableWFP");
+			globalWfpSnapshotCaptured = true;
 			globalWfpWasEnabled = globalWfpOriginalValues.some((value) => /^y$/i.test(value.trim()));
 			if (!globalWfpWasEnabled) await this.set("GlobalSettings", "NetworkEnableWFP", "y");
 			await this.set(name, "ConfigLevel", "10");
@@ -620,7 +627,7 @@ export class SandboxieAdapter {
 			};
 		} catch (error) {
 			let removedConfig = false;
-			let globalRestored = globalWfpWasEnabled;
+			let globalRestored = globalWfpSnapshotCaptured && globalWfpWasEnabled;
 			let reloaded = false;
 			try {
 				await this.runIni(["set", name, "*", ""]);
@@ -628,7 +635,7 @@ export class SandboxieAdapter {
 			} catch (cleanupError) {
 				this.log(`[sandboxie] failed to remove partial box ${name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
 			}
-			if (!globalWfpWasEnabled) {
+			if (globalWfpSnapshotCaptured && !globalWfpWasEnabled) {
 				try {
 					await this.restoreSetting("GlobalSettings", "NetworkEnableWFP", globalWfpOriginalValues);
 					globalRestored = true;
@@ -643,8 +650,25 @@ export class SandboxieAdapter {
 			} catch (reloadError) {
 				this.log(`[sandboxie] failed to reload after partial box ${name}: ${reloadError instanceof Error ? reloadError.message : String(reloadError)}`);
 			}
-			if (removedConfig && globalRestored && reloaded) {
-				this.releaseGlobalLease(lease.path, lease.token);
+			const readback = globalWfpSnapshotCaptured
+				? await this.cleanupReadback(name, globalWfpOriginalValues)
+				: { globalWfpRestored: false, boxReadbackVerified: false, boxStillEnabled: true, errors: ["global WFP pre-episode snapshot was not captured"] };
+			for (const readbackError of readback.errors) this.log(`[sandboxie] partial cleanup read-back: ${readbackError}`);
+			const safeToRelease = sandboxiePartialCleanupReadyForLease({
+				globalWfpSnapshotCaptured,
+				removedConfig,
+				globalWfpWriteSucceeded: globalRestored,
+				reloaded,
+				globalWfpRestored: readback.globalWfpRestored,
+				boxReadbackVerified: readback.boxReadbackVerified,
+				boxStillEnabled: readback.boxStillEnabled,
+			});
+			if (safeToRelease) {
+				if (!this.releaseGlobalLease(lease.path, lease.token)) {
+					this.log(`[sandboxie] failed to release global-WFP lease after verified partial cleanup for ${name}`);
+				}
+			} else {
+				this.log(`[sandboxie] retaining global-WFP lease after unverified partial cleanup for ${name}`);
 			}
 			throw error;
 		}
@@ -961,144 +985,181 @@ export class SandboxieAdapter {
 		return result;
 	}
 
-	cleanupBoxSync(record: SandboxieBoxRecord): SandboxieCleanupResult {
+	private cleanupReadbackSync(name: string, expectedGlobal: readonly string[]): SandboxieCleanupReadback {
 		const errors: string[] = [];
+		const globalQuery = this.runCliSync(this.paths.iniPath, ["query", "GlobalSettings", "NetworkEnableWFP"]);
+		const globalWfpRestored = globalQuery.code === 0 && sandboxieSettingValuesMatch(lines(globalQuery.stdout), expectedGlobal);
+		if (!globalWfpRestored) errors.push("GlobalSettings NetworkEnableWFP read-back did not match its pre-episode value");
+		const boxes = this.runCliSync(this.paths.iniPath, ["query", "/boxes", "*"]);
+		const boxReadbackVerified = boxes.code === 0;
+		const boxStillEnabled = boxReadbackVerified && lines(boxes.stdout).some((box) => box.toLowerCase() === name.toLowerCase());
+		if (!boxReadbackVerified) errors.push(`enabled-box read-back failed during sync cleanup (exit=${boxes.code})`);
+		else if (boxStillEnabled) errors.push(`box ${name} remains enabled after sync cleanup`);
+		return { globalWfpRestored, boxReadbackVerified, boxStillEnabled, errors };
+	}
+
+	private async cleanupReadback(name: string, expectedGlobal: readonly string[]): Promise<SandboxieCleanupReadback> {
+		const errors: string[] = [];
+		let globalWfpRestored = false;
+		try {
+			globalWfpRestored = sandboxieSettingValuesMatch(await this.query("GlobalSettings", "NetworkEnableWFP"), expectedGlobal);
+		} catch (error) {
+			errors.push(error instanceof Error ? error.message : String(error));
+		}
+		if (!globalWfpRestored) errors.push("GlobalSettings NetworkEnableWFP read-back did not match its pre-episode value");
+		let boxReadbackVerified = false;
+		let boxStillEnabled = false;
+		try {
+			boxStillEnabled = (await this.listEnabledBoxes()).some((box) => box.toLowerCase() === name.toLowerCase());
+			boxReadbackVerified = true;
+			if (boxStillEnabled) errors.push(`box ${name} remains enabled after cleanup`);
+		} catch (error) {
+			errors.push(error instanceof Error ? error.message : String(error));
+		}
+		return { globalWfpRestored, boxReadbackVerified, boxStillEnabled, errors };
+	}
+
+	cleanupBoxSync(record: SandboxieBoxRecord): SandboxieCleanupResult {
+		let state = initialSandboxieCleanupState();
 		const terminate = this.terminateSync(record.name);
 		const remaining = this.listPidsResultSync(record.name);
 		const livePids = remaining.pids.filter(isProcessAlive);
 		const terminated = terminate.code === 0 && remaining.ok && livePids.length === 0;
-		if (!terminated) {
-			errors.push(
-				remaining.ok
+		state = advanceSandboxieCleanup(state, {
+			type: "termination",
+			ok: terminated,
+			error: terminated
+				? undefined
+				: remaining.ok
 					? `box ${record.name} still has live pids before sync cleanup`
 					: `Sandboxie /listpids failed before sync cleanup: ${remaining.error ?? "unknown error"}`,
-			);
-			return {
-				terminated,
-				deletedData: false,
-				removedConfig: false,
-				reloaded: false,
-				boxStillEnabled: true,
-				globalWfpRestored: false,
-				leaseReleased: false,
-				errors,
-			};
-		}
+		});
+		if (!terminated) return sandboxieCleanupResult(state);
+
 		const deleted = this.runCliSync(this.paths.startPath, sandboxieDeleteCommandArgs(record.name));
-		const deletedData = deleted.code === 0;
-		if (!deletedData) errors.push(`delete_sandbox_silent exit=${deleted.code}`);
+		state = advanceSandboxieCleanup(state, {
+			type: "data-deletion",
+			ok: deleted.code === 0,
+			error: deleted.code === 0 ? undefined : `delete_sandbox_silent exit=${deleted.code}`,
+		});
 		const removed = this.runCliSync(this.paths.iniPath, ["set", record.name, "*", ""]);
-		const removedConfig = removed.code === 0;
-		if (!removedConfig) errors.push(`SbieIni remove section exit=${removed.code}`);
-		let globalWfpRestored = record.globalWfpWasEnabled;
+		state = advanceSandboxieCleanup(state, {
+			type: "config-removal",
+			ok: removed.code === 0,
+			error: removed.code === 0 ? undefined : `SbieIni remove section exit=${removed.code}`,
+		});
+
+		let globalWriteOk = record.globalWfpWasEnabled;
 		if (!record.globalWfpWasEnabled) {
 			const restored = this.restoreSettingSync("GlobalSettings", "NetworkEnableWFP", record.globalWfpOriginalValues);
-			globalWfpRestored = restored.every((result) => result.code === 0);
-			if (!globalWfpRestored) errors.push("failed to restore GlobalSettings NetworkEnableWFP");
+			globalWriteOk = restored.every((result) => result.code === 0);
 		}
+		state = advanceSandboxieCleanup(state, {
+			type: "global-wfp-write",
+			ok: globalWriteOk,
+			error: globalWriteOk ? undefined : "failed to restore GlobalSettings NetworkEnableWFP",
+		});
 		const reload = this.runStartSync(["/reload"]);
-		const reloaded = reload.code === 0;
-		if (!reloaded) errors.push(`Sandboxie /reload exit=${reload.code}`);
-		const globalQuery = this.runCliSync(this.paths.iniPath, ["query", "GlobalSettings", "NetworkEnableWFP"]);
-		const expectedGlobal = record.globalWfpWasEnabled ? ["y"] : record.globalWfpOriginalValues;
-		globalWfpRestored = globalWfpRestored && globalQuery.code === 0 && settingValuesMatch(lines(globalQuery.stdout), expectedGlobal);
-		if (!globalWfpRestored) errors.push("GlobalSettings NetworkEnableWFP read-back did not match its pre-episode value");
-		const boxes = this.runCliSync(this.paths.iniPath, ["query", "/boxes", "*"]);
-		const boxStillEnabled = lines(boxes.stdout).some((name) => name.toLowerCase() === record.name.toLowerCase());
-		if (boxStillEnabled) errors.push(`box ${record.name} remains enabled after sync cleanup`);
-		let leaseReleased = false;
-		if (terminated && deletedData && removedConfig && reloaded && !boxStillEnabled && globalWfpRestored) {
-			leaseReleased = this.releaseGlobalLease(record.leasePath, record.leaseToken);
-			if (!leaseReleased) errors.push("Sandboxie global-WFP lease could not be released");
+		state = advanceSandboxieCleanup(state, {
+			type: "reload",
+			ok: reload.code === 0,
+			error: reload.code === 0 ? undefined : `Sandboxie /reload exit=${reload.code}`,
+		});
+
+		const readback = this.cleanupReadbackSync(record.name, record.globalWfpOriginalValues);
+		state = advanceSandboxieCleanup(state, {
+			type: "read-back",
+			...readback,
+		});
+		if (state.stage === "release-lease") {
+			const released = this.releaseGlobalLease(record.leasePath, record.leaseToken);
+			state = advanceSandboxieCleanup(state, {
+				type: "lease-release",
+				ok: released,
+				error: released ? undefined : "Sandboxie global-WFP lease could not be released",
+			});
 		}
 		try {
 			rmSync(record.rootPath, { recursive: true, force: true });
 		} catch (error) {
-			errors.push(`sandbox root cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+			state = addSandboxieCleanupError(state, `sandbox root cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
-		return { terminated, deletedData, removedConfig, reloaded, boxStillEnabled, globalWfpRestored, leaseReleased, errors };
+		return sandboxieCleanupResult(state);
 	}
 
 	async cleanupBox(record: SandboxieBoxRecord): Promise<SandboxieCleanupResult> {
-		const errors: string[] = [];
-		let terminated = false;
-		let deletedData = false;
-		let removedConfig = false;
-		let reloaded = false;
+		let state = initialSandboxieCleanupState();
 		const terminate = this.terminateSync(record.name);
 		const remaining = this.listPidsResultSync(record.name);
-		terminated = terminate.code === 0 && remaining.ok && remaining.pids.filter(isProcessAlive).length === 0;
-		if (!terminated) {
-			return {
-				terminated,
-				deletedData: false,
-				removedConfig: false,
-				reloaded: false,
-				boxStillEnabled: true,
-				globalWfpRestored: false,
-				leaseReleased: false,
-				errors: [
-					remaining.ok
-						? `box ${record.name} still has live pids before cleanup`
-						: `Sandboxie /listpids failed before cleanup: ${remaining.error ?? "unknown error"}`,
-				],
-			};
-		}
+		const terminated = terminate.code === 0 && remaining.ok && remaining.pids.filter(isProcessAlive).length === 0;
+		state = advanceSandboxieCleanup(state, {
+			type: "termination",
+			ok: terminated,
+			error: terminated
+				? undefined
+				: remaining.ok
+					? `box ${record.name} still has live pids before cleanup`
+					: `Sandboxie /listpids failed before cleanup: ${remaining.error ?? "unknown error"}`,
+		});
+		if (!terminated) return sandboxieCleanupResult(state);
 
 		const deleteResult = await this.runCli(this.paths.startPath, sandboxieDeleteCommandArgs(record.name));
-		deletedData = deleteResult.code === 0;
-		if (!deletedData) errors.push(`delete_sandbox_silent exit=${deleteResult.code}`);
+		state = advanceSandboxieCleanup(state, {
+			type: "data-deletion",
+			ok: deleteResult.code === 0,
+			error: deleteResult.code === 0 ? undefined : `delete_sandbox_silent exit=${deleteResult.code}`,
+		});
 
+		let configError: string | undefined;
 		try {
 			await this.runIni(["set", record.name, "*", ""]);
-			removedConfig = true;
 		} catch (error) {
-			errors.push(error instanceof Error ? error.message : String(error));
+			configError = error instanceof Error ? error.message : String(error);
 		}
-		let globalWfpRestored = record.globalWfpWasEnabled;
+		state = advanceSandboxieCleanup(state, { type: "config-removal", ok: !configError, error: configError });
+
+		let globalWriteOk = record.globalWfpWasEnabled;
+		let globalWriteError: string | undefined;
 		if (!record.globalWfpWasEnabled) {
 			try {
 				await this.restoreSetting("GlobalSettings", "NetworkEnableWFP", record.globalWfpOriginalValues);
-				globalWfpRestored = true;
+				globalWriteOk = true;
 			} catch (error) {
-				globalWfpRestored = false;
-				errors.push(error instanceof Error ? error.message : String(error));
+				globalWriteOk = false;
+				globalWriteError = error instanceof Error ? error.message : String(error);
 			}
 		}
+		state = advanceSandboxieCleanup(state, { type: "global-wfp-write", ok: globalWriteOk, error: globalWriteError });
+
+		let reloadError: string | undefined;
 		try {
 			await this.reload();
-			reloaded = true;
 		} catch (error) {
-			errors.push(error instanceof Error ? error.message : String(error));
+			reloadError = error instanceof Error ? error.message : String(error);
 		}
-		try {
-			const actualGlobal = await this.query("GlobalSettings", "NetworkEnableWFP");
-			const expectedGlobal = record.globalWfpWasEnabled ? ["y"] : record.globalWfpOriginalValues;
-			globalWfpRestored = globalWfpRestored && settingValuesMatch(actualGlobal, expectedGlobal);
-		} catch (error) {
-			globalWfpRestored = false;
-			errors.push(error instanceof Error ? error.message : String(error));
-		}
-		if (!globalWfpRestored) errors.push("GlobalSettings NetworkEnableWFP read-back did not match its pre-episode value");
-		let boxStillEnabled = false;
-		try {
-			boxStillEnabled = (await this.listEnabledBoxes()).some((name) => name.toLowerCase() === record.name.toLowerCase());
-			if (boxStillEnabled) errors.push(`box ${record.name} remains enabled after cleanup`);
-		} catch (error) {
-			errors.push(error instanceof Error ? error.message : String(error));
-		}
-		let leaseReleased = false;
-		if (terminated && deletedData && removedConfig && reloaded && !boxStillEnabled && globalWfpRestored) {
-			leaseReleased = this.releaseGlobalLease(record.leasePath, record.leaseToken);
-			if (!leaseReleased) errors.push("Sandboxie global-WFP lease could not be released");
+		state = advanceSandboxieCleanup(state, { type: "reload", ok: !reloadError, error: reloadError });
+
+		const readback = await this.cleanupReadback(record.name, record.globalWfpOriginalValues);
+		state = advanceSandboxieCleanup(state, {
+			type: "read-back",
+			...readback,
+		});
+		if (state.stage === "release-lease") {
+			const released = this.releaseGlobalLease(record.leasePath, record.leaseToken);
+			state = advanceSandboxieCleanup(state, {
+				type: "lease-release",
+				ok: released,
+				error: released ? undefined : "Sandboxie global-WFP lease could not be released",
+			});
 		}
 		try {
 			rmSync(record.rootPath, { recursive: true, force: true });
 		} catch (error) {
-			errors.push(`sandbox root cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+			state = addSandboxieCleanupError(state, `sandbox root cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
-		return { terminated, deletedData, removedConfig, reloaded, boxStillEnabled, globalWfpRestored, leaseReleased, errors };
+		return sandboxieCleanupResult(state);
 	}
+
 }
 
 function readTail(path: string, maxChars: number): string {

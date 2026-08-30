@@ -51,6 +51,12 @@ export class SandboxieIni {
 		const commands = values.length === 0
 			? [["set", section, setting, ""]]
 			: [["set", section, setting, values[0]!], ...values.slice(1).map((value) => ["append", section, setting, value])];
-		return commands.map((args) => this.cli.runSync(this.path, args));
+		const results: SandboxieCommandResult[] = [];
+		for (const args of commands) {
+			const result = this.cli.runSync(this.path, args);
+			results.push(result);
+			if (result.code !== 0) break;
+		}
+		return results;
 	}
 }

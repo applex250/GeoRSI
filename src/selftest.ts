@@ -28,6 +28,13 @@ import { persistEpisodeArtifacts, prepareEpisodeArtifacts } from "./inner/artifa
 import { SandboxieCli, formatSandboxieCommand } from "./sandboxie-cli.js";
 import { SandboxieIni } from "./sandboxie-ini.js";
 import { SandboxieGlobalLease } from "./sandboxie-lease.js";
+import {
+	advanceSandboxieCleanup,
+	initialSandboxieCleanupState,
+	sandboxieCleanupReadyForLease,
+	sandboxieCleanupResult,
+	sandboxiePartialCleanupReadyForLease,
+} from "./sandboxie-cleanup.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -525,6 +532,7 @@ export async function selftest(): Promise<boolean> {
 		resolveExchangeWorkspace,
 		sandboxieRootCommandArgs,
 		sandboxieDeleteCommandArgs,
+		sandboxieSettingValuesMatch,
 		assertSandboxPythonCommand,
 		isSandboxieBackend,
 		sanitizeSandboxEnvironment,
@@ -542,6 +550,49 @@ export async function selftest(): Promise<boolean> {
 	check("Sandboxie INI adapter parses query output", JSON.stringify(await iniAdapter.queryRaw("Box", "Setting")) === JSON.stringify(["a", "b"]));
 	iniAdapter.restoreSync("GlobalSettings", "NetworkEnableWFP", ["y", "n"]);
 	check("Sandboxie INI adapter preserves multi-value restore order", iniCommands[0]?.join("|") === "set|GlobalSettings|NetworkEnableWFP|y" && iniCommands[1]?.join("|") === "append|GlobalSettings|NetworkEnableWFP|n");
+	let failedRestoreCalls = 0;
+	const failingSyncIni = new SandboxieIni({
+		run: async () => ({ code: 1, stdout: "", stderr: "failed" }),
+		runSync: () => { failedRestoreCalls += 1; return { code: 1, stdout: "", stderr: "failed" }; },
+	} as unknown as SandboxieCli, "SbieIni.exe");
+	failingSyncIni.restoreSync("GlobalSettings", "NetworkEnableWFP", ["y", "n"]);
+	check("Sandboxie sync INI restore stops after first failure", failedRestoreCalls === 1);
+	check("Sandboxie WFP read-back preserves exact enabled multi-values", sandboxieSettingValuesMatch(["y", "n"], ["y", "n"]) && !sandboxieSettingValuesMatch(["y"], ["y", "n"]));
+	let cleanupState = initialSandboxieCleanupState();
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "termination", ok: true });
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "data-deletion", ok: true });
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "config-removal", ok: true });
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "global-wfp-write", ok: true });
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "reload", ok: true });
+	check("Sandboxie cleanup cannot release before both read-backs", !sandboxieCleanupReadyForLease(cleanupState));
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "read-back", globalWfpRestored: true, boxReadbackVerified: true, boxStillEnabled: false });
+	check("Sandboxie cleanup releases only after complete evidence", cleanupState.stage === "release-lease" && sandboxieCleanupReadyForLease(cleanupState));
+	cleanupState = advanceSandboxieCleanup(cleanupState, { type: "lease-release", ok: true });
+	check("Sandboxie cleanup complete result preserves all gates", cleanupState.stage === "complete" && sandboxieCleanupResult(cleanupState).leaseReleased);
+	let uncertainCleanup = initialSandboxieCleanupState();
+	uncertainCleanup = advanceSandboxieCleanup(uncertainCleanup, { type: "termination", ok: true });
+	uncertainCleanup = advanceSandboxieCleanup(uncertainCleanup, { type: "data-deletion", ok: true });
+	uncertainCleanup = advanceSandboxieCleanup(uncertainCleanup, { type: "config-removal", ok: true });
+	uncertainCleanup = advanceSandboxieCleanup(uncertainCleanup, { type: "global-wfp-write", ok: true });
+	uncertainCleanup = advanceSandboxieCleanup(uncertainCleanup, { type: "reload", ok: true });
+	uncertainCleanup = advanceSandboxieCleanup(uncertainCleanup, { type: "read-back", globalWfpRestored: true, boxReadbackVerified: false, boxStillEnabled: false, errors: ["query failed"] });
+	check("Sandboxie cleanup treats failed box read-back as enabled and blocks lease", uncertainCleanup.stage === "blocked" && uncertainCleanup.boxStillEnabled && !uncertainCleanup.leaseReleased);
+	let invalidCleanupTransitionRejected = false;
+	try { advanceSandboxieCleanup(initialSandboxieCleanupState(), { type: "data-deletion", ok: true }); }
+	catch { invalidCleanupTransitionRejected = true; }
+	check("Sandboxie cleanup rejects out-of-order transitions", invalidCleanupTransitionRejected);
+	const verifiedPartialCleanup = {
+		globalWfpSnapshotCaptured: true,
+		removedConfig: true,
+		globalWfpWriteSucceeded: true,
+		reloaded: true,
+		globalWfpRestored: true,
+		boxReadbackVerified: true,
+		boxStillEnabled: false,
+	};
+	check("Sandboxie partial cleanup releases only after snapshot and read-backs", sandboxiePartialCleanupReadyForLease(verifiedPartialCleanup));
+	check("Sandboxie partial cleanup retains lease after failed box query", !sandboxiePartialCleanupReadyForLease({ ...verifiedPartialCleanup, boxReadbackVerified: false }));
+	check("Sandboxie partial cleanup retains lease without WFP snapshot", !sandboxiePartialCleanupReadyForLease({ ...verifiedPartialCleanup, globalWfpSnapshotCaptured: false }));
 	const leasePath = join(tmp, "sandboxie-test.lock");
 	const leaseManager = new SandboxieGlobalLease(leasePath, 1234, () => new Date("2026-08-30T00:00:00Z"));
 	const leaseHandle = leaseManager.acquire("GeoRSI_test");
