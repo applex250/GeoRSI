@@ -46,19 +46,9 @@ import { profileTask } from "../task-profile.js";
 import { SCIENCE_TOOLKIT_SOURCE } from "../science-toolkit.js";
 import type { EpisodeResult } from "./episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
+import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./submission-policy.js";
 
 export type { EpisodeResult } from "./episode-contract.js";
-
-interface SubmitState {
-	answer: Record<string, unknown> | null;
-	publicHistory: { score: number | null; note: string }[];
-	bestPublic: number | null;
-	bestAnswer: Record<string, unknown> | null;
-	submits: number;
-	staleSubmits: number;
-	finished: boolean;
-	lastFeedback: string;
-}
 
 export function resolveInWorkspace(workspace: string, rel: string): string | null {
 	// hard fence: the old strip-dots regex let leading "../" through, which
@@ -466,16 +456,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	const quizQuestionTotal = isQuiz
 		? readFileSync(join(workspace, "data", "quiz.jsonl"), "utf8").split(/\r?\n/).filter((line) => line.trim()).length
 		: undefined;
-	const st: SubmitState = {
-		answer: null,
-		publicHistory: [],
-		bestPublic: null,
-		bestAnswer: null,
-		submits: 0,
-		staleSubmits: 0,
-		finished: false,
-		lastFeedback: "",
-	};
+	const st = createSubmissionState();
 
 	const runEpisodePython = async (file: string, timeoutMs: number): Promise<string> => {
 		if (!sandboxAdapter) return runPythonHost(workspace, cfg.python_cmd, file, timeoutMs);
@@ -842,52 +823,21 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				try {
 					const parsed = JSON.parse(readFileSync(af, "utf8")) as Record<string, unknown>;
 					answer = parsed.answers && typeof parsed.answers === "object" ? (parsed.answers as Record<string, unknown>) : parsed;
-					// verifier (deterministic, no gold access): catch output_format
-					// and instruction errors before they cost points. Refuses the
-					// first final submission that fails coverage or sanity; later
-					// attempts pass through with a warning appended by the caller.
+					// Deterministic, gold-free first-final preflight.
 					if (isQuiz && params.final && st.submits === 0) {
 						const quizPath = join(workspace, "data", "quiz.jsonl");
 						if (existsSync(quizPath)) {
-							const qs: { qid: string; kind?: string; options?: string[] | null }[] = [];
-							for (const x of readFileSync(quizPath, "utf8").split(/\r?\n/)) {
-								if (!x.trim()) continue;
-								try {
-									qs.push(JSON.parse(x));
-								} catch {
-									/* skip torn line */
-								}
-							}
-							const total = qs.length;
-							const covered = Object.keys(answer ?? {}).filter((k) => {
-								const v = (answer as Record<string, unknown>)[k];
-								return v !== undefined && v !== null && String(v).trim() !== "";
-							}).length;
-							const issues: string[] = [];
-							if (total > 0 && covered / total < 0.5) {
-								issues.push(`only ${covered}/${total} answered (${Math.round((covered / total) * 100)}%) — unanswered score ZERO`);
-							}
-							const unknownQids = Object.keys(answer ?? {}).filter((k) => !qs.some((q) => q.qid === k));
-							if (unknownQids.length > 0) {
-								issues.push(`${unknownQids.length} answers reference unknown qids (e.g. ${unknownQids[0]}) — check you used the exact qids from data/quiz.jsonl`);
-							}
-							let badFormat = 0;
-							for (const q of qs) {
-								const v = (answer as Record<string, unknown>)[q.qid];
-								if (v === undefined || v === null || String(v).trim() === "") continue;
-								const s = String(v).trim();
-								if (q.kind === "mcq" && q.options && q.options.length > 0) {
-									const letterOk = /^[a-jA-J]$/.test(s) || q.options.some((o) => o.trim() === s);
-									if (!letterOk) badFormat += 1;
-								} else if (q.kind === "tf" && !/^(true|false|t|f|yes|no|对|错|正确|错误)$/i.test(s.replace(/[。.\s]/g, ""))) {
-									badFormat += 1;
-								}
-							}
-							if (badFormat > 0) issues.push(`${badFormat} answers look malformed for their question kind (mcq should be a bare letter like "B", tf should be true/false)`);
-							if (issues.length > 0) {
+							const questions = readFileSync(quizPath, "utf8").split(/\r?\n/)
+								.filter((line) => line.trim())
+								.flatMap((line) => {
+									try { return [JSON.parse(line) as { qid: string; kind?: string; options?: string[] | null }]; }
+									catch { return []; }
+								});
+							const preflight = validateQuizSubmission(answer, questions);
+							if (preflight.issues.length > 0) {
 								return toolOutput(
 									`submission refused — fix and resubmit (this refusal did not consume a submission):\n- ` +
-										issues.join("\n- "),
+										preflight.issues.join("\n- "),
 								);
 							}
 						}
@@ -910,16 +860,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				Math.max(1, remainingMs()),
 			);
 			const res: EvalResult = await runEval(problem, evalCtx, subPath, "public", publicEvalTimeout);
-			st.publicHistory.push({ score: res.score, note: params.note ?? "" });
-			const improved = res.score != null && (st.bestPublic == null || res.score >= st.bestPublic);
-			if (improved) {
-				st.bestPublic = res.score;
-				st.bestAnswer = answer;
-				st.staleSubmits = 0;
-			} else {
-				st.staleSubmits += 1;
-			}
-			st.answer = answer;
+			const { improved } = recordPublicSubmission(st, answer, res.score, params.note ?? "");
 			const budget = cfg.eval_cap - st.submits;
 			let fb: string;
 			if (res.score == null) {

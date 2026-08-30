@@ -20,6 +20,7 @@ import { resolveRequestMaxTokens } from "./provider.js";
 import { TokenLedger } from "./budget.js";
 import { failedEpisodeResult } from "./inner/episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-policy.js";
+import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -72,6 +73,19 @@ export async function selftest(): Promise<boolean> {
 	check("episode initial prompt policy preserves quiz contract", initialQuizPrompt.includes("QUIZ FIRST-PASS CONTRACT") && initialQuizPrompt.includes("georsi_science.py") && initialQuizPrompt.includes("memory"));
 	const finalNudge = buildFollowupPrompt({ isQuiz: false, turnsCompleted: 2, submits: 2, budgetLeft: 0, patience: 2, staleSubmits: 0, lastFeedback: "", bestPublic: 0.5, previousTurnAborted: false });
 	check("episode follow-up policy enforces finalization", finalNudge.includes("BUDGET EXHAUSTED") && finalNudge.includes("final=true"));
+	const submissionState = createSubmissionState();
+	recordPublicSubmission(submissionState, { a: "first" }, 0.5);
+	recordPublicSubmission(submissionState, { a: "newest-tie" }, 0.5);
+	check("submission policy retains newest public tie", submissionState.bestPublic === 0.5 && submissionState.bestAnswer?.a === "newest-tie" && submissionState.staleSubmits === 0);
+	const quizPreflight = validateQuizSubmission(
+		{ q1: "not-a-letter", unknown: "A" },
+		[
+			{ qid: "q1", kind: "mcq", options: ["one", "two"] },
+			{ qid: "q2", kind: "tf" }, { qid: "q3" }, { qid: "q4" }, { qid: "q5" },
+		],
+	);
+	check("quiz preflight is gold-free and catches shape errors", quizPreflight.issues.length === 3 && quizPreflight.covered === 2);
+
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");

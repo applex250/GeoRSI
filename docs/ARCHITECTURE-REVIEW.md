@@ -214,6 +214,9 @@ RAG off/on 泛化对照
   contract and the fixed-denominator failure factory shared by suite and exam.
 - `src/inner/prompt-policy.ts` contains pure initial/follow-up prompt decisions;
   it has deterministic tests and no provider, evaluator, or Sandboxie dependency.
+- `src/inner/submission-policy.ts` owns public best/tie/stale state and
+  gold-free quiz shape/coverage checks; tool wiring and evaluator I/O remain in
+  `solve.ts`.
 - `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
   toolkit、episode contract 和 prompt policy，保持行为稳定。进一步拆分
   submit/job/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。
