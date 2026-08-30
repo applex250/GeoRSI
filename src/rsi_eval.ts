@@ -11,11 +11,11 @@ import { join } from "node:path";
 import type { Model } from "@earendil-works/pi-ai";
 import type { Config } from "./config.js";
 import { ROOT } from "./config.js";
-import { makeEvalContext, type Problem } from "./bench/eval.js";
+import { makeEvalContext, type EvalContext, type Problem } from "./bench/eval.js";
 import type { EpisodeRecord } from "./board.js";
 import type { Scaffold } from "./scaffold.js";
 import { solveEpisode, setBudgetExhausted } from "./inner/solve.js";
-import { failedEpisodeResult, type EpisodeResult } from "./inner/episode-contract.js";
+import { failedEpisodeResult, type EpisodeExecutor, type EpisodeResult } from "./inner/episode-contract.js";
 import { TOKENS } from "./provider.js";
 import { addMemory, defaultObservation, snapshotMemory, type MemoryItem, type MemoryStore } from "./memory.js";
 import { knowledgePath, recordUsage } from "./knowledge.js";
@@ -46,6 +46,9 @@ export interface EvaluateScaffoldOptions {
 	emit?: (ev: RsiEvent) => void;
 	controller?: RunController;
 	log?: (m: string) => void;
+	/** injectable ports for deterministic application tests */
+	executeEpisode?: EpisodeExecutor;
+	evalCtx?: EvalContext;
 }
 
 /** Evaluate a scaffold on a fixed memory snapshot; learning commits later. */
@@ -54,7 +57,8 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 	const emit = opts.emit ?? (() => {});
 	const controller = opts.controller;
 	const log = opts.log ?? (() => {});
-	const evalCtx = makeEvalContext(cfg, ROOT);
+	const evalCtx = opts.evalCtx ?? makeEvalContext(cfg, ROOT);
+	const executeEpisode = opts.executeEpisode ?? solveEpisode;
 	const detail: EpisodeRecord[] = [];
 	const evaluated: { problem: Problem; result: EpisodeResult }[] = [];
 	const weighted: { fitness: number | null; weight: number }[] = [];
@@ -85,7 +89,7 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 			const workspace = join(runDir, "episodes", tag);
 			let result: EpisodeResult;
 			try {
-				result = await solveEpisode({
+				result = await executeEpisode({
 					cfg,
 					problem,
 					evalCtx,

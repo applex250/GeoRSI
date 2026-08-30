@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { applyEdits, builtinDomainKnowledge, composeSystemPrompt, scaffoldFingerprint, SEED_SCAFFOLD } from "./scaffold.js";
 import { Journal, atomicWriteJson, loadRunState, saveRunState, fingerprint, readJournalTail, type RunState } from "./journal.js";
 import { runEval, guessGenre, makeEvalContext, type Problem } from "./bench/eval.js";
-import { openMemory, addMemory, recall, renderMemory, defaultObservation } from "./memory.js";
+import { openMemory, emptyMemory, addMemory, recall, renderMemory, defaultObservation } from "./memory.js";
 import { deterministicTrend } from "./goal.js";
 import { durableRunArtifacts } from "./rsi.js";
 import { renderLeaderboard, renderFindings } from "./board.js";
@@ -18,7 +18,8 @@ import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
 import { examHasValidTrainingResult, type ExamProblemResult } from "./exam.js";
 import { resolveRequestMaxTokens } from "./provider.js";
 import { TokenLedger } from "./budget.js";
-import { failedEpisodeResult } from "./inner/episode-contract.js";
+import { failedEpisodeResult, type EpisodeExecutor } from "./inner/episode-contract.js";
+import { evaluateScaffold } from "./rsi_eval.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
 import { checkPythonExecutionPolicy } from "./inner/python-execution.js";
@@ -277,7 +278,31 @@ export async function selftest(): Promise<boolean> {
 	check("RAG disabled by default", goodCfg.rag_enabled === false && goodCfg.rag_budget_chars === 2400);
 	check("fitness mean keeps failed tasks in denominator", meanWithFailures([1, null]) === 0.5);
 	check("weighted fitness honors failed task weight", weightedFitnessMean([{ fitness: 1, weight: 1 }, { fitness: null, weight: 3 }]) === 0.25);
+	const fakeExecutor: EpisodeExecutor = async (request) => {
+		if (request.problem.id === "fail") throw new Error("synthetic episode failure");
+		return { ...failedEpisodeResult(request.problem.id, request.workspace, "unused"), fitness: 1, bestPublic: 0.8, error: null };
+	};
+	const fakeEvalContext = { pythonCmd: "python", privateTruthDir: truthDir, truthFile: (id: string) => join(truthDir, `${id}.txt`) };
+	const portEvaluation = await evaluateScaffold({
+		cfg: { ...goodCfg, episodes_per_problem: 1 },
+		problems: [{ ...prob, id: "ok", weight: 1 }, { ...prob, id: "fail", weight: 3 }],
+		scaffold: SEED_SCAFFOLD,
+		runDir: tmp,
+		role: "fake-port",
+		model: {} as never,
+		memory: emptyMemory(join(tmp, "fake-memory")),
+		executeEpisode: fakeExecutor,
+		evalCtx: fakeEvalContext,
+	});
+	check("episode executor port keeps thrown task in weighted denominator", portEvaluation.mean === 0.25 && portEvaluation.detail.length === 2 && portEvaluation.detail[1]?.fitness === null);
+	const allFailedPortEvaluation = await evaluateScaffold({
+		cfg: { ...goodCfg, episodes_per_problem: 1 }, problems: [{ ...prob, id: "fail" }],
+		scaffold: SEED_SCAFFOLD, runDir: tmp, role: "fake-all-fail", model: {} as never,
+		memory: emptyMemory(join(tmp, "fake-memory-all")), executeEpisode: fakeExecutor, evalCtx: fakeEvalContext,
+	});
+	check("episode executor port keeps all-failed suite ineligible", allFailedPortEvaluation.mean === null);
 	const failedContract = failedEpisodeResult("p", "workspace", new Error("boom"));
+
 	check("episode failure factory preserves fixed-denominator contract", failedContract.problemId === "p" && failedContract.fitness === null && failedContract.knowledgeIds.length === 0 && failedContract.error?.includes("boom") === true);
 	const failedExam: ExamProblemResult[] = [{ problem: "quake_b", heldout: false, weight: 1, fitness: null, bestPublic: null, submits: 0, secs: 0, error: "failed", warnings: [], tokens: 0 }];
 

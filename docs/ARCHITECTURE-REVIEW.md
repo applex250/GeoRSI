@@ -210,8 +210,10 @@ RAG off/on 泛化对照
   单一分类来源，避免多个字符串规则漂移。
 - `applyProblemRuntimeOverride()` 负责有限的题目运行参数合并，替代
   `({...base, ...override} as Config)` 的不安全 cast。
-- `src/inner/episode-contract.ts` owns the stable episode result/evidence
-  contract and the fixed-denominator failure factory shared by suite and exam.
+- `src/inner/episode-contract.ts` owns the stable episode request/result/evidence
+  contract, the `EpisodeExecutor` port, and the fixed-denominator failure
+  factory shared by suite and exam. `rsi_eval.ts` accepts injected executor and
+  eval-context ports for deterministic application tests.
 - `src/inner/prompt-policy.ts` contains pure initial/follow-up prompt decisions;
   it has deterministic tests and no provider, evaluator, or Sandboxie dependency.
 - `src/inner/submission-policy.ts` owns public best/tie/stale state and

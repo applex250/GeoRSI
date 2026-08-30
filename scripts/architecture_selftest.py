@@ -14,7 +14,7 @@ FORBIDDEN = {
     "src/process-env.ts": ["sandboxie", "provider", "inner/", "tui/"],
     "src/budget.ts": ["provider", "sandboxie", "inner/", "tui/"],
     "src/task-profile.ts": ["provider", "sandboxie", "inner/", "tui/"],
-    "src/inner/episode-contract.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
+    "src/inner/episode-contract.ts": ["provider", "sandboxie", "piharness"],
     "src/inner/prompt-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
     "src/inner/submission-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs"],
     "src/inner/python-execution.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
@@ -42,6 +42,11 @@ config = (ROOT / "src/config.ts").read_text(encoding="utf-8")
 for required in ("ProblemRuntimeOverride", "applyProblemRuntimeOverride", "configuredModelIds"):
     if required not in config:
         errors.append(f"config.ts missing explicit seam: {required}")
+
+rsi_eval = (ROOT / "src/rsi_eval.ts").read_text(encoding="utf-8")
+for required in ("executeEpisode?: EpisodeExecutor", "evalCtx?: EvalContext"):
+    if required not in rsi_eval:
+        errors.append(f"rsi_eval.ts missing injectable application port: {required}")
 
 if errors:
     for error in errors:

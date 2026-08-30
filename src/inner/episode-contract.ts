@@ -1,3 +1,11 @@
+import type { Model } from "@earendil-works/pi-ai";
+import type { Config } from "../config.js";
+import type { EvalContext, Problem } from "../bench/eval.js";
+import type { Scaffold } from "../scaffold.js";
+import type { MemoryStore } from "../memory.js";
+import type { RunController } from "../loopctl.js";
+import type { RsiEvent } from "../tui/events.js";
+
 /** Stable application contract for one research episode. */
 export interface EpisodeIsolationEvidence {
 	backend: "sandboxie-app-level" | "host-audit";
@@ -36,6 +44,25 @@ export interface EpisodeResult {
 	ragDocumentIds?: string[];
 	ragCorpusVersion?: string;
 }
+
+export interface EpisodeRequest {
+	cfg: Config;
+	problem: Problem;
+	evalCtx: EvalContext;
+	scaffold: Scaffold;
+	model: Model<any>;
+	workspace: string;
+	memory: MemoryStore;
+	log?: (message: string) => void;
+	emit?: (event: RsiEvent) => void;
+	onAgentDelta?: (kind: "thinking" | "text", delta: string) => void;
+	onToolEvent?: (event: { phase: "start" | "end"; tool: string; detail: string; isError?: boolean }) => void;
+	persistKnowledgeUsage?: boolean;
+	controller?: RunController;
+	tag: string;
+}
+
+export type EpisodeExecutor = (request: EpisodeRequest) => Promise<EpisodeResult>;
 
 export function failedEpisodeResult(problemId: string, workspace: string, error: unknown): EpisodeResult {
 	return {

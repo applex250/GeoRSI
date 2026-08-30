@@ -16,16 +16,15 @@ import { cpSync, existsSync, closeSync, mkdirSync, openSync, readFileSync, realp
 import { join, resolve, sep } from "node:path";
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
-import type { Model } from "@earendil-works/pi-ai";
 import { ROOT, applyProblemRuntimeOverride, type Config } from "../config.js";
-import type { EvalContext, EvalResult, Problem } from "../bench/eval.js";
+import type { EvalResult } from "../bench/eval.js";
 import { runEval } from "../bench/eval.js";
-import { composeSystemPrompt, type Scaffold } from "../scaffold.js";
+import { composeSystemPrompt } from "../scaffold.js";
 import { loadKnowledge, selectKnowledge, renderKnowledge, recordUsage } from "../knowledge.js";
 import { protectedManifest, scanTextForBreaches, scanWorkspaceForBreaches, verifyManifest } from "../guard.js";
 import { PiHarness, toolOutput, type PromptOutcome } from "../piharness.js";
 import { resolveModel } from "../provider.js";
-import { recall, renderMemory, type MemoryStore } from "../memory.js";
+import { recall, renderMemory } from "../memory.js";
 import { terminateProcessTree, isProcessAlive } from "../process.js";
 import {
 	assertSandboxPythonCommand,
@@ -44,7 +43,7 @@ import { assertExchangeWorkspace } from "../workspace-tools.js";
 import { profileTask } from "../task-profile.js";
 import { SCIENCE_TOOLKIT_SOURCE } from "../science-toolkit.js";
 import { hostNetworkReachable, sandboxProbeSource } from "../isolation-probe.js";
-import type { EpisodeResult } from "./episode-contract.js";
+import type { EpisodeRequest, EpisodeResult } from "./episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./submission-policy.js";
 import { checkPythonExecutionPolicy, runPythonHost } from "./python-execution.js";
@@ -77,29 +76,9 @@ export function resolveInWorkspace(workspace: string, rel: string): string | nul
 	return p;
 }
 
-export interface SolveOpts {
-	cfg: Config;
-	problem: Problem;
-	evalCtx: EvalContext;
-	scaffold: Scaffold;
-	model: Model<any>;
-	workspace: string;
-	memory: MemoryStore;
-	log?: (m: string) => void;
-	/** optional structured event sink (TUI); absent in headless runs */
-	emit?: (ev: import("../tui/events.js").RsiEvent) => void;
-	/** live model reasoning/narration stream (research chat display) */
-	onAgentDelta?: (kind: "thinking" | "text", delta: string) => void;
-	/** tool call lifecycle for live display */
-	onToolEvent?: (ev: { phase: "start" | "end"; tool: string; detail: string; isError?: boolean }) => void;
-	/** disable global knowledge-stat writes during isolated candidate evaluation */
-	persistKnowledgeUsage?: boolean;
-	/** cooperative pause/stop gate (checked between turns) */
-	controller?: import("../loopctl.js").RunController;
-	tag: string;
-}
+export type SolveOpts = EpisodeRequest;
 
-export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
+export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult> {
 	const { problem, evalCtx, scaffold } = opts;
 	// per-problem overrides (quiz batches, long-job problems) win over config
 	const cfg: Config = applyProblemRuntimeOverride(opts.cfg, problem.overrides);
