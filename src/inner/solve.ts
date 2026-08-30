@@ -44,7 +44,12 @@ import { hostNetworkReachable, sandboxProbeSource } from "../isolation-probe.js"
 import type { EpisodeRequest, EpisodeResult } from "./episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./submission-policy.js";
-import { checkPythonExecutionPolicy, runPythonHost } from "./python-execution.js";
+import {
+	checkPythonExecutionPolicy,
+	ForegroundPythonRunner,
+	hostForegroundPythonPort,
+	type ForegroundPythonPort,
+} from "./python-execution.js";
 import { BackgroundJobRegistry, type BackgroundJob } from "./background-jobs.js";
 import { persistEpisodeArtifacts, prepareEpisodeArtifacts } from "./artifact-store.js";
 
@@ -154,7 +159,6 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 	let sandboxCleanup: SandboxieCleanupResult | null = null;
 	let sandboxCleanupError: string | null = null;
 	let unregisterSandboxExit = (): void => {};
-	let pythonInvocation = 0;
 
 	if (sandboxAdapter) {
 		try {
@@ -246,35 +250,40 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 		: undefined;
 	const st = createSubmissionState();
 
-	const runEpisodePython = async (file: string, timeoutMs: number): Promise<string> => {
-		if (!sandboxAdapter) return runPythonHost(workspace, cfg.python_cmd, file, timeoutMs);
-		if (!sandboxRecord) throw new Error("Sandboxie box was not prepared before Python execution");
-		const runtimeDir = join(workspace, "runtime");
-		mkdirSync(runtimeDir, { recursive: true });
-		const id = `${String(++pythonInvocation).padStart(3, "0")}-${Date.now().toString(36)}`;
-		const stdoutPath = join(runtimeDir, `${id}.stdout.log`);
-		const stderrPath = join(runtimeDir, `${id}.stderr.log`);
-		const result = await sandboxAdapter.runPython({
-			boxName: sandboxRecord.name,
-			pythonCmd,
-			scriptPath: file,
-			cwd: workspace,
-			stdoutPath,
-			stderrPath,
-			timeoutMs,
-		});
-		sandboxRecord.pids.push(...result.targetPids);
-		try {
-			rmSync(result.wrapperPath, { force: true });
-		} catch {
-			/* runtime wrappers are exchange-only; cleanup is best effort */
+	const foregroundPythonPort: ForegroundPythonPort = sandboxAdapter
+		? {
+			execute: async (request) => {
+				if (!sandboxRecord) throw new Error("Sandboxie box was not prepared before Python execution");
+				const result = await sandboxAdapter.runPython({
+					boxName: sandboxRecord.name,
+					pythonCmd: request.pythonCmd,
+					scriptPath: request.file,
+					cwd: request.cwd,
+					stdoutPath: request.stdoutPath,
+					stderrPath: request.stderrPath,
+					timeoutMs: request.timeoutMs,
+				});
+				return {
+					exitCode: result.exitCode,
+					timedOut: result.timedOut,
+					stdout: result.stdout,
+					stderr: result.stderr,
+					error: result.error,
+					targetPids: result.targetPids,
+					wrapperPath: result.wrapperPath,
+				};
+			},
 		}
-		const head = result.timedOut ? "[execution timed out]\n" : "";
-		let message = `${head}exit=${result.exitCode}\nstdout (tail):\n${result.stdout.slice(-3000)}`;
-		if (result.error) message = `error: ${result.error}\n` + message;
-		if (result.stderr) message += `\nstderr (tail):\n${result.stderr.slice(-1500)}`;
-		return message;
-	};
+		: hostForegroundPythonPort;
+	const foregroundPython = new ForegroundPythonRunner({
+		workspace,
+		pythonCmd,
+		port: foregroundPythonPort,
+		recordTargetPids: (pids) => {
+			if (sandboxRecord) sandboxRecord.pids.push(...pids);
+		},
+	});
+	const runEpisodePython = (file: string, timeoutMs: number): Promise<string> => foregroundPython.run(file, timeoutMs);
 
 	const runPy = defineTool({
 		name: "run_python",

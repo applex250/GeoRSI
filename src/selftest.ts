@@ -22,7 +22,12 @@ import { failedEpisodeResult, type EpisodeExecutor } from "./inner/episode-contr
 import { evaluateScaffold } from "./rsi_eval.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
-import { checkPythonExecutionPolicy } from "./inner/python-execution.js";
+import {
+	checkPythonExecutionPolicy,
+	ForegroundPythonRunner,
+	formatForegroundPythonResult,
+	type ForegroundPythonRequest,
+} from "./inner/python-execution.js";
 import { BackgroundJobRegistry, type BackgroundJob, type BackgroundJobPort } from "./inner/background-jobs.js";
 import { persistEpisodeArtifacts, prepareEpisodeArtifacts } from "./inner/artifact-store.js";
 import { SandboxieCli, formatSandboxieCommand } from "./sandboxie-cli.js";
@@ -473,6 +478,27 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(hostAuditScript, "print('host-audit-ok')\n");
 	const hostAuditResult = await runPythonHost(guardDir, loadConfig().python_cmd, hostAuditScript, 5_000);
 	check("explicit host-audit Python runner works", hostAuditResult.includes("exit=0") && hostAuditResult.includes("host-audit-ok"));
+	let capturedForegroundRequest: ForegroundPythonRequest | undefined;
+	const recordedForegroundPids: number[] = [];
+	const removedForegroundWrappers: string[] = [];
+	const foregroundRunner = new ForegroundPythonRunner({
+		workspace: guardDir,
+		pythonCmd: "python-test",
+		now: () => 12345,
+		port: {
+			execute: async (request) => {
+				capturedForegroundRequest = request;
+				return { exitCode: null, timedOut: true, stdout: "tail-out", stderr: "tail-err", targetPids: [71, 72], wrapperPath: "wrapper.cmd" };
+			},
+		},
+		recordTargetPids: (pids) => recordedForegroundPids.push(...pids),
+		removeWrapper: (path) => removedForegroundWrappers.push(path),
+	});
+	const foregroundText = await foregroundRunner.run(hostAuditScript, 321);
+	check("foreground Python runner injects evidence paths and deadline", capturedForegroundRequest?.timeoutMs === 321 && capturedForegroundRequest.stdoutPath.endsWith(join("runtime", "001-9ix.stdout.log")));
+	check("foreground Python runner records strict pids and removes wrapper", recordedForegroundPids.join(",") === "71,72" && removedForegroundWrappers[0] === "wrapper.cmd");
+	check("foreground Python runner formats timeout and stderr", foregroundText.includes("[execution timed out]") && foregroundText.includes("tail-out") && foregroundText.includes("tail-err"));
+	check("foreground Python formatter preserves start errors", formatForegroundPythonResult({ exitCode: null, timedOut: false, stdout: "", stderr: "", error: "missing", startError: true }) === "failed to start python: missing");
 
 	const { protectedManifest, verifyManifest, scanTextForBreaches } = await import("./guard.js");
 	const fakeProblem = join(tmp, "fakeproblem");

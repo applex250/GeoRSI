@@ -219,9 +219,11 @@ RAG off/on 泛化对照
 - `src/inner/submission-policy.ts` owns public best/tie/stale state and
   gold-free quiz shape/coverage checks; tool wiring and evaluator I/O remain in
   `solve.ts`.
-- `src/inner/python-execution.ts` isolates explicit host-audit process launch
-  and restricted/audit source policy; `solve.ts` keeps a compatibility re-export
-  but no longer owns this adapter.
+- `src/inner/python-execution.ts` owns the injected foreground execution port,
+  deterministic evidence-path/PID/wrapper lifecycle, stable tool-output
+  formatting, explicit host-audit process launch, and restricted/audit source
+  policy. `solve.ts` only composes the host or strict Sandboxie adapter and
+  retains a compatibility `runPythonHost` re-export.
 - `src/isolation-probe.ts` owns host-network preflight and in-box canary source;
   Sandboxie integration tests depend on this narrow module rather than the full
   episode application service.
