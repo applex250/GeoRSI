@@ -188,7 +188,7 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
     else:
         runtime_issues.append("unknown research run mode")
     for receipt in receipts:
-        if receipt.get("provider") != "ai-pixel" or receipt.get("model") != "gpt-5.6-luna" or receipt.get("requestedThinking") != "xhigh" or receipt.get("effectiveThinking") != "xhigh":
+        if receipt.get("provider") != "ai-pixel" or receipt.get("model") != "gpt-5.6-luna" or receipt.get("api") != "openai-responses" or receipt.get("requestedThinking") != "xhigh" or receipt.get("effectiveThinking") != "xhigh" or not isinstance(receipt.get("outputTokens"), int) or receipt.get("outputTokens") <= 0:
             runtime_issues.append(f"forbidden model receipt {receipt.get('id')}")
     if attestation.get("totalTokens") != sum(int(item.get("totalTokens", 0)) for item in receipts):
         runtime_issues.append("token total does not match model receipts")
