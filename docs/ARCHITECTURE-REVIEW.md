@@ -217,6 +217,9 @@ RAG off/on 泛化对照
 - `src/inner/submission-policy.ts` owns public best/tie/stale state and
   gold-free quiz shape/coverage checks; tool wiring and evaluator I/O remain in
   `solve.ts`.
+- `src/inner/python-execution.ts` isolates explicit host-audit process launch
+  and restricted/audit source policy; `solve.ts` keeps a compatibility re-export
+  but no longer owns this adapter.
 - `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
   toolkit、episode contract 和 prompt policy，保持行为稳定。进一步拆分
   submit/job/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。

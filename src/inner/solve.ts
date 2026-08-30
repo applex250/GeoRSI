@@ -23,7 +23,7 @@ import type { EvalContext, EvalResult, Problem } from "../bench/eval.js";
 import { runEval } from "../bench/eval.js";
 import { composeSystemPrompt, type Scaffold } from "../scaffold.js";
 import { loadKnowledge, selectKnowledge, renderKnowledge, recordUsage } from "../knowledge.js";
-import { protectedManifest, scanPythonExecutionPolicy, scanTextForBreaches, scanWorkspaceForBreaches, verifyManifest } from "../guard.js";
+import { protectedManifest, scanTextForBreaches, scanWorkspaceForBreaches, verifyManifest } from "../guard.js";
 import { PiHarness, toolOutput, type PromptOutcome } from "../piharness.js";
 import { resolveModel } from "../provider.js";
 import { recall, renderMemory, type MemoryStore } from "../memory.js";
@@ -47,8 +47,10 @@ import { SCIENCE_TOOLKIT_SOURCE } from "../science-toolkit.js";
 import type { EpisodeResult } from "./episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./submission-policy.js";
+import { checkPythonExecutionPolicy, runPythonHost } from "./python-execution.js";
 
 export type { EpisodeResult } from "./episode-contract.js";
+export { runPythonHost } from "./python-execution.js";
 
 export function resolveInWorkspace(workspace: string, rel: string): string | null {
 	// hard fence: the old strip-dots regex let leading "../" through, which
@@ -71,73 +73,6 @@ export function resolveInWorkspace(workspace: string, rel: string): string | nul
 		// existsSync/realpath before they can be executed.
 	}
 	return p;
-}
-
-export function runPythonHost(cwd: string, pythonCmd: string, file: string, timeoutMs: number): Promise<string> {
-	return new Promise((resolve) => {
-		// never let eval-side credentials (LLM judge) leak into agent-run code
-		const safeEnv = sanitizeSandboxEnvironment();
-		const child = spawn(pythonCmd, [file], {
-			cwd,
-			windowsHide: true,
-			// POSIX process groups let timeout cleanup reach descendants. Windows
-			// uses taskkill /T in terminateProcessTree().
-			detached: process.platform !== "win32",
-			env: safeEnv,
-		});
-		let out = "";
-		let err = "";
-		let timedOut = false;
-		const timer = setTimeout(() => {
-			timedOut = true;
-			terminateProcessTree(child.pid);
-		}, timeoutMs);
-		child.stdout.on("data", (d: Buffer) => (out += d.toString("utf8")));
-		child.stderr.on("data", (d: Buffer) => (err += d.toString("utf8")));
-		child.on("error", (e) => {
-			clearTimeout(timer);
-			resolve(`failed to start python: ${e.message}`);
-		});
-		child.on("close", (code) => {
-			clearTimeout(timer);
-			const head = timedOut ? "[execution timed out]\n" : "";
-			let msg = `${head}exit=${code}\nstdout (tail):\n${out.slice(-3000)}`;
-			if (err) msg += `\nstderr (tail):\n${err.slice(-1500)}`;
-			resolve(msg);
-		});
-	});
-}
-
-interface ExecutionPolicyResult {
-	blocked: boolean;
-	notice: string;
-}
-
-/** Apply the optional pre-launch policy without pretending it is a sandbox. */
-function checkPythonExecutionPolicy(file: string, label: string, mode: Config["execution_policy"]): ExecutionPolicyResult {
-	let source: string;
-	try {
-		source = readFileSync(file, "utf8");
-	} catch {
-		return { blocked: false, notice: "" };
-	}
-	const breaches = scanPythonExecutionPolicy(source, label);
-	if (breaches.length === 0) return { blocked: false, notice: "" };
-	const summary = breaches
-		.slice(0, 4)
-		.map((b) => `${b.rule} at line ${b.line}`)
-		.join(", ");
-	const suffix = breaches.length > 4 ? ` (+${breaches.length - 4} more)` : "";
-	if (mode === "restricted") {
-		return {
-			blocked: true,
-			notice: `restricted execution policy blocked ${label}: ${summary}${suffix}. Use data-only analysis APIs; this policy is not an OS sandbox.`,
-		};
-	}
-	return {
-		blocked: false,
-		notice: `execution policy audit warning for ${label}: ${summary}${suffix}; audit mode permits the run, but this is not an OS sandbox.`,
-	};
 }
 
 export async function hostNetworkReachable(timeoutMs = 5_000, attempts = 3): Promise<boolean> {

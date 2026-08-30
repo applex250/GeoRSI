@@ -21,6 +21,7 @@ import { TokenLedger } from "./budget.js";
 import { failedEpisodeResult } from "./inner/episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
+import { checkPythonExecutionPolicy } from "./inner/python-execution.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -445,6 +446,10 @@ export async function selftest(): Promise<boolean> {
 		"analysis.py",
 	);
 	check("execution policy flags common escape hatches", policyBreaches.length === 3 && policyBreaches[0]?.rule === "child-process import");
+	const restrictedScript = join(guardDir, "restricted-policy.py");
+	writeFileSync(restrictedScript, "import subprocess\nsubprocess.run(['echo', 'x'])\n");
+	const restrictedPolicy = checkPythonExecutionPolicy(restrictedScript, "restricted-policy.py", "restricted");
+	check("python execution policy adapter blocks restricted escape", restrictedPolicy.blocked && restrictedPolicy.notice.includes("restricted execution policy"));
 
 	check("genre guess", guessGenre("quake_b") === "seismology" && guessGenre("flood_rp") === "hydrology" && guessGenre("poro_perm") === "petrophysics");
 
