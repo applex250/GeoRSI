@@ -16,6 +16,9 @@ export interface ModelCallReceipt {
 	reasoningTokens: number | null;
 	totalTokens: number;
 	success: boolean;
+	api?: string;
+	responseId?: string;
+	stopReason?: string;
 }
 
 export interface ComputeReplayAttestation {
@@ -73,7 +76,7 @@ export function validateRuntimeAttestation(attestation: ResearchRuntimeAttestati
 		issues.push("deterministic demo is not competition-eligible runtime evidence");
 	}
 	for (const receipt of attestation.modelCalls) {
-		if (receipt.provider !== "ai-pixel" || receipt.model !== "gpt-5.6-luna" || receipt.requestedThinking !== "xhigh" || receipt.effectiveThinking !== "xhigh") issues.push(`forbidden or downgraded model receipt: ${receipt.id}`);
+		if (receipt.provider !== "ai-pixel" || receipt.model !== "gpt-5.6-luna" || receipt.api !== "openai-responses" || receipt.requestedThinking !== "xhigh" || receipt.effectiveThinking !== "xhigh") issues.push(`forbidden or downgraded model receipt: ${receipt.id}`);
 	}
 	if (attestation.modelCalls.some((receipt) => !receipt.success)) issues.push("failed model receipts are present");
 	if (attestation.totalTokens !== attestation.modelCalls.reduce((sum, receipt) => sum + receipt.totalTokens, 0)) issues.push("runtime token total does not match model receipts");

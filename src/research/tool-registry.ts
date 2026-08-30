@@ -1,5 +1,6 @@
 /** Typed scientific tool registry with uniform, auditable receipts. */
 import { createHash, randomUUID } from "node:crypto";
+import type { EvidenceRef } from "./contracts.js";
 import { sanitizeResearchEvidence, stableJson } from "./event-ledger.js";
 
 export interface ScientificToolContext {
@@ -13,6 +14,8 @@ export interface ScientificToolContext {
 export interface ScientificToolResult<Output> {
 	output: Output;
 	artifactIds?: string[];
+	/** Canonical metadata for newly created CAS evidence; ids must match artifactIds. */
+	evidenceRefs?: EvidenceRef[];
 	stdoutArtifactId?: string;
 	stderrArtifactId?: string;
 	exitCode?: number | null;

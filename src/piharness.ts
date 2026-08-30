@@ -30,6 +30,10 @@ export interface HarnessOpts {
 	cwd: string;
 	systemPrompt: string;
 	customTools: ToolDefinition[];
+	/** same-model transport retries; research sets zero so every attempt is observable */
+	maxRetries?: number;
+	/** optional hard request/session output ceiling; research roles must set this */
+	maxOutputTokens?: number;
 	/** wall-clock cap per prompt() call */
 	promptTimeoutMs: number;
 	/** abort if no session event for this long */
@@ -73,9 +77,18 @@ interface MessageLike {
 	stopReason?: unknown;
 	rawStopReason?: unknown;
 	errorMessage?: unknown;
-	usage?: unknown;
+	usage?: {
+		input?: number;
+		output?: number;
+		cacheRead?: number;
+		cacheWrite?: number;
+		reasoning?: number;
+		totalTokens?: number;
+	};
 	provider?: unknown;
 	model?: unknown;
+	api?: unknown;
+	responseId?: unknown;
 }
 
 function messageParts(message: MessageLike | undefined): Record<string, unknown>[] {
@@ -136,6 +149,8 @@ export interface PromptOutcome {
 	tokens: number;
 	secs: number;
 	modelCall?: ModelCallReceipt;
+	/** Exact assistant/API calls within this prompt, including tool-loop turns. */
+	modelCalls?: ModelCallReceipt[];
 }
 
 /** Uniform tool result: text back to the model, no structured details. */
@@ -168,6 +183,13 @@ export function resolveHarnessThinking(model: Model<any>, requested: ThinkingLev
 	} catch (error) {
 		throw new Error(`model thinking configuration failed for ${modelId || "unknown model"}: ${error instanceof Error ? error.message : String(error)}`);
 	}
+}
+
+export function capHarnessModelOutput(model: Model<any>, maxOutputTokens: number | undefined): Model<any> {
+	if (maxOutputTokens === undefined) return model;
+	if (!Number.isSafeInteger(maxOutputTokens) || maxOutputTokens <= 0) throw new Error("harness maxOutputTokens must be a positive integer");
+	const current = (model as { maxTokens?: number }).maxTokens;
+	return { ...model, maxTokens: Math.min(maxOutputTokens, typeof current === "number" && current > 0 ? current : maxOutputTokens) } as Model<any>;
 }
 
 export class PiHarness {
@@ -206,8 +228,11 @@ export class PiHarness {
 			? createExchangeToolDefinitions(this.opts.cwd, this.opts.exchangeToolGuard)
 			: [];
 		const customTools = [...exchangeTools, ...this.opts.customTools];
+		const sessionModel = capHarnessModelOutput(this.opts.model, this.opts.maxOutputTokens);
+		const maxRetries = this.opts.maxRetries ?? 6;
+		if (!Number.isSafeInteger(maxRetries) || maxRetries < 0) throw new Error("harness maxRetries must be a non-negative integer");
 		const { session } = await createAgentSession({
-			model: this.opts.model,
+			model: sessionModel,
 			// without an explicit modelRuntime pi builds a default one that does
 			// not know our gateway provider -> "No API key found"
 			modelRuntime: currentModelRuntime(),
@@ -215,7 +240,7 @@ export class PiHarness {
 			// the gateway throws bursty transient "finish_reason: network_error";
 			// pi's default 3 retries can be exhausted inside one bad minute
 			settingsManager: SettingsManager.inMemory({
-				retry: { enabled: true, maxRetries: 6, baseDelayMs: 2000 },
+				retry: { enabled: maxRetries > 0, maxRetries, baseDelayMs: 2000 },
 			}),
 			// NOTE: an explicit `tools` allowlist filters customTools too — the
 			// custom tool names must be included or they silently vanish
@@ -291,6 +316,7 @@ export class PiHarness {
 	async prompt(text: string, timeoutOverrideMs?: number): Promise<PromptOutcome> {
 		if (!this.session) throw new Error("harness not initialized");
 		const t0 = Date.now();
+		const messageStart = this.session.messages.length;
 		this.lastEventTs = Date.now();
 		let timedOut = false;
 		let stalled = false;
@@ -354,6 +380,31 @@ export class PiHarness {
 		TOKENS.record(tokens, timedOut || stalled || !!error);
 
 		const modelMeta = this.opts.model as { id?: string; provider?: string };
+		const exactCalls: ModelCallReceipt[] = this.session.messages.slice(messageStart)
+			.filter((message) => !!message && typeof message === "object" && (message as MessageLike).role === "assistant")
+			.map((rawMessage, index) => {
+				const message = rawMessage as MessageLike;
+				const usage = message.usage ?? {};
+				const totalTokens = typeof usage.totalTokens === "number"
+					? usage.totalTokens
+					: [usage.input, usage.output, usage.cacheRead, usage.cacheWrite].reduce<number>((sum, value) => sum + (typeof value === "number" ? value : 0), 0);
+				const stopReason = typeof message.stopReason === "string" ? message.stopReason : undefined;
+				return {
+					id: typeof message.responseId === "string" && message.responseId ? message.responseId : `prompt-${t0}-call-${index + 1}`,
+					provider: typeof message.provider === "string" ? message.provider : modelMeta.id === "gpt-5.6-luna" ? "ai-pixel" : modelMeta.provider ?? "unknown",
+					model: typeof message.model === "string" ? message.model : modelMeta.id ?? "unknown",
+					requestedThinking: this.opts.thinkingLevel,
+					effectiveThinking: this.effectiveThinkingLevel,
+					inputTokens: typeof usage.input === "number" ? usage.input : null,
+					outputTokens: typeof usage.output === "number" ? usage.output : null,
+					reasoningTokens: typeof usage.reasoning === "number" ? usage.reasoning : null,
+					totalTokens,
+					success: stopReason !== "error" && stopReason !== "aborted" && !message.errorMessage,
+					api: typeof message.api === "string" ? message.api : undefined,
+					responseId: typeof message.responseId === "string" ? message.responseId : undefined,
+					stopReason,
+				};
+			});
 		return {
 			aborted: timedOut || stalled,
 			timedOut,
@@ -361,6 +412,7 @@ export class PiHarness {
 			error,
 			tokens,
 			secs: (Date.now() - t0) / 1000,
+			modelCalls: exactCalls,
 			modelCall: {
 				id: `prompt-${t0}-${this.lastSessionTokens}`,
 				provider: modelMeta.id === "gpt-5.6-luna" ? "ai-pixel" : modelMeta.provider ?? "unknown",
@@ -374,6 +426,11 @@ export class PiHarness {
 				success: !timedOut && !stalled && !error,
 			},
 		};
+	}
+
+	abort(): void {
+		try { void this.session?.abort(); }
+		catch { /* abort must remain fail-safe */ }
 	}
 
 	dispose(): void {

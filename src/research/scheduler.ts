@@ -33,6 +33,12 @@ export interface ResearchSchedulerResult {
 	failures: { nodeId: string; failure: ResearchFailure }[];
 }
 
+function assertUsage(label: string, usage: NodeExecutionResult["usage"]): void {
+	for (const [name, value] of Object.entries(usage)) {
+		if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} ${name} usage must be a non-negative safe integer`);
+	}
+}
+
 export class ResearchScheduler {
 	constructor(private readonly ports: ResearchSchedulerPorts) {}
 
@@ -74,6 +80,7 @@ export class ResearchScheduler {
 		try {
 			execution = await this.withinDeadline(remainingWallMs(), (signal) => this.ports.execute(next.nodes.find((node) => node.id === nodeId)!, next, signal));
 			const usage = execution.usage;
+			assertUsage("node execution", usage);
 			if (usage.modelCalls > ready.budget.maxModelCalls) throw new Error(`node model-call budget exceeded: ${usage.modelCalls}/${ready.budget.maxModelCalls}`);
 			if (usage.toolCalls > ready.budget.maxToolCalls) throw new Error(`node tool-call budget exceeded: ${usage.toolCalls}/${ready.budget.maxToolCalls}`);
 			if (usage.outputTokens > ready.budget.maxOutputTokens) throw new Error(`node output-token budget exceeded: ${usage.outputTokens}/${ready.budget.maxOutputTokens}`);
@@ -95,6 +102,7 @@ export class ResearchScheduler {
 		let verification: NodeVerificationResult;
 		try {
 			verification = await this.withinDeadline(remainingWallMs(), (signal) => this.ports.verify(next.nodes.find((node) => node.id === nodeId)!, execution, next, signal));
+			assertUsage("node verification", verification.usage);
 		} catch (error) {
 			verification = { passed: false, evidenceIds: [], issues: [error instanceof Error ? error.message : String(error)], usage: { modelCalls: 0, toolCalls: 0, outputTokens: 0 } };
 		}

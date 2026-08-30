@@ -40,6 +40,29 @@ python scripts/ai_pixel_probe.py --mode all
 The machine-readable model profile stays `unverified-ai-pixel` until Responses,
 xhigh, streaming/tool-loop, usage, PiHarness, and Sandboxie probes pass.
 
+## Luna node executor
+
+`src/research/luna-node-executor.ts` is the production WorkGraph adapter. It
+creates one bounded Pi session per node and fails closed unless the runtime is
+exactly `ai-pixel/gpt-5.6-luna` via Responses with requested/effective `xhigh`.
+It disables Pi built-in and exchange file tools; the model sees only explicit,
+TypeBox-bound `ScientificToolRegistry` adapters plus bounded artifact/submission
+capture tools. Context is node/dependency scoped and fingerprinted. Per-role
+output caps are applied to the session model, exact assistant/API calls in tool
+loops are receipted, and the scheduler enforces their combined usage.
+
+Model-declared artifact IDs are not trusted. Accepted artifacts must be created
+in the content-addressed evidence store or returned by a registered scientific
+tool with verifiable CAS metadata. Quantitative, GIS, and literature verifier
+inputs are persisted before deterministic verification, and family
+attestations bind the sanitized input hash to canonical evidence hashes.
+
+`src/research/sandboxie-compute.ts` defines the fail-closed compute port used by
+Python/GIS tools. A valid receipt must prove the Sandboxie backend, PID
+ownership, expected network mode, zero exit, complete ordered cleanup, WFP
+restoration, and lease release. There is no host fallback. The deterministic
+selftest uses an injected fake port; it is not competition evidence.
+
 ## Network claim
 
 `network_mode=blocked` remains the safe/default historical behavior.

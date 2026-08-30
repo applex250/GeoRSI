@@ -69,6 +69,7 @@ export function createWebFetchTool(
 			return {
 				output: { status: response.status, finalUrl: safeFinalUrl, headers: safeHeaders, evidenceId: evidence?.id },
 				artifactIds: evidence ? [evidence.id] : [],
+				evidenceRefs: evidence ? [evidence] : [],
 			};
 		},
 	};
