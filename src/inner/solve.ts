@@ -48,6 +48,7 @@ import type { EpisodeResult } from "./episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./submission-policy.js";
 import { checkPythonExecutionPolicy, runPythonHost } from "./python-execution.js";
+import { BackgroundJobRegistry, type BackgroundJob } from "./background-jobs.js";
 
 export type { EpisodeResult } from "./episode-contract.js";
 export { runPythonHost } from "./python-execution.js";
@@ -352,104 +353,37 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 	});
 
 	// ---- background jobs: long computations (hours) without blocking turns ----
-	interface Job {
-		name: string;
-		file: string;
-		pid: number | undefined;
-		startedAt: number;
-		state: "running" | "done" | "failed" | "timeout" | "killed";
-		exitCode: number | null;
-		killVerified?: boolean;
-		sandboxTargetPids?: number[];
-		wrapperPath?: string;
-	}
-	const jobs = new Map<string, Job>();
 	const jobsDir = join(workspace, "jobs");
 	mkdirSync(jobsDir, { recursive: true });
-
-	const refreshJob = (j: Job): Job => {
-		if (j.state !== "running") return j;
-		// a job is finished when its status file says so OR the pid is gone
-		const statusPath = join(jobsDir, `${j.name}.status.json`);
-		try {
-			const s = JSON.parse(readFileSync(statusPath, "utf8")) as { state?: string; exitCode?: number | null };
-			if (s.state && s.state !== "running") {
-				j.state = s.state as Job["state"];
-				j.exitCode = s.exitCode ?? null;
-				return j;
-			}
-		} catch {
-			/* no status file yet */
-		}
-		if (j.pid != null) {
-			try {
-				process.kill(j.pid, 0); // liveness probe
-			} catch {
-				// process gone: give it a moment to have written status; treat as done
-				j.state = "done";
-				j.exitCode = null;
-				return j;
-			}
-		}
-		if (Date.now() - j.startedAt > (cfg.job_timeout_s ?? 14_400) * 1000) {
-			killJob(j, "timeout");
-		}
-		return j;
-	};
-
-	const killJob = (j: Job, state: Job["state"] = "killed"): void => {
-		const pids = [...new Set([j.pid, ...(j.sandboxTargetPids ?? [])].filter((pid): pid is number => pid != null && pid > 0))];
-		for (const pid of pids) terminateProcessTree(pid);
-		const stillAlive = pids.filter(isProcessAlive);
-		j.killVerified = stillAlive.length === 0;
-		j.state = j.killVerified ? state : "failed";
-		if (!j.killVerified) log(`  [${opts.tag}] job ${j.name} kill could not be verified for pid(s): ${stillAlive.join(",")}`);
-		writeJobStatus(j);
-	};
-
-	const writeJobStatus = (j: Job): void => {
-		try {
-			writeFileSync(
-				join(jobsDir, `${j.name}.status.json`),
-				JSON.stringify(
-					{
-						name: j.name,
-						file: j.file,
-						state: j.state,
-						exitCode: j.exitCode,
-						startedAt: j.startedAt,
-						pid: j.pid,
-						killVerified: j.killVerified,
-						sandboxTargetPids: j.sandboxTargetPids,
-					},
-					null,
-					2,
-				),
-			);
-		} catch {
-			/* best effort */
-		}
-	};
-
-	const jobStatusText = (): string => {
-		const list = [...jobs.values()].map(refreshJob);
-		if (list.length === 0) return "no jobs started";
-		return list
-			.map((j) => {
-				const mins = Math.round((Date.now() - j.startedAt) / 60000);
-				const logPath = join("jobs", `${j.name}.log`);
-				let tail = "";
+	const jobs = new BackgroundJobRegistry(
+		{
+			now: () => Date.now(),
+			writeStatus: (job) => {
 				try {
-					const log = readFileSync(join(jobsDir, `${j.name}.log`), "utf8");
-					const lines = log.split(/\r?\n/).filter(Boolean);
-					tail = lines.slice(-5).join(" | ").slice(-400);
-				} catch {
-					/* no log yet */
-				}
-				return `[${j.name}] ${j.state}${j.exitCode != null ? ` (exit ${j.exitCode})` : ""}${j.killVerified === false ? " (kill unverified)" : ""} — ${mins}m — ${j.file}\n  log: ${logPath}\n  tail: ${tail || "(empty)"}`;
-			})
-			.join("\n");
+					writeFileSync(join(jobsDir, `${job.name}.status.json`), JSON.stringify({
+						name: job.name, file: job.file, state: job.state, exitCode: job.exitCode,
+						startedAt: job.startedAt, pid: job.pid, killVerified: job.killVerified,
+						sandboxTargetPids: job.sandboxTargetPids,
+					}, null, 2));
+				} catch { /* best-effort evidence */ }
+			},
+			readLogTail: (name) => {
+				try {
+					const lines = readFileSync(join(jobsDir, `${name}.log`), "utf8").split(/\r?\n/).filter(Boolean);
+					return lines.slice(-5).join(" | ").slice(-400);
+				} catch { return ""; }
+			},
+			isAlive: isProcessAlive,
+			terminate: terminateProcessTree,
+		},
+		(cfg.job_timeout_s ?? 14_400) * 1000,
+	);
+	const refreshJob = (job: BackgroundJob): BackgroundJob => jobs.refresh(job);
+	const killJob = (job: BackgroundJob, state: "killed" | "timeout" = "killed"): void => {
+		const stillAlive = jobs.kill(job, state);
+		if (stillAlive.length > 0) log(`  [${opts.tag}] job ${job.name} kill could not be verified for pid(s): ${stillAlive.join(",")}`);
 	};
+	const jobStatusText = (): string => jobs.statusText();
 
 	const startJob = defineTool({
 		name: "start_job",
@@ -510,7 +444,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				child.unref();
 				pid = child.pid;
 			}
-			const j: Job = {
+			const j: BackgroundJob = {
 				name,
 				file,
 				pid,
@@ -521,18 +455,12 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 				wrapperPath,
 			};
 			jobs.set(name, j);
-			writeJobStatus(j);
 			child.on("error", (error) => {
-				j.exitCode = null;
-				if (j.state === "running") j.state = "failed";
-				writeJobStatus(j);
+				jobs.recordProcessError(j);
 				log(`  [${opts.tag}] job ${name} failed to start: ${error.message}`);
 			});
 			child.on("exit", (code) => {
-				j.exitCode = code;
-				if (j.state !== "killed" && j.state !== "timeout") {
-					j.state = code === 0 ? "done" : "failed";
-				}
+				jobs.recordProcessExit(j, code);
 				if (j.wrapperPath) {
 					try {
 						rmSync(j.wrapperPath, { force: true });
@@ -540,7 +468,6 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 						/* best effort */
 					}
 				}
-				writeJobStatus(j);
 			});
 			log(`  [${opts.tag}] job started: ${name} (${file}, pid ${pid})`);
 			return toolOutput(
@@ -566,6 +493,7 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 		execute: async (_id, params) => {
 			const j = jobs.get(params.name);
 			if (!j) return toolOutput(`error: no job named "${params.name}"`);
+			if (refreshJob(j).state !== "running") return toolOutput(`job "${params.name}" is already ${j.state}; no process signal was sent`);
 			killJob(j, "killed");
 			return toolOutput(
 				j.state === "killed"

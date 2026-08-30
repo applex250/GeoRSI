@@ -22,6 +22,7 @@ import { failedEpisodeResult } from "./inner/episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
 import { checkPythonExecutionPolicy } from "./inner/python-execution.js";
+import { BackgroundJobRegistry, type BackgroundJob, type BackgroundJobPort } from "./inner/background-jobs.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -450,6 +451,28 @@ export async function selftest(): Promise<boolean> {
 	writeFileSync(restrictedScript, "import subprocess\nsubprocess.run(['echo', 'x'])\n");
 	const restrictedPolicy = checkPythonExecutionPolicy(restrictedScript, "restricted-policy.py", "restricted");
 	check("python execution policy adapter blocks restricted escape", restrictedPolicy.blocked && restrictedPolicy.notice.includes("restricted execution policy"));
+	const fakeStatuses = new Map<string, { state?: unknown; exitCode?: unknown }>();
+	const fakeAlive = new Set<number>([42]);
+	const terminated: number[] = [];
+	let fakeNow = 1_000;
+	const fakeJobPort: BackgroundJobPort = {
+		now: () => fakeNow,
+		writeStatus: (job) => fakeStatuses.set(job.name, { state: job.state, exitCode: job.exitCode }),
+		readLogTail: () => "tail",
+		isAlive: (pid) => fakeAlive.has(pid),
+		terminate: (pid) => { terminated.push(pid); fakeAlive.delete(pid); },
+	};
+	const jobRegistry = new BackgroundJobRegistry(fakeJobPort, 100);
+	const fakeJob: BackgroundJob = { name: "job", file: "x.py", pid: 42, startedAt: fakeNow, state: "running", exitCode: null, sandboxTargetPids: [43] };
+	jobRegistry.register(fakeJob);
+	fakeNow += 101;
+	jobRegistry.refresh(fakeJob);
+	check("background job state machine times out and verifies all pids", fakeJob.state === "timeout" && fakeJob.killVerified === true && terminated.includes(42) && terminated.includes(43));
+	const terminatedAfterTimeout = terminated.length;
+	jobRegistry.kill(fakeJob, "killed");
+	check("background job state machine never signals terminal pid", terminated.length === terminatedAfterTimeout && fakeJob.state === "timeout");
+	check("background job status rendering is adapter-backed", jobRegistry.statusText().includes("[job] timeout") && jobRegistry.statusText().includes("tail"));
+
 
 	check("genre guess", guessGenre("quake_b") === "seismology" && guessGenre("flood_rp") === "hydrology" && guessGenre("poro_perm") === "petrophysics");
 

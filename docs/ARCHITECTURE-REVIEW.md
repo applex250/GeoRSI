@@ -223,9 +223,13 @@ RAG off/on 泛化对照
 - `src/isolation-probe.ts` owns host-network preflight and in-box canary source;
   Sandboxie integration tests depend on this narrow module rather than the full
   episode application service.
+- `src/inner/background-jobs.ts` is an injected-port state machine for
+  register/refresh/timeout/exit/kill/status behavior. Workspace status JSON is
+  evidence only—not an authority an agent process can forge—and terminal PIDs
+  are never signalled again after possible OS PID reuse.
 - `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
-  toolkit、episode contract 和 prompt policy，保持行为稳定。进一步拆分
-  submit/job/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。
+  toolkit、episode contract、prompt/submission policy 和 background-job state
+  machine，保持行为稳定。进一步拆分 tool wiring/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。
 
 架构规则：trusted grading、agent workspace 和 provider credentials 的边界
 不能由 UI 或 model adapter 改写；application service 只能通过显式 context 和
