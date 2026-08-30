@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-28-emooo-mimo-pro",
+  "version": "2026-08-30-ai-pixel-luna-unverified",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -10,6 +10,29 @@
     "probe scripts consolidated: scripts/model_probe.py --mode stab|vision|levels|all"
   ],
   "models": {
+    "gpt-5.6-luna": {
+      "endpoint": "ai-pixel",
+      "api_style": "responses",
+      "stability_class": "unverified-ai-pixel",
+      "latency_class": "unverified",
+      "vision_raw_api": false,
+      "reasoning": {
+        "style": "reasoning_effort",
+        "levels_accepted": [
+          "off",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "verified_real_levels": [],
+        "mandatory": true,
+        "quality_floor": "xhigh",
+        "status": "Configuration supplied 2026-08-30; live Responses, tool-loop, usage, and xhigh-effective probes are required before benchmark promotion"
+      }
+    },
     "hy3": {
       "endpoint": "zen",
       "api_style": "chat-completions",

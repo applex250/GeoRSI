@@ -72,7 +72,7 @@ export interface ModelSpec {
 	/** how requests to this model must leave the machine */
 	route: "direct" | "proxy";
 	/** which endpoint serves this model */
-	endpoint: "zen" | "local" | "openrouter" | "emooo";
+	endpoint: "zen" | "local" | "openrouter" | "emooo" | "ai-pixel";
 	/** true context window, tokens (drives pi compaction decisions) */
 	contextWindow: number;
 	/** provider-advertised max output, tokens (informational; we cap lower) */
@@ -88,6 +88,7 @@ export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
 	{ id: "mimo-v2.5-pro", api: "openai-completions", route: "direct", endpoint: "emooo", contextWindow: 1048576, maxOutput: 131072, thinkingLevelMap: { xhigh: "xhigh", max: null }, compat: { thinkingFormat: "zai", supportsReasoningEffort: true, supportsDeveloperRole: false, supportsUsageInStreaming: true, supportsFinishReason: true, supportsStrictMode: false, maxTokensField: "max_tokens" }, note: "temporary emooo.cc route; chat/completions selected over Responses after live probe; thinking enabled/disabled with minimal/low/medium/high/xhigh" },
+	{ id: "gpt-5.6-luna", api: "openai-responses", route: "direct", endpoint: "ai-pixel", contextWindow: 600000, maxOutput: 128000, thinkingLevelMap: { off: "none", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" }, compat: { supportsReasoningEffort: true }, note: "ai-pixel Responses candidate; Luna-only campaigns require xhigh and environment-only AI_PIXEL_API_KEY; live profile remains unverified until probes pass" },
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
 	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: OpenRouter testing alias returned 404 and points to z-ai/glm-5.3-flash" },
@@ -135,6 +136,12 @@ export interface Config {
 	openrouter_base_url?: string;
 	/** optional OpenAI-compatible temporary emooo.cc endpoint */
 	emooo_base_url?: string;
+	/** ai-pixel Responses endpoint; credential is environment-only AI_PIXEL_API_KEY */
+	ai_pixel_base_url?: string;
+	/** when set, every configured/routed model must equal this id */
+	single_model_id?: string;
+	/** optional fail-closed thinking level for inner and outer in single-model campaigns */
+	single_model_thinking_level?: ConfigThinkingLevel;
 	inner_model: string;
 	/** optional model reasoning level; profile clamps it to the provider's verified levels */
 	inner_thinking_level?: ConfigThinkingLevel;
@@ -246,7 +253,22 @@ export function configuredModelIds(cfg: Config, root = ROOT): string[] {
 			// loadProblems reports the task metadata failure when it is evaluated.
 		}
 	}
-	return [...new Set(ids)];
+	const unique = [...new Set(ids)];
+	if (cfg.single_model_id) {
+		assertSupportedModel("single_model_id", cfg.single_model_id);
+		const routedOther = unique.find((id) => id !== cfg.single_model_id);
+		if (routedOther) {
+			throw new Error(`single-model policy requires every route to use "${cfg.single_model_id}", but found "${routedOther}"`);
+		}
+		if (cfg.single_model_thinking_level) {
+			for (const [role, actual] of [["inner", cfg.inner_thinking_level], ["outer", cfg.outer_thinking_level]] as const) {
+				if (actual !== cfg.single_model_thinking_level) {
+					throw new Error(`single-model policy requires ${role}_thinking_level="${cfg.single_model_thinking_level}", but found "${actual ?? "unset"}"`);
+				}
+			}
+		}
+	}
+	return unique;
 }
 
 
@@ -295,6 +317,9 @@ export function loadConfig(path?: string): Config {
 		local_base_url: String(raw.local_base_url ?? "http://172.27.116.56:8080/v1"),
 		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
 		emooo_base_url: String(raw.emooo_base_url ?? "https://api.emooo.cc/v1"),
+		ai_pixel_base_url: String(raw.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1"),
+		single_model_id: typeof raw.single_model_id === "string" && raw.single_model_id.trim() ? raw.single_model_id.trim() : undefined,
+		single_model_thinking_level: optionalThinkingLevel(raw.single_model_thinking_level, "config.json: single_model_thinking_level"),
 		inner_model: inner,
 		inner_thinking_level: optionalThinkingLevel(raw.inner_thinking_level, "config.json: inner_thinking_level"),
 		quiz_inner_model: quizInner,

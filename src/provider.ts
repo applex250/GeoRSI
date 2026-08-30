@@ -78,6 +78,11 @@ export function loadEmoooApiKey(): string {
 	return (process.env.RSILAB_EMOOO_API_KEY ?? process.env.GEORSI_EMOOO_API_KEY ?? "").trim();
 }
 
+/** ai-pixel key; environment-only because repository credential files are forbidden. */
+export function loadAiPixelApiKey(): string {
+	return (process.env.AI_PIXEL_API_KEY ?? "").trim();
+}
+
 /** Host:port of the local server, for proxy bypass. */
 export function localEndpointHost(cfg: Config): string {
 	try {
@@ -173,6 +178,31 @@ export async function preflightEmooo(cfg: Config, modelId: string, apiKey: strin
 	throw new Error(`temporary emooo model "${modelId}" is unavailable at ${url}: ${lastError}`);
 }
 
+/** Authenticate and confirm the ai-pixel catalog when it exposes /models. */
+export async function preflightAiPixel(cfg: Config, modelId: string, apiKey: string): Promise<void> {
+	if (!apiKey) throw new Error(`ai-pixel model "${modelId}" selected but AI_PIXEL_API_KEY is not set`);
+	const url = (cfg.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1").replace(/\/+$/, "") + "/models";
+	let response: Response;
+	try {
+		response = await fetch(url, {
+			headers: { Authorization: `Bearer ${apiKey}` },
+			signal: AbortSignal.timeout(12_000),
+		});
+	} catch (error) {
+		throw new Error(`ai-pixel preflight failed at ${url}: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	if (response.status === 404 || response.status === 405) {
+		bootNotifier("[provider] ai-pixel does not expose /models; Responses capability probe remains required");
+		return;
+	}
+	if (!response.ok) throw new Error(`ai-pixel preflight failed at ${url}: HTTP ${response.status}`);
+	const payload = (await response.json()) as { data?: { id?: string }[] };
+	const ids = (payload.data ?? []).map((model) => model.id).filter((id): id is string => !!id);
+	if (ids.length > 0 && !ids.includes(modelId)) {
+		throw new Error(`ai-pixel is reachable but does not list "${modelId}"`);
+	}
+}
+
 /**
  * Protective per-request output cap (well under every model's advertised max).
  * Env override for slow reasoning kernels whose one full quiz first-pass turn
@@ -200,7 +230,12 @@ function reasoningParamSupported(id: string): boolean {
 }
 
 /** Build the provider/models description pi consumes (models.json schema). */
-function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApiKey: string, emoooApiKey: string): object {
+export function buildModelsJson(
+	cfg: Config,
+	credentials: { zen: string; local: string; openrouter: string; emooo: string; aiPixel: string },
+	selectedModels: readonly string[],
+): object {
+	const selected = new Set(selectedModels);
 	const mk = (m: (typeof SUPPORTED_MODELS)[number]) => ({
 		id: m.id,
 		name: m.id,
@@ -219,39 +254,49 @@ function buildModelsJson(cfg: Config, apiKey: string, localApiKey: string, orApi
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	});
 	const providers: Record<string, unknown> = {};
-	if (apiKey) providers.zen = {
+	if (credentials.zen && SUPPORTED_MODELS.some((model) => selected.has(model.id) && model.endpoint === "zen")) providers.zen = {
 			name: "zen gateway",
 			baseUrl: cfg.base_url,
-			apiKey,
+			apiKey: credentials.zen,
 			// provider-level default; per-model `api` above still wins
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "zen" && !m.retired).map(mk),
+			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "zen" && !m.retired).map(mk),
 		};
-	if (orApiKey) {
+	if (credentials.openrouter && SUPPORTED_MODELS.some((model) => selected.has(model.id) && model.endpoint === "openrouter")) {
 		providers.openrouter = {
 			name: "openrouter",
 			baseUrl: cfg.openrouter_base_url ?? "https://openrouter.ai/api/v1",
-			apiKey: orApiKey,
+			apiKey: credentials.openrouter,
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "openrouter" && !m.retired).map(mk),
+			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "openrouter" && !m.retired).map(mk),
 		};
 	}
-	if (localApiKey) {
+	if (credentials.local && SUPPORTED_MODELS.some((model) => selected.has(model.id) && model.endpoint === "local")) {
 		providers.local = {
 			name: "campus local server",
 			baseUrl: cfg.local_base_url,
-			apiKey: localApiKey,
+			apiKey: credentials.local,
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "local" && !m.retired).map(mk),
+			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "local" && !m.retired).map(mk),
 		};
 	}
-	if (emoooApiKey) {
+	if (credentials.emooo && SUPPORTED_MODELS.some((model) => selected.has(model.id) && model.endpoint === "emooo")) {
 		providers.emooo = {
 			name: "emooo temporary gateway",
 			baseUrl: cfg.emooo_base_url ?? "https://api.emooo.cc/v1",
-			apiKey: emoooApiKey,
+			apiKey: credentials.emooo,
 			api: "openai-completions",
-			models: SUPPORTED_MODELS.filter((m) => m.endpoint === "emooo" && !m.retired).map(mk),
+			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "emooo" && !m.retired).map(mk),
+		};
+	}
+	if (credentials.aiPixel && SUPPORTED_MODELS.some((model) => selected.has(model.id) && model.endpoint === "ai-pixel")) {
+		providers["ai-pixel"] = {
+			name: "ai-pixel Responses gateway",
+			baseUrl: cfg.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1",
+			apiKey: credentials.aiPixel,
+			api: "openai-responses",
+			compat: { supportsReasoningEffort: true },
+			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "ai-pixel" && !m.retired).map(mk),
 		};
 	}
 	return { providers };
@@ -261,6 +306,7 @@ function providerIdForEndpoint(endpoint: ModelSpec["endpoint"]): string {
 	if (endpoint === "local") return "local";
 	if (endpoint === "openrouter") return "openrouter";
 	if (endpoint === "emooo") return "emooo";
+	if (endpoint === "ai-pixel") return "ai-pixel";
 	return "zen";
 }
 
@@ -290,12 +336,15 @@ export function resolveModel(id: string): Model<any> {
 
 export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime> {
 	if (cached) return cached;
-	const apiKey = loadOptionalApiKey(root);
-	const localApiKey = loadLocalApiKey(root);
-	const orApiKey = loadOpenRouterApiKey(root);
-	const emoooApiKey = loadEmoooApiKey();
 	const selected = configuredModelIds(cfg, root);
 	const specOf = (id: string): ModelSpec => assertSupportedModel("selected model", id);
+	const endpoints = new Set(selected.map((id) => specOf(id).endpoint));
+	// Do not read unrelated credential files in a single-provider campaign.
+	const apiKey = endpoints.has("zen") ? loadOptionalApiKey(root) : "";
+	const localApiKey = endpoints.has("local") ? loadLocalApiKey(root) : "";
+	const orApiKey = endpoints.has("openrouter") ? loadOpenRouterApiKey(root) : "";
+	const emoooApiKey = endpoints.has("emooo") ? loadEmoooApiKey() : "";
+	const aiPixelApiKey = endpoints.has("ai-pixel") ? loadAiPixelApiKey() : "";
 
 	for (const id of selected) {
 		const spec = specOf(id);
@@ -312,6 +361,7 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 			await preflightLocal(cfg, id, localApiKey);
 		}
 		if (spec.endpoint === "emooo") await preflightEmooo(cfg, id, emoooApiKey);
+		if (spec.endpoint === "ai-pixel") await preflightAiPixel(cfg, id, aiPixelApiKey);
 	}
 
 	// Any selected/routed model needing the proxy flips the whole process's LLM
@@ -330,7 +380,13 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	const modelsPath = join(runtimeDir, "models.json");
 	let modelRuntime: ModelRuntime;
 	try {
-		const modelsJson = buildModelsJson(cfg, apiKey, localApiKey, orApiKey, emoooApiKey) as { providers?: Record<string, unknown> };
+		const modelsJson = buildModelsJson(cfg, {
+			zen: apiKey,
+			local: localApiKey,
+			openrouter: orApiKey,
+			emooo: emoooApiKey,
+			aiPixel: aiPixelApiKey,
+		}, selected) as { providers?: Record<string, unknown> };
 		if (!modelsJson.providers || Object.keys(modelsJson.providers).length === 0) {
 			throw new Error("no provider credentials are configured for the selected GeoRSI models");
 		}
@@ -350,7 +406,7 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 		if (!m) {
 			throw new Error(
 				`model "${id}" not found on provider "${provider}" after composing pi-models.json` +
-					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : !emoooApiKey && specOf(id).endpoint === "emooo" ? " (emooo provider omitted: set RSILAB_EMOOO_API_KEY)" : ""),
+					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : !emoooApiKey && specOf(id).endpoint === "emooo" ? " (emooo provider omitted: set RSILAB_EMOOO_API_KEY)" : !aiPixelApiKey && specOf(id).endpoint === "ai-pixel" ? " (ai-pixel provider omitted: set AI_PIXEL_API_KEY)" : ""),
 			);
 		}
 		return m;

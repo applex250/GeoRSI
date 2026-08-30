@@ -36,7 +36,7 @@ export interface ReasoningProfile {
 
 export interface ModelProfile {
 	/** endpoint/provider key for this model */
-	endpoint: "zen" | "local" | "openrouter" | "emooo";
+	endpoint: "zen" | "local" | "openrouter" | "emooo" | "ai-pixel";
 	api_style: "chat-completions" | "responses";
 	stability_class: string;
 	vision_raw_api: boolean;

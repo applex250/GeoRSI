@@ -4,7 +4,18 @@
 > 测量条件声明：部分数据在演化 run 并发压网关时采集；旧 `stealth/ox-alpha` alias 于 2026-08-27 返回 HTTP 404，已停止使用。
 > **机器可读单一事实源：`config/model-profiles.json`** —— TS（`src/models.ts`）与 Python（`problems/_shared/model_client.py`）两侧适配器都从它读取；本文档是 human view。
 
-## 一、能力总览矩阵
+| 模型 | 端点 / 协议 | 推理 | 当前角色 |
+|---|---|---|---|
+| **gpt-5.6-luna** | ai-pixel / **Responses API** | benchmark 固定 `xhigh`；live 生效性仍需 probe | 唯一获准的新模型调用；inner/outer/planner/verifier/报告 |
+| hy3 | zen / chat-completions | low..xhigh | 历史配置；Luna-only campaign 禁止调用 |
+| mimo-v2.5 | zen / chat-completions | low..high | 历史配置；Luna-only campaign 禁止调用 |
+| GLM-5.3 Flash | OpenRouter / chat-completions | mandatory | 历史配置；Luna-only campaign 禁止调用 |
+| dsv4f | local / chat-completions | effort/budget | 历史配置；Luna-only campaign 禁止调用 |
+| muse-spark | zen / Responses API | 不支持 reasoning 参数 | 历史配置；Luna-only campaign 禁止调用 |
+
+> Luna 的 provider 配置来自用户提供的能力声明；在 Responses、tool-loop、usage 和 `xhigh` 生效性 probe 完成前，档案保持 `unverified-ai-pixel`。任何出现在对话、命令行或日志中的 key 都必须撤销。新 key 只从 `AI_PIXEL_API_KEY` 读取，项目不支持 ai-pixel key 文件 fallback。
+
+## 一、历史能力总览矩阵
 
 | 能力 | hy3 | mimo-v2.5 | GLM-5.3 Flash | dsv4f (Qwen3 本地) | muse-spark |
 |---|---|---|---|---|---|

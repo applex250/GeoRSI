@@ -12,7 +12,7 @@ import { openMemory, emptyMemory, addMemory, recall, renderMemory, defaultObserv
 import { deterministicTrend } from "./goal.js";
 import { durableRunArtifacts } from "./rsi.js";
 import { renderLeaderboard, renderFindings } from "./board.js";
-import { loadConfig, SUPPORTED_MODELS, modelSpec } from "./config.js";
+import { loadConfig, SUPPORTED_MODELS, modelSpec, configuredModelIds } from "./config.js";
 import { loadCorpus, queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve } from "./retrieval.js";
 import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
 import {
@@ -22,7 +22,7 @@ import {
 	type ExamEvidenceStore,
 	type ExamProblemResult,
 } from "./exam.js";
-import { resolveRequestMaxTokens } from "./provider.js";
+import { buildModelsJson, loadAiPixelApiKey, resolveRequestMaxTokens } from "./provider.js";
 import { TokenLedger } from "./budget.js";
 import { failedEpisodeResult, type EpisodeExecutor } from "./inner/episode-contract.js";
 import { evaluateScaffold } from "./rsi_eval.js";
@@ -233,7 +233,28 @@ export async function selftest(): Promise<boolean> {
 	check("findings escapes pipes", fmd.includes("adds L-moment estimator tip / pipe") && fmd.includes("ACCEPTED"));
 
 	console.log("== supported model list ==");
-	check("9 models fixed (4 zen + 1 emooo + 1 local + 3 openrouter)", SUPPORTED_MODELS.length === 9);
+	check("10 models fixed including ai-pixel Luna", SUPPORTED_MODELS.length === 10);
+	const luna = modelSpec("gpt-5.6-luna");
+	check("Luna is ai-pixel Responses with full xhigh mapping", luna?.endpoint === "ai-pixel" && luna.api === "openai-responses" && luna.contextWindow === 600000 && luna.maxOutput === 128000 && luna.thinkingLevelMap?.xhigh === "xhigh" && luna.compat?.supportsReasoningEffort === true);
+	const lunaCfgPath = join(tmp, "luna-config.json");
+	writeFileSync(lunaCfgPath, JSON.stringify({ inner_model: "gpt-5.6-luna", inner_thinking_level: "xhigh", outer_model: "gpt-5.6-luna", outer_thinking_level: "xhigh", quiz_inner_model: "gpt-5.6-luna", single_model_id: "gpt-5.6-luna", single_model_thinking_level: "xhigh", problems: [{ id: "quake_b" }] }));
+	const lunaCfg = loadConfig(lunaCfgPath);
+	check("Luna-only config exposes one routed model", JSON.stringify(configuredModelIds(lunaCfg, tmp)) === JSON.stringify(["gpt-5.6-luna"]));
+	let mixedLunaRouteRejected = false;
+	try { configuredModelIds({ ...lunaCfg, quiz_inner_model: "hy3" }, tmp); }
+	catch (error) { mixedLunaRouteRejected = String(error).includes("single-model policy"); }
+	check("Luna-only policy rejects another routed model", mixedLunaRouteRejected);
+	let wrongLunaThinkingRejected = false;
+	try { configuredModelIds({ ...lunaCfg, outer_thinking_level: "high" }, tmp); }
+	catch (error) { wrongLunaThinkingRejected = String(error).includes("outer_thinking_level"); }
+	check("Luna-only policy rejects non-xhigh thinking", wrongLunaThinkingRejected);
+	const lunaModelsJson = buildModelsJson(lunaCfg, { zen: "unused", local: "unused", openrouter: "unused", emooo: "unused", aiPixel: "selftest-placeholder" }, ["gpt-5.6-luna"]) as { providers?: Record<string, { models?: { id?: string; api?: string }[] }> };
+	check("provider composition includes only selected ai-pixel model", Object.keys(lunaModelsJson.providers ?? {}).join(",") === "ai-pixel" && lunaModelsJson.providers?.["ai-pixel"]?.models?.[0]?.id === "gpt-5.6-luna");
+	const priorAiPixelKey = process.env.AI_PIXEL_API_KEY;
+	process.env.AI_PIXEL_API_KEY = "selftest-placeholder";
+	check("ai-pixel credential loader is environment-only", loadAiPixelApiKey() === "selftest-placeholder");
+	if (priorAiPixelKey === undefined) delete process.env.AI_PIXEL_API_KEY;
+	else process.env.AI_PIXEL_API_KEY = priorAiPixelKey;
 	const muse = modelSpec("muse-spark-1.2-contributor");
 	check("muse is proxy + responses", muse?.route === "proxy" && muse?.api === "openai-responses");
 	check("hy3/ox-alpha/mimo direct chat", ["hy3", "ox-alpha-free", "mimo-v2.5"].every((id) => modelSpec(id)?.route === "direct" && modelSpec(id)?.api === "openai-completions"));
@@ -501,6 +522,8 @@ export async function selftest(): Promise<boolean> {
 	check("emooo off remains a disable request", resolveThinking("mimo-v2.5-pro", "off").level === "off");
 	const emoooMax = resolveThinking("mimo-v2.5-pro", "max");
 	check("emooo max clamps to xhigh", emoooMax.level === "xhigh" && emoooMax.clamped);
+	const lunaXhigh = resolveThinking("gpt-5.6-luna", "xhigh");
+	check("Luna xhigh remains exact and emits reasoning effort", lunaXhigh.level === "xhigh" && !lunaXhigh.clamped && lunaXhigh.extraBody.reasoning_effort === "xhigh");
 	let visionBlocked = false;
 	try {
 		assertVisionAllowed("dsv4f", true);
@@ -708,6 +731,7 @@ export async function selftest(): Promise<boolean> {
 	);
 	const { shouldAttachExchangeTools, resolveHarnessThinking } = await import("./piharness.js");
 	check("Pi harness preserves emooo max clamp as xhigh", resolveHarnessThinking(modelSpec("mimo-v2.5-pro") as never, "max") === "xhigh");
+	check("Pi harness preserves Luna xhigh without downgrade", resolveHarnessThinking(modelSpec("gpt-5.6-luna") as never, "xhigh") === "xhigh");
 	check("Pi harness preserves GLM max", resolveHarnessThinking(modelSpec("z-ai/glm-5.3-flash") as never, "max") === "max");
 	let dsvDeepRejected = false;
 	try {
