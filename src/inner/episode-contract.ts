@@ -13,6 +13,9 @@ export interface EpisodeIsolationEvidence {
 	exchangeWorkspace: string;
 	reload?: boolean;
 	processOwnershipVerified?: boolean;
+	networkMode?: "blocked" | "open";
+	/** true only when the configured policy intentionally denies episode egress */
+	networkIsolationClaim?: boolean;
 	networkProbe?: Record<string, unknown>;
 	cleanup?: Record<string, unknown>;
 }

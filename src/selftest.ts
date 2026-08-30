@@ -57,6 +57,10 @@ import { ContentAddressedEvidenceStore } from "./research/evidence-store.js";
 import { captureResearchEnvironment } from "./research/environment-capture.js";
 import { createResearchPackageManifest } from "./research/artifact-manifest.js";
 import { verifyResearchPackage } from "./research/replay.js";
+import { ScientificToolRegistry, type ScientificToolReceipt } from "./research/tool-registry.js";
+import { buildContextPack } from "./research/context-manager.js";
+import { ResearchScheduler } from "./research/scheduler.js";
+import { createWebFetchTool, crossrefWorksUrl, openAlexWorksUrl } from "./research/network-tools.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -169,6 +173,52 @@ export async function selftest(): Promise<boolean> {
 	check("decision policy rejects unsupported selections", validateDecisionRecord({ id: "d-1", nodeId: "frame", question: "Which estimator?", alternatives: ["Aki", "OLS"], selected: "Aki", evidenceIds: ["missing"], assumptions: [], expectedObservation: "stable b", falsifier: "sensitivity fails", uncertainty: "sampling uncertainty" }, evidence).some((issue) => issue.includes("unknown evidence")));
 	check("claim policy requires evidence for supported conclusions", validateResearchClaim({ id: "c-1", text: "b is stable", status: "supported", evidenceIds: [], uncertainty: "bootstrap", limitations: [] }, evidence).some((issue) => issue.includes("requires evidence")));
 	check("research failure taxonomy routes CRS and timeout failures", classifyResearchFailure("CRS projection mismatch").class === "crs" && classifyResearchFailure("execution timed out").affectedComponent === "budget");
+	console.log("== research tools context and scheduler ==");
+	const toolReceipts: ScientificToolReceipt[] = [];
+	let toolClock = Date.parse("2026-08-30T00:10:00Z");
+	const toolRegistry = new ScientificToolRegistry(() => new Date(toolClock += 10), () => `receipt-${toolClock}`, (receipt) => toolReceipts.push(receipt));
+	toolRegistry.register({
+		id: "inspect-table",
+		version: "1",
+		capability: "statistics",
+		validate: (input) => typeof (input as { rows?: unknown }).rows === "number" ? [] : ["rows must be numeric"],
+		execute: async (_context, input: { rows: number; apiKey?: string }) => ({ output: { rows: input.rows, apiKey: input.apiKey }, artifactIds: ["artifact-table"] }),
+	});
+	const scientificToolRun = await toolRegistry.execute("inspect-table", { missionId: mission.id, episodeId: "episode-1", nodeId: "audit", allowedCapabilities: ["statistics"], remainingWallMs: 1000 }, { rows: 12, apiKey: "must-redact" });
+	check("scientific tool registry records typed success receipts", scientificToolRun.receipt.status === "success" && scientificToolRun.receipt.artifactIds[0] === "artifact-table" && toolReceipts.length === 1);
+	check("scientific tool receipts redact credential-shaped fields", (scientificToolRun.receipt.input as { apiKey?: string }).apiKey === "[REDACTED_CREDENTIAL]" && (scientificToolRun.receipt.output as { apiKey?: string }).apiKey === "[REDACTED_CREDENTIAL]");
+	let disallowedCapabilityRejected = false;
+	try { await toolRegistry.execute("inspect-table", { missionId: mission.id, episodeId: "episode-1", nodeId: "frame", allowedCapabilities: ["filesystem"], remainingWallMs: 1000 }, { rows: 1 }); }
+	catch { disallowedCapabilityRejected = true; }
+	check("scientific tool registry enforces node capabilities", disallowedCapabilityRejected);
+	const contextPack = buildContextPack([
+		{ id: "policy", kind: "policy", content: "never access private truth", priority: 100, mandatory: true },
+		{ id: "node", kind: "node", content: "audit the dataset", priority: 90, mandatory: true },
+		{ id: "useful", kind: "evidence", content: "x".repeat(80), priority: 50, mandatory: false },
+		{ id: "noise", kind: "evidence", content: "y".repeat(800), priority: 1, mandatory: false },
+	], 100);
+	check("context pack keeps mandatory and highest-value evidence within budget", contextPack.entries.some((entry) => entry.id === "useful") && contextPack.skippedBlockIds.includes("noise") && contextPack.estimatedTokens <= 100);
+	let oversizedMandatoryRejected = false;
+	try { buildContextPack([{ id: "too-large", kind: "policy", content: "x".repeat(1000), priority: 1, mandatory: true }], 10); }
+	catch { oversizedMandatoryRejected = true; }
+	check("context pack fails closed when mandatory policy exceeds budget", oversizedMandatoryRejected);
+	let schedulerGraph = createWorkGraph("scheduler-mission", [frameNode, auditNode], new Date("2026-08-30T00:20:00Z"));
+	let auditAttempts = 0;
+	let schedulerNow = Date.parse("2026-08-30T00:20:00Z");
+	const checkpoints: string[] = [];
+	const scheduler = new ResearchScheduler({
+		now: () => new Date(schedulerNow += 1000),
+		execute: async (node) => {
+			if (node.id === "audit" && auditAttempts++ === 0) throw new Error("execution timed out");
+			return { artifactIds: [`artifact-${node.id}`] };
+		},
+		verify: async (node) => ({ passed: true, evidenceIds: [`verify-${node.id}`], issues: [] }),
+		checkpoint: (graph) => { checkpoints.push(graph.updatedAt); },
+	});
+	const scheduled = await scheduler.run(schedulerGraph);
+	schedulerGraph = scheduled.graph;
+	check("research scheduler retries only the failed node and completes DAG", scheduled.completed && scheduled.executedNodes.join(",") === "frame,audit,audit" && scheduled.failures[0]?.failure.class === "timeout" && workGraphComplete(schedulerGraph));
+	check("research scheduler checkpoints every state transition", checkpoints.length >= 8);
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");
@@ -198,6 +248,13 @@ export async function selftest(): Promise<boolean> {
 	const evidenceStore = new ContentAddressedEvidenceStore(join(researchDir, "cas"));
 	const evidenceRef = evidenceStore.putJson({ estimate: 0.85, unit: "dimensionless" }, { kind: "verifier", logicalName: "results/verification.json", producerNodeId: "frame" });
 	check("content-addressed evidence verifies bytes and hash", evidenceRef.logicalName === "verification.json" && evidenceStore.verify(evidenceRef) && evidenceStore.read(evidenceRef).length > 0);
+	const networkTool = createWebFetchTool({
+		fetch: async (request) => ({ finalUrl: request.url, status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"items":[]}'), retrievedAt: "2026-08-30T01:01:30Z" }),
+	}, evidenceStore);
+	toolRegistry.register(networkTool);
+	const networkRun = await toolRegistry.execute("web-fetch", { missionId: mission.id, episodeId: "episode-1", nodeId: "literature", allowedCapabilities: ["network"], remainingWallMs: 10_000 }, { url: crossrefWorksUrl("Gutenberg Richter", 5) });
+	check("network research tool stores fetched content as evidence", networkRun.receipt.status === "success" && networkRun.receipt.artifactIds.length === 1 && evidenceStore.verify({ ...evidenceRef, id: networkRun.receipt.artifactIds[0]!, sha256: networkRun.receipt.artifactIds[0]!.replace("sha256:", ""), bytes: Buffer.byteLength('{"items":[]}') }));
+	check("literature URL builders bound and encode queries", crossrefWorksUrl("a b", 100).includes("rows=50") && openAlexWorksUrl("a b", 0).includes("per-page=1"));
 	const environment = captureResearchEnvironment({ gitCommit: "fake", gitDirty: false, configFingerprint: "cfg", strategyFingerprint: "strategy", modelProfileVersion: "profile", modelProfileFingerprint: "profile-hash", pythonPath: "python", pythonPackages: ["numpy==2", "pandas==2"], networkMode: "open", evaluatorMetrics: { private: "v1" }, randomSeeds: [7] }, new Date("2026-08-30T01:02:00Z"));
 	const replayClaims = [{ id: "claim-1", text: "The computed estimate is 0.85", status: "supported" as const, evidenceIds: [evidenceRef.id], uncertainty: "bootstrap interval pending", limitations: ["frozen fixture"] }];
 	const packageManifest = createResearchPackageManifest({ mission, graph: researchGraph, eventLedgerRootHash: ledgerRoot, environment, evidence: [evidenceRef], claims: replayClaims, deliverables: [{ id: "report", path: "report.md", sha256: "b".repeat(64), required: true }], now: new Date("2026-08-30T01:03:00Z") });
@@ -719,6 +776,7 @@ export async function selftest(): Promise<boolean> {
 		resolveExchangeWorkspace,
 		sandboxieRootCommandArgs,
 		sandboxieDeleteCommandArgs,
+		sandboxieRulePaths,
 		sandboxieSettingValuesMatch,
 		assertSandboxPythonCommand,
 		isSandboxieBackend,
@@ -793,6 +851,9 @@ export async function selftest(): Promise<boolean> {
 	check("Sandboxie box names are length bounded", sanitizeSandboxieBoxName("x".repeat(100)).length <= 38);
 	const exchange = resolveExchangeWorkspace(join(process.cwd(), "runs", "demo", "episodes", "tag"));
 	check("strict exchange workspace leaves repository", !exchange.toLowerCase().startsWith(process.cwd().toLowerCase()));
+	const blockedNetworkRules = sandboxieRulePaths(process.cwd(), join(process.cwd(), "..", "rsi-lab-private"), exchange);
+	const openNetworkRules = sandboxieRulePaths(process.cwd(), join(process.cwd(), "..", "rsi-lab-private"), exchange, "open");
+	check("Sandboxie network modes preserve file denies while changing egress", blockedNetworkRules.networkAccess === "*,Block" && openNetworkRules.networkAccess === "*,Allow" && blockedNetworkRules.closedFilePaths.join("|") === openNetworkRules.closedFilePaths.join("|"));
 	const rootArgs = sandboxieRootCommandArgs("GeoRSI_test", "python.exe", "C:/tmp/runner.py");
 	check("/box root command does not misuse /fcp", rootArgs[0] === "/box:GeoRSI_test" && !rootArgs.includes("/fcp"));
 	check("delete sandbox uses command token", sandboxieDeleteCommandArgs("GeoRSI_test")[1] === "delete_sandbox_silent");

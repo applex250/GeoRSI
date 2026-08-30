@@ -58,6 +58,7 @@ export interface SandboxieRuleSet {
 	openFilePath: string;
 	closedFilePaths: string[];
 	closedKeyPaths: string[];
+	networkMode: "blocked" | "open";
 	networkAccess: string;
 }
 
@@ -71,6 +72,7 @@ export interface SandboxieBoxRecord {
 	pids: number[];
 	globalWfpWasEnabled: boolean;
 	globalWfpOriginalValues: string[];
+	networkMode: "blocked" | "open";
 	leasePath: string;
 	leaseToken: string;
 	networkProbe?: Record<string, unknown>;
@@ -514,6 +516,7 @@ export class SandboxieAdapter {
 		repoRoot: string;
 		privateRoot: string;
 		additionalProtectedRoots?: readonly string[];
+		networkMode?: "blocked" | "open";
 	}): Promise<SandboxieBoxRecord> {
 		const name = sanitizeSandboxieBoxName(args.name);
 		const exchangeWorkspace = resolve(args.exchangeWorkspace);
@@ -545,12 +548,14 @@ export class SandboxieAdapter {
 			...credentialClosedPaths(repoRoot),
 		]);
 		const closedKeyPaths = uniqueCaseInsensitive(credentialClosedKeys());
+		const networkMode = args.networkMode ?? "blocked";
 		const rules: SandboxieRuleSet = {
 			fileRootPath: normalizeWindowsPath(rootPath),
 			openFilePath: exchangeRule,
 			closedFilePaths,
 			closedKeyPaths,
-			networkAccess: "*,Block",
+			networkMode,
+			networkAccess: networkMode === "open" ? "*,Allow" : "*,Block",
 		};
 		const lease = this.acquireGlobalLease(name);
 		let globalWfpOriginalValues: string[] = [];
@@ -570,7 +575,7 @@ export class SandboxieAdapter {
 			await this.set(name, "FileRootPath", rules.fileRootPath);
 			await this.set(name, "OpenFilePath", rules.openFilePath);
 			await this.set(name, "DropAdminRights", "y");
-			await this.set(name, "AllowNetworkAccess", "n");
+			await this.set(name, "AllowNetworkAccess", networkMode === "open" ? "y" : "n");
 			await this.set(name, "NetworkEnableWFP", "y");
 			await this.set(name, "NetworkAccess", rules.networkAccess);
 			await this.set(name, "BlockNetworkFiles", "y");
@@ -590,7 +595,7 @@ export class SandboxieAdapter {
 				["FileRootPath", rules.fileRootPath],
 				["OpenFilePath", rules.openFilePath],
 				["DropAdminRights", "y"],
-				["AllowNetworkAccess", "n"],
+				["AllowNetworkAccess", networkMode === "open" ? "y" : "n"],
 				["NetworkEnableWFP", "y"],
 				["NetworkAccess", rules.networkAccess],
 				["BlockNetworkFiles", "y"],
@@ -622,6 +627,7 @@ export class SandboxieAdapter {
 				pids: [],
 				globalWfpWasEnabled,
 				globalWfpOriginalValues,
+				networkMode,
 				leasePath: lease.path,
 				leaseToken: lease.token,
 			};
@@ -1194,7 +1200,7 @@ export function ensureAbsoluteExchangeWorkspace(path: string, root?: string): st
 	return absolute;
 }
 
-export function sandboxieRulePaths(repoRoot: string, privateRoot: string, exchangeWorkspace: string): SandboxieRuleSet {
+export function sandboxieRulePaths(repoRoot: string, privateRoot: string, exchangeWorkspace: string, networkMode: "blocked" | "open" = "blocked"): SandboxieRuleSet {
 	const repo = resolve(repoRoot);
 	const priv = resolve(privateRoot);
 	const exchange = resolve(exchangeWorkspace);
@@ -1207,6 +1213,7 @@ export function sandboxieRulePaths(repoRoot: string, privateRoot: string, exchan
 			...credentialClosedPaths(repo),
 		]),
 		closedKeyPaths: credentialClosedKeys(),
-		networkAccess: "*,Block",
+		networkMode,
+		networkAccess: networkMode === "open" ? "*,Allow" : "*,Block",
 	};
 }

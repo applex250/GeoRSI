@@ -87,6 +87,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 	// per-problem overrides (quiz batches, long-job problems) win over config
 	const cfg: Config = applyProblemRuntimeOverride(opts.cfg, problem.overrides);
 	const sandboxed = isSandboxieBackend(cfg);
+	const networkMode = cfg.network_mode ?? "blocked";
 	const repoRoot = resolve(ROOT);
 	const privateRoot = resolve(ROOT, cfg.private_truth_dir);
 	const extraProtectedRoots = [...new Set((evalCtx.protectedRoots ?? []).map((path) => resolve(path)))]
@@ -164,7 +165,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 		try {
 			const networkExpected = await hostNetworkReachable();
 			if (!networkExpected) {
-				throw new Error("strict Sandboxie network preflight failed: the host could not reach https://example.com; refusing to classify an unavailable network as sandbox blocking");
+				throw new Error(`strict Sandboxie network preflight failed: the host could not reach https://example.com; refusing to verify network mode ${networkMode} against an unavailable host network`);
 			}
 			const boxName = makeSandboxieBoxName(`${opts.tag}-${problem.id}`);
 		sandboxRecord = await sandboxAdapter.prepareBox({
@@ -173,6 +174,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 			repoRoot,
 			privateRoot,
 			additionalProtectedRoots: extraProtectedRoots,
+			networkMode,
 		});
 		const recordForExit = sandboxRecord!;
 		const onProcessExit = (): void => {
@@ -216,10 +218,14 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 		if (probe.exitCode !== 0 || probe.timedOut) {
 			throw new Error(`Sandboxie isolation probe failed: exit=${probe.exitCode} timeout=${probe.timedOut}`);
 		}
-		for (const key of ["repo_file", "private_dir", "network"] as const) {
+		for (const key of ["repo_file", "private_dir"] as const) {
 			if (probeData[key] !== "BLOCKED") {
 				throw new Error(`Sandboxie isolation probe was not fail-closed for ${key}: ${String(probeData[key])}`);
 			}
+		}
+		const expectedNetworkStatus = networkMode === "open" ? "ACCESS" : "BLOCKED";
+		if (probeData.network !== expectedNetworkStatus) {
+			throw new Error(`Sandboxie network probe did not match mode ${networkMode}: expected ${expectedNetworkStatus}, got ${String(probeData.network)}`);
 		}
 		for (const [index, item] of ((probeData.additional_protected ?? []) as { status?: unknown }[]).entries()) {
 			if (item.status !== "BLOCKED") {
@@ -229,7 +235,7 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 		if (!Array.isArray(probeData.errors) || probeData.errors.length > 0) {
 			throw new Error(`Sandboxie isolation probe had unexpected errors: ${JSON.stringify(probeData.errors ?? "missing")}`);
 		}
-		log(`  [${opts.tag}] Sandboxie isolation probe passed (repo/private/network blocked)`);
+		log(`  [${opts.tag}] Sandboxie isolation probe passed (repo/private blocked; network=${networkMode})`);
 		} catch (error) {
 			if (sandboxRecord) {
 				try {
@@ -840,6 +846,8 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 					exchangeWorkspace: workspace,
 					reload: sandboxRecord.reload,
 					processOwnershipVerified: sandboxRecord.pids.length > 0,
+					networkMode: sandboxRecord.networkMode,
+					networkIsolationClaim: sandboxRecord.networkMode === "blocked",
 					networkProbe: sandboxRecord.networkProbe,
 					cleanup: sandboxCleanup as unknown as Record<string, unknown> | undefined,
 				}

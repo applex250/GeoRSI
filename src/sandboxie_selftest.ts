@@ -18,6 +18,7 @@ const additionalProtectedFile = join(additionalProtectedRoot, "canary.txt");
 mkdirSync(additionalProtectedRoot, { recursive: true });
 writeFileSync(additionalProtectedFile, "sandboxie-protected-canary", "utf8");
 const pythonCmd = assertSandboxPythonCommand(process.env.GEORSI_SANDBOXIE_PYTHON ?? cfg.python_cmd, [repoRoot, privateRoot]);
+const networkMode = process.env.GEORSI_SANDBOXIE_NETWORK_MODE === "open" ? "open" : "blocked";
 const probeScript = join(exchange, ".sandboxie-selftest.py");
 const probeResult = join(exchange, ".sandboxie-selftest.json");
 const adapter = SandboxieAdapter.fromConfig(cfg, (message) => console.log(message));
@@ -39,6 +40,7 @@ try {
 		repoRoot,
 		privateRoot,
 		additionalProtectedRoots: [additionalProtectedRoot],
+		networkMode,
 	});
 	let concurrentLeaseRejected = false;
 	try {
@@ -47,6 +49,7 @@ try {
 			exchangeWorkspace: exchange,
 			repoRoot,
 			privateRoot,
+			networkMode,
 		});
 	} catch (error) {
 		concurrentLeaseRejected = String(error).includes("global-WFP lease");
@@ -69,9 +72,11 @@ try {
 	if (run.exitCode !== 0 || run.timedOut || run.targetPids.length === 0) {
 		throw new Error(`Sandboxie runner failed: exit=${run.exitCode} timeout=${run.timedOut} pids=${run.targetPids.join(",")}`);
 	}
-	for (const key of ["repo_file", "private_dir", "network"]) {
+	for (const key of ["repo_file", "private_dir"]) {
 		if (result[key] !== "BLOCKED") throw new Error(`isolation probe ${key}=${String(result[key])} detail=${String(result[`${key}_detail`] ?? "missing")}`);
 	}
+	const expectedNetwork = networkMode === "open" ? "ACCESS" : "BLOCKED";
+	if (result.network !== expectedNetwork) throw new Error(`network probe mode=${networkMode} expected=${expectedNetwork} actual=${String(result.network)} detail=${String(result.network_detail ?? "missing")}`);
 	const additional = result.additional_protected as { status?: unknown }[] | undefined;
 	if (!additional || additional.length !== 1 || additional[0]?.status !== "BLOCKED") {
 		throw new Error(`additional protected canary was not blocked: ${JSON.stringify(additional)}`);
@@ -211,7 +216,7 @@ try {
 		rmSync(staleLease, { force: true });
 	}
 	if (!staleRejected) throw new Error("stale Sandboxie global-WFP lease did not fail closed with recovery guidance");
-	console.log(`SANDBOXIE_OK box=${record.name} pids=${run.targetPids.join(",")} exchange=${exchange}`);
+	console.log(`SANDBOXIE_OK box=${record.name} pids=${run.targetPids.join(",")} exchange=${exchange} network=${networkMode}`);
 } catch (error) {
 	console.error(`SANDBOXIE_FAIL: ${error instanceof Error ? error.message : String(error)}`);
 	if (record) {

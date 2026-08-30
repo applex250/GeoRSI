@@ -184,6 +184,8 @@ export interface Config {
 	 * `host-audit` is an explicit compatibility mode and is not isolation.
 	 */
 	execution_backend?: "sandboxie" | "host-audit";
+	/** direct episode network policy; blocked remains the safe/default legacy mode */
+	network_mode?: "blocked" | "open";
 	/** optional absolute/installed Sandboxie paths for deterministic CI */
 	sandboxie_start_path?: string;
 	sandboxie_ini_path?: string;
@@ -216,6 +218,7 @@ function loadJson(path: string): Record<string, unknown> {
 export interface ProblemRuntimeOverride {
 	execution_backend?: Config["execution_backend"];
 	execution_policy?: Config["execution_policy"];
+	network_mode?: Config["network_mode"];
 	python_cmd?: string;
 	max_turns?: number;
 	eval_cap?: number;
@@ -230,6 +233,7 @@ export function applyProblemRuntimeOverride(base: Config, override: ProblemRunti
 		...base,
 		execution_backend: override.execution_backend ?? base.execution_backend,
 		execution_policy: override.execution_policy ?? base.execution_policy,
+		network_mode: override.network_mode ?? base.network_mode,
 		python_cmd: override.python_cmd ?? base.python_cmd,
 		max_turns: override.max_turns ?? base.max_turns,
 		eval_cap: override.eval_cap ?? base.eval_cap,
@@ -345,6 +349,7 @@ export function loadConfig(path?: string): Config {
 		python_cmd: String(raw.python_cmd ?? "python"),
 		execution_backend:
 			raw.execution_backend === "host-audit" ? "host-audit" : raw.execution_backend === "sandboxie" ? "sandboxie" : undefined,
+		network_mode: raw.network_mode === "open" ? "open" : raw.network_mode === "blocked" ? "blocked" : undefined,
 		sandboxie_start_path: typeof raw.sandboxie_start_path === "string" ? raw.sandboxie_start_path : undefined,
 		sandboxie_ini_path: typeof raw.sandboxie_ini_path === "string" ? raw.sandboxie_ini_path : undefined,
 		sandboxie_exchange_root: typeof raw.sandboxie_exchange_root === "string" ? raw.sandboxie_exchange_root : undefined,

@@ -29,8 +29,12 @@ maintained source views:
    store. Cross-run knowledge is explicitly active or probationary.
 7. `src/sandboxie.ts` owns the Windows Sandboxie-Plus adapter: strict episodes
    use an absolute exchange workspace, closed repository/private/credential
-   paths, WFP network blocking, `/reload` read-back, PID ownership probes, and
-   terminate/delete/reload cleanup. Strict `python_cmd` values must resolve
+   paths, `/reload` read-back, PID ownership probes, and verified cleanup.
+   Legacy/default `network_mode=blocked` uses WFP network blocking; explicit
+   research `network_mode=open` keeps file/process/credential isolation but
+   requires the live probe to prove egress is accessible and records
+   `networkIsolationClaim=false`. Open runs must never be reported as network
+   isolated. Strict `python_cmd` values must resolve
    outside the repository/private roots; repo-local GIS venvs are rejected
    before box creation rather than falling back to host Python. Sandboxie is
    app-level isolation, not VM security. `host-audit` remains an explicit
