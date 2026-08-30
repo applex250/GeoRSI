@@ -41,6 +41,11 @@ const sampleEvents: RsiEvent[] = [
 	{ type: "champion_keep", generation: 2, best: 0.89, stagnation: 1, limit: 3 },
 	{ type: "heldout_start", problems: ["poro_perm"] },
 	{ type: "heldout_done", mean: 0.9976, results: [{ problem: "poro_perm", fitness: 0.9976 }] },
+	{ type: "research_mission_start", missionId: "research-1", totalNodes: 8, networkMode: "open" },
+	{ type: "research_node", missionId: "research-1", nodeId: "analysis", kind: "quantitative-analysis", state: "completed", completedNodes: 5, totalNodes: 8 },
+	{ type: "research_evidence", missionId: "research-1", evidenceCount: 12, claimCount: 3 },
+	{ type: "research_replay", missionId: "research-1", mode: "verify-only", passed: true },
+	{ type: "research_deliverables", missionId: "research-1", report: true, presentation: true, defense: true },
 	{ type: "run_end", best: 0.89, tokens: 9_000_000, reason: "completed" },
 	{ type: "error", where: "x", message: "boom" },
 ];
@@ -53,6 +58,7 @@ check("problems carry latest fitness", snap.problems.find((p) => p.problem === "
 check("heldout mean captured", snap.heldoutMean === 0.9976);
 check("run ended flag", snap.runEnded && snap.endReason === "completed");
 check("episode map populated", snap.episodes.get("g1-quake_b")?.turn === 2);
+check("research progress captures nodes evidence replay and deliverables", snap.research?.completedNodes === 5 && snap.research.evidenceCount === 12 && snap.research.replayPassed === true && snap.research.deliverablesReady === 3);
 
 console.log("== commands ==");
 check("plain text is feedback", parseCommand("focus on flood_rp").kind === "feedback");

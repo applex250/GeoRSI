@@ -45,6 +45,8 @@ FORBIDDEN = {
     "src/research/verifiers/quantitative.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/verifiers/gis.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/verifiers/literature.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/deliverables.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/deliverable-store.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:child_process"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }

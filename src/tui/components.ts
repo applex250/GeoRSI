@@ -88,6 +88,16 @@ export function eventToLogLines(ev: RsiEvent, t: GeoTheme): string[] {
 					` mean=${ev.mean != null ? t.value(ev.mean.toFixed(4)) : t.bad("ERR")} ` +
 					t.dim(ev.results.map((r) => `${r.problem}:${r.fitness?.toFixed(3) ?? "×"}`).join(" ")),
 			];
+		case "research_mission_start":
+			return [t.title(`◆ research ${ev.missionId}`) + t.dim(` · ${ev.totalNodes} nodes · network=${ev.networkMode}`)];
+		case "research_node":
+			return [`  ${t.accent("◆")} ${t.key(ev.nodeId)} ${ev.kind} ${ev.state} ${t.dim(`${ev.completedNodes}/${ev.totalNodes}`)}`];
+		case "research_evidence":
+			return [`  evidence=${ev.evidenceCount} claims=${ev.claimCount}`];
+		case "research_replay":
+			return [`  replay ${ev.mode}: ${ev.passed ? t.good("PASS") : t.bad("FAIL")}`];
+		case "research_deliverables":
+			return [`  deliverables report=${ev.report ? "✓" : "×"} presentation=${ev.presentation ? "✓" : "×"} defense=${ev.defense ? "✓" : "×"}`];
 		case "budget_stop":
 			return [t.bad(`token budget exhausted (${fmtTokens(ev.tokens)})`)];
 		case "run_end":
@@ -164,8 +174,10 @@ export class HeaderPanel implements Component {
 			`${t.key("heldout")} ${s.heldoutMean != null ? t.value(s.heldoutMean.toFixed(4)) : t.dim("—")}${t.sep}` +
 			state;
 
-		const scores = s.problems.map((p) => `${p.problem} ${p.fitness != null ? t.value(p.fitness.toFixed(3)) : t.dim("·")}`);
-		const l3 = scores.length ? `${t.key("suite")} ${scores.join(t.sep)}` : t.dim("suite: (starting)");
+		const scores = s.research
+			? [`research ${s.research.completedNodes}/${s.research.totalNodes}`, `node ${s.research.currentNode}`, `evidence ${s.research.evidenceCount}`, `claims ${s.research.claimCount}`, `replay ${s.research.replayPassed == null ? "·" : s.research.replayPassed ? "PASS" : "FAIL"}`, `deliverables ${s.research.deliverablesReady}/3`]
+			: s.problems.map((p) => `${p.problem} ${p.fitness != null ? t.value(p.fitness.toFixed(3)) : t.dim("·")}`);
+		const l3 = scores.length ? `${t.key(s.research ? "research" : "suite")} ${scores.join(t.sep)}` : t.dim("suite: (starting)");
 
 		const spin = s.runEnded || s.paused ? " " : t.accent(this.spinnerFrames[this.spinIdx]!);
 		const l4 = `${spin} ${t.key(s.phase)}${s.phaseDetail ? t.dim(` — ${s.phaseDetail}`) : ""}`;

@@ -66,6 +66,8 @@ import { verifyGisResearch } from "./research/verifiers/gis.js";
 import { verifyLiteratureResearch } from "./research/verifiers/literature.js";
 import { verifyGenericResearch } from "./research/verifiers/generic.js";
 import { evaluateScientificValue, type ScientificValueCard } from "./research/value-evaluator.js";
+import { buildResearchDeliverables, validateResearchDeliverables } from "./research/deliverables.js";
+import { persistResearchDeliverables } from "./research/deliverable-store.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -280,6 +282,19 @@ export async function selftest(): Promise<boolean> {
 	check("generic research verifier enforces complete package gates", genericPass.passed);
 	const genericGuardFail = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: ["protected path"], cleanupPassed: true });
 	check("generic research verifier makes guard violations ineligible", !genericGuardFail.passed && genericGuardFail.issues.some((issue) => issue.code === "guard-violation"));
+	const deliverableValueDimension = { score: 3 as const, rationale: "verified fixture evidence", evidenceIds: [evidenceRef.id] };
+	const deliverableValueCard: ScientificValueCard = { significance: deliverableValueDimension, novelty: deliverableValueDimension, falsifiability: deliverableValueDimension, dataFeasibility: deliverableValueDimension, methodologicalValue: deliverableValueDimension, potentialImpact: deliverableValueDimension, limitations: ["frozen fixture"], recommendation: "proceed" };
+	const deliverableBundle = buildResearchDeliverables({
+		mission: genericMission,
+		valueCard: deliverableValueCard,
+		hypotheses: [{ id: "hypothesis-1", statement: "the estimate is stable", rationaleEvidenceIds: [evidenceRef.id], expectedObservation: "small sensitivity delta", falsifier: "delta exceeds tolerance", status: "supported" }],
+		claims: [genericClaim],
+		evidence: [evidenceRef],
+		narrative: { dataSummary: "A frozen, hashed fixture was audited.", methodSummary: "A deterministic estimator and independent check were executed.", resultSummary: "The verified fixture estimate is supported.", uncertaintySummary: "Sensitivity and uncertainty were evaluated.", innovationSummary: "The workflow links every conclusion to replayable evidence.", reproducibilitySummary: "Run verify-only replay and then compute replay in Sandboxie." },
+	});
+	check("research deliverables include report eight slides and grounded defense", validateResearchDeliverables(deliverableBundle, [evidenceRef]).length === 0 && deliverableBundle.defense.items.length === 12);
+	const persistedDeliverables = persistResearchDeliverables(join(researchDir, "deliverables"), deliverableBundle);
+	check("research deliverable store writes hashed report presentation and defense", persistedDeliverables.length === 3 && persistedDeliverables.every((item) => /^[a-f0-9]{64}$/.test(item.sha256) && existsSync(join(researchDir, "deliverables", item.path))));
 	const networkTool = createWebFetchTool({
 		fetch: async (request) => ({ finalUrl: request.url, status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"items":[]}'), retrievedAt: "2026-08-30T01:01:30Z" }),
 	}, evidenceStore);

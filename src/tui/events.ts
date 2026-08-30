@@ -34,6 +34,11 @@ export type RsiEvent =
 	| { type: "champion_keep"; generation: number; best: number | null; stagnation: number; limit: number }
 	| { type: "heldout_start"; problems: string[] }
 	| { type: "heldout_done"; mean: number | null; results: { problem: string; fitness: number | null }[] }
+	| { type: "research_mission_start"; missionId: string; totalNodes: number; networkMode: "blocked" | "open" }
+	| { type: "research_node"; missionId: string; nodeId: string; kind: string; state: string; completedNodes: number; totalNodes: number }
+	| { type: "research_evidence"; missionId: string; evidenceCount: number; claimCount: number }
+	| { type: "research_replay"; missionId: string; mode: "verify-only" | "compute"; passed: boolean }
+	| { type: "research_deliverables"; missionId: string; report: boolean; presentation: boolean; defense: boolean }
 	| { type: "budget_stop"; tokens: number }
 	| { type: "run_end"; best: number | null; tokens: number; reason: string }
 	| { type: "feedback_added"; text: string }
@@ -58,6 +63,18 @@ export interface ProblemScore {
 	updatedGen: number;
 }
 
+export interface ResearchProgress {
+	missionId: string;
+	totalNodes: number;
+	completedNodes: number;
+	currentNode: string;
+	evidenceCount: number;
+	claimCount: number;
+	networkMode: "blocked" | "open";
+	replayPassed: boolean | null;
+	deliverablesReady: number;
+}
+
 export interface RunSnapshot {
 	runName: string;
 	generation: number;
@@ -77,6 +94,7 @@ export interface RunSnapshot {
 	startedAt: number;
 	/** active episode tags -> latest state */
 	episodes: Map<string, { problem: string; turn: number; submits: number; publicBest: number | null; done: boolean }>;
+	research: ResearchProgress | null;
 }
 
 export function initialSnapshot(): RunSnapshot {
@@ -98,6 +116,7 @@ export function initialSnapshot(): RunSnapshot {
 		endReason: "",
 		startedAt: Date.now(),
 		episodes: new Map(),
+		research: null,
 	};
 }
 
@@ -106,6 +125,7 @@ export function applyEvent(s: RunSnapshot, ev: RsiEvent): RunSnapshot {
 		...s,
 		problems: s.problems.map((p) => ({ ...p })),
 		episodes: new Map(s.episodes),
+		research: s.research ? { ...s.research } : null,
 	};
 	switch (ev.type) {
 		case "run_start":
@@ -195,6 +215,27 @@ export function applyEvent(s: RunSnapshot, ev: RsiEvent): RunSnapshot {
 			n.best = ev.best ?? n.best;
 			n.tokens = ev.tokens;
 			n.phase = "done";
+			break;
+		case "research_mission_start":
+			n.research = { missionId: ev.missionId, totalNodes: ev.totalNodes, completedNodes: 0, currentNode: "planning", evidenceCount: 0, claimCount: 0, networkMode: ev.networkMode, replayPassed: null, deliverablesReady: 0 };
+			n.phase = "research mission";
+			n.phaseDetail = `${ev.missionId} · network=${ev.networkMode}`;
+			break;
+		case "research_node":
+			if (n.research?.missionId === ev.missionId) {
+				n.research = { ...n.research, totalNodes: ev.totalNodes, completedNodes: ev.completedNodes, currentNode: ev.nodeId };
+				n.phase = `research ${ev.kind}`;
+				n.phaseDetail = `${ev.nodeId} ${ev.state} · ${ev.completedNodes}/${ev.totalNodes}`;
+			}
+			break;
+		case "research_evidence":
+			if (n.research?.missionId === ev.missionId) n.research = { ...n.research, evidenceCount: ev.evidenceCount, claimCount: ev.claimCount };
+			break;
+		case "research_replay":
+			if (n.research?.missionId === ev.missionId) n.research = { ...n.research, replayPassed: ev.passed };
+			break;
+		case "research_deliverables":
+			if (n.research?.missionId === ev.missionId) n.research = { ...n.research, deliverablesReady: [ev.report, ev.presentation, ev.defense].filter(Boolean).length };
 			break;
 		case "budget_stop":
 			n.tokens = ev.tokens;
