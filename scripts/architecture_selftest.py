@@ -39,6 +39,12 @@ FORBIDDEN = {
     "src/research/tool-registry.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
     "src/research/context-manager.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
     "src/research/network-tools.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
+    "src/research/value-evaluator.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/verifiers/base.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/verifiers/generic.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/verifiers/quantitative.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/verifiers/gis.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    "src/research/verifiers/literature.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }

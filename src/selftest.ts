@@ -61,6 +61,11 @@ import { ScientificToolRegistry, type ScientificToolReceipt } from "./research/t
 import { buildContextPack } from "./research/context-manager.js";
 import { ResearchScheduler } from "./research/scheduler.js";
 import { createWebFetchTool, crossrefWorksUrl, openAlexWorksUrl } from "./research/network-tools.js";
+import { verifyQuantitativeResearch } from "./research/verifiers/quantitative.js";
+import { verifyGisResearch } from "./research/verifiers/gis.js";
+import { verifyLiteratureResearch } from "./research/verifiers/literature.js";
+import { verifyGenericResearch } from "./research/verifiers/generic.js";
+import { evaluateScientificValue, type ScientificValueCard } from "./research/value-evaluator.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -219,6 +224,23 @@ export async function selftest(): Promise<boolean> {
 	schedulerGraph = scheduled.graph;
 	check("research scheduler retries only the failed node and completes DAG", scheduled.completed && scheduled.executedNodes.join(",") === "frame,audit,audit" && scheduled.failures[0]?.failure.class === "timeout" && workGraphComplete(schedulerGraph));
 	check("research scheduler checkpoints every state transition", checkpoints.length >= 8);
+	console.log("== research scientific verifiers ==");
+	const quantitativePass = verifyQuantitativeResearch({ rowCount: 100, missingCount: 0, duplicateCount: 0, columnsAudited: ["magnitude"], units: { magnitude: "Mw", b: "dimensionless" }, estimand: "Gutenberg-Richter b-value", method: "Aki MLE", referenceCalibration: { performed: true, expected: 0.9, actual: 0.91, tolerance: 0.02 }, randomSeed: 7, stochasticMethod: true, finiteOutputs: true, uncertainty: { method: "bootstrap", lower: 0.75, upper: 0.95 }, sensitivityRuns: 3, independentCheck: { method: "alternate Mc", relativeDifference: 0.02, tolerance: 0.05 }, targetWithinObservedRange: true });
+	check("quantitative verifier accepts audited uncertainty and independent check", quantitativePass.passed && quantitativePass.score === 1);
+	const quantitativeFail = verifyQuantitativeResearch({ rowCount: 10, missingCount: 0, duplicateCount: 0, columnsAudited: ["x"], units: {}, estimand: "value", method: "fit", stochasticMethod: true, finiteOutputs: false, sensitivityRuns: 0 });
+	check("quantitative verifier rejects missing units seed uncertainty and sensitivity", !quantitativeFail.passed && quantitativeFail.issues.filter((issue) => issue.severity === "error").length >= 5);
+	const gisPass = verifyGisResearch({ inputCrs: ["EPSG:4326"], outputCrs: "EPSG:32611", metricOperations: true, projectedForMetricOperations: true, axisOrderChecked: true, artifacts: [{ path: "hotspots.geojson", kind: "vector", bytes: 1024, sha256: "c".repeat(64), crs: "EPSG:4326", bounds: [-120, 32, -115, 36], featureCount: 10, invalidGeometryCount: 0, emptyGeometryCount: 0 }, { path: "map.png", kind: "figure", bytes: 2048, sha256: "d".repeat(64) }], requestedOutputPaths: ["hotspots.geojson", "map.png"], spatialJoinRowCount: 10, nullJoinCount: 0, replayStatisticsMatch: true });
+	check("GIS verifier accepts projected metric workflow and valid artifacts", gisPass.passed);
+	const gisFail = verifyGisResearch({ inputCrs: ["EPSG:4326"], outputCrs: "EPSG:4326", metricOperations: true, projectedForMetricOperations: false, axisOrderChecked: false, artifacts: [{ path: "../escape.geojson", kind: "vector", bytes: 5, sha256: "bad", featureCount: 0, invalidGeometryCount: 1 }], requestedOutputPaths: ["../escape.geojson"], replayStatisticsMatch: false });
+	check("GIS verifier rejects CRS artifact and replay failures", !gisFail.passed && gisFail.issues.some((issue) => issue.code === "metric-crs") && gisFail.issues.some((issue) => issue.code === "artifact-path"));
+	const literatureClaim = { id: "lit-claim", text: "Magnitude completeness affects b-value", status: "supported" as const, evidenceIds: ["source-1"], uncertainty: "scope-limited", limitations: [] };
+	const literaturePass = verifyLiteratureResearch({ sources: [{ id: "source-1", title: "Completeness and b-value", authors: ["A. Researcher"], year: 2024, doi: "10.1234/example", retrievedAt: "2026-08-30T00:00:00Z", contentHash: "e".repeat(64), primary: true, supportsClaimIds: ["lit-claim"], contradictsClaimIds: [] }], claims: [literatureClaim], hypotheses: [{ id: "h-1", statement: "b varies after completeness control", rationaleEvidenceIds: ["source-1"], expectedObservation: "paired difference", falsifier: "interval covers zero", status: "proposed" }], searchQueries: ["seismic magnitude completeness b value"], minimumSources: 1, requireContraryEvidence: false, noveltyScope: "Crossref and OpenAlex", noveltySearchCutoff: "2026-08-30" });
+	check("literature verifier accepts traceable source and falsifiable hypothesis", literaturePass.passed);
+	const literatureFail = verifyLiteratureResearch({ sources: [{ id: "source-1", title: "", authors: [], year: 0, doi: "not-a-doi", retrievedAt: "bad", contentHash: "bad", primary: false, supportsClaimIds: [], contradictsClaimIds: [] }], claims: [literatureClaim], hypotheses: [], searchQueries: [], minimumSources: 3, requireContraryEvidence: true, noveltyScope: "", noveltySearchCutoff: "" });
+	check("literature verifier rejects fabricated or incomplete citations", !literatureFail.passed && literatureFail.issues.some((issue) => issue.code === "source-identity"));
+	const valueDimension = { score: 3 as const, rationale: "supported by the frozen catalog", evidenceIds: ["source-1"] };
+	const valueCard: ScientificValueCard = { significance: valueDimension, novelty: valueDimension, falsifiability: valueDimension, dataFeasibility: valueDimension, methodologicalValue: valueDimension, potentialImpact: valueDimension, limitations: ["regional scope"], recommendation: "proceed" };
+	check("scientific value evaluator requires evidence and explicit limitations", evaluateScientificValue(valueCard, ["source-1"]).passed && !evaluateScientificValue({ ...valueCard, novelty: { ...valueDimension, evidenceIds: ["missing"] } }, ["source-1"]).passed);
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");
@@ -248,6 +270,16 @@ export async function selftest(): Promise<boolean> {
 	const evidenceStore = new ContentAddressedEvidenceStore(join(researchDir, "cas"));
 	const evidenceRef = evidenceStore.putJson({ estimate: 0.85, unit: "dimensionless" }, { kind: "verifier", logicalName: "results/verification.json", producerNodeId: "frame" });
 	check("content-addressed evidence verifies bytes and hash", evidenceRef.logicalName === "verification.json" && evidenceStore.verify(evidenceRef) && evidenceStore.read(evidenceRef).length > 0);
+	const genericMission: ResearchMission = { ...mission, taskProfile: { ...mission.taskProfile, family: "quantitative", requiredStages: ["frame-question"], capabilities: ["claim-record"], verifierProfile: "quantitative-v1", deliverableSchema: "generic-test", sourceRequirements: [], networkMode: "blocked" } };
+	let genericGraph = createWorkGraph(genericMission.id, [frameNode]);
+	genericGraph = transitionWorkNode(genericGraph, "frame", "running");
+	genericGraph = transitionWorkNode(genericGraph, "frame", "verifying", { outputArtifactIds: [evidenceRef.id] });
+	genericGraph = transitionWorkNode(genericGraph, "frame", "completed", { acceptanceEvidenceIds: [evidenceRef.id] });
+	const genericClaim = { id: "generic-claim", text: "verified estimate", status: "supported" as const, evidenceIds: [evidenceRef.id], uncertainty: "fixture", limitations: [] };
+	const genericPass = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: [], cleanupPassed: true });
+	check("generic research verifier enforces complete package gates", genericPass.passed);
+	const genericGuardFail = verifyGenericResearch({ mission: genericMission, graph: genericGraph, evidence: [evidenceRef], claims: [genericClaim], deliverables: [{ id: "report", path: "report.md", bytes: 100, sha256: "f".repeat(64) }], ledgerValid: true, replayPassed: true, guardViolations: ["protected path"], cleanupPassed: true });
+	check("generic research verifier makes guard violations ineligible", !genericGuardFail.passed && genericGuardFail.issues.some((issue) => issue.code === "guard-violation"));
 	const networkTool = createWebFetchTool({
 		fetch: async (request) => ({ finalUrl: request.url, status: 200, headers: { "content-type": "application/json" }, body: Buffer.from('{"items":[]}'), retrievedAt: "2026-08-30T01:01:30Z" }),
 	}, evidenceStore);
