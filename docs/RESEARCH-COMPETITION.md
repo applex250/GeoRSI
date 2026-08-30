@@ -40,6 +40,16 @@ python scripts/ai_pixel_probe.py --mode all
 The machine-readable model profile stays `unverified-ai-pixel` until Responses,
 xhigh, streaming/tool-loop, usage, PiHarness, and Sandboxie probes pass.
 
+The fixed task/weight/repetition protocol is declared in
+`config/research-benchmark-manifest.json` and mirrored by the typed
+`RESEARCH_BENCHMARK_MANIFEST` contract. Stage-A contains exactly five public
+representative tasks; Stage-B supplies explicit family coverage; `poro_perm` is
+reserved for held-out. Development runs use the unfrozen manifest. Before any
+held-out run, freeze the manifest and record its fingerprint; the held-out
+runner must reject an unfrozen or changed manifest. The two repetitions are
+paired by repetition key, and a candidate can only be promoted under the
+quality-first `0.01` score-band/token policy.
+
 ## Luna node executor
 
 `src/research/luna-node-executor.ts` is the production WorkGraph adapter. It

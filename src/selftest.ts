@@ -76,6 +76,7 @@ import { escalatedOutputCap, roleOutputCap, tokenEfficiency } from "./research/t
 import { runStrategyGeneration } from "./research/research-evolution.js";
 import { validateRuntimeAttestation, type ResearchRuntimeAttestation } from "./research/runtime-attestation.js";
 import { scoreResearchCompetition } from "./research/scoring.js";
+import { validateResearchBenchmarkManifest, freezeResearchBenchmarkManifest, benchmarkTasksForStage, benchmarkTaskDenominator, benchmarkManifestUsesOnlyFrozenHeldOut, researchBenchmarkManifestFingerprint, RESEARCH_BENCHMARK_MANIFEST } from "./research/benchmark.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
 
@@ -307,6 +308,12 @@ export async function selftest(): Promise<boolean> {
 	check("competition attestation requires receipt-backed Luna xhigh and Sandboxie", validateRuntimeAttestation(competitionAttestation, sandboxReplay, attestationMission, evidence, []).length === 0 && validateRuntimeAttestation({ ...competitionAttestation, modelCalls: [], totalTokens: 0 }, sandboxReplay, attestationMission, evidence, []).some((issue) => issue.includes("model-call receipts")));
 	const attestedScore = scoreResearchCompetition({ runtime: { unitTestsPassed: true, runtimeAttestationPassed: true, traceComplete: true, manifestValid: true, verifyReplayPassed: true, computeReplayPassed: true, guardViolations: 0, cleanupPassed: true, validResultCount: 1 }, science: { taskOutcome: 1, methodValidity: 1, claimEvidenceQuality: 1, reproducibility: 1, scientificValue: 1 }, communication: { report: 1, presentation: 1, defense: 1 }, totalTokens: 100000, wallSeconds: 10, perFamily: { quantitative: 1 } });
 	check("three-layer score is non-compensable and token-aware", attestedScore.eligible && attestedScore.overall === 1 && attestedScore.scorePer100kTokens === 1 && !scoreResearchCompetition({ runtime: { unitTestsPassed: true, runtimeAttestationPassed: false, traceComplete: true, manifestValid: true, verifyReplayPassed: true, computeReplayPassed: true, guardViolations: 0, cleanupPassed: true, validResultCount: 1 }, science: { taskOutcome: 1, methodValidity: 1, claimEvidenceQuality: 1, reproducibility: 1, scientificValue: 1 }, communication: { report: 1, presentation: 1, defense: 1 }, totalTokens: 1, wallSeconds: 1, perFamily: {} }).eligible);
+	check("research benchmark manifest fixes five-task Stage-A and Luna policy", validateResearchBenchmarkManifest(RESEARCH_BENCHMARK_MANIFEST).length === 0 && benchmarkTasksForStage(RESEARCH_BENCHMARK_MANIFEST, "stage-a").length === 5 && RESEARCH_BENCHMARK_MANIFEST.model === "gpt-5.6-luna");
+	const frozenBenchmark = freezeResearchBenchmarkManifest(RESEARCH_BENCHMARK_MANIFEST);
+	check("held-out benchmark requires immutable frozen manifest", frozenBenchmark.frozen && benchmarkManifestUsesOnlyFrozenHeldOut(frozenBenchmark) && benchmarkTaskDenominator(frozenBenchmark, "held-out") === 1 && researchBenchmarkManifestFingerprint(frozenBenchmark) !== researchBenchmarkManifestFingerprint(RESEARCH_BENCHMARK_MANIFEST));
+	const malformedBenchmark = structuredClone(RESEARCH_BENCHMARK_MANIFEST);
+	malformedBenchmark.stages["stage-a"] = malformedBenchmark.stages["stage-a"].slice(0, 4);
+	check("benchmark manifest rejects Stage-A denominator drift", validateResearchBenchmarkManifest(malformedBenchmark).some((issue) => issue.includes("exactly five")));
 
 
 	const tmp = join(process.cwd(), "runs", ".selftest");

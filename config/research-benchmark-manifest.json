@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "id": "georsi-research-competition-v1",
+  "frozen": false,
+  "provider": "ai-pixel",
+  "model": "gpt-5.6-luna",
+  "thinking": "xhigh",
+  "fallback": "none",
+  "strategyFingerprint": "f0aba011e0467d40f85f5b05",
+  "repetitions": [1, 2],
+  "stages": {
+    "stage-a": [
+      { "id": "quake_b", "family": "quantitative", "weight": 1, "public": true, "heldOut": false },
+      { "id": "flood_rp", "family": "quantitative", "weight": 1, "public": true, "heldOut": false },
+      { "id": "climate_trend", "family": "quantitative", "weight": 1, "public": true, "heldOut": false },
+      { "id": "gabench_54", "family": "gis-remote-sensing", "weight": 1, "public": true, "heldOut": false },
+      { "id": "quake_b_real", "family": "capstone", "weight": 1, "public": true, "heldOut": false }
+    ],
+    "stage-b": [
+      { "id": "research-capstone-seismic-gis", "family": "capstone", "weight": 1, "public": true, "heldOut": false },
+      { "id": "research-remote-sensing-crs", "family": "gis-remote-sensing", "weight": 1, "public": true, "heldOut": false },
+      { "id": "research-literature-completeness", "family": "literature-hypothesis", "weight": 1, "public": true, "heldOut": false },
+      { "id": "research-quantitative-uncertainty", "family": "quantitative", "weight": 1, "public": true, "heldOut": false }
+    ],
+    "held-out": [
+      { "id": "poro_perm", "family": "quantitative", "weight": 1, "public": false, "heldOut": true }
+    ]
+  },
+  "selection": {
+    "scoreBand": 0.01,
+    "minimumValidRate": 1,
+    "minimumRepetitions": 2
+  },
+  "protocolVersion": "research-competition-v1"
+}
