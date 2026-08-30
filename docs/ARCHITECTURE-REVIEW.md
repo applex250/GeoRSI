@@ -223,6 +223,10 @@ RAG off/on 泛化对照
 - `src/isolation-probe.ts` owns host-network preflight and in-box canary source;
   Sandboxie integration tests depend on this narrow module rather than the full
   episode application service.
+- `src/sandboxie-cli.ts` owns async/sync process invocation, timeout and output
+  capture; `src/sandboxie-ini.ts` owns typed query/set/append/restore semantics.
+  The high-level adapter retains WFP lease, box rules, PID ownership and cleanup
+  orchestration only.
 - `src/inner/background-jobs.ts` is an injected-port state machine for
   register/refresh/timeout/exit/kill/status behavior. Workspace status JSON is
   evidence only—not an authority an agent process can forge—and terminal PIDs

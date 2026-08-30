@@ -28,6 +28,10 @@ import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import type { Config } from "./config.js";
 import { isProcessAlive, terminateProcessTree } from "./process.js";
 import { sanitizeExecutionEnvironment } from "./process-env.js";
+import { SandboxieCli, type SandboxieCommandResult } from "./sandboxie-cli.js";
+import { SandboxieIni } from "./sandboxie-ini.js";
+
+export type { SandboxieCommandResult } from "./sandboxie-cli.js";
 
 export const SANDBOXIE_MAX_BOX_NAME = 38;
 export const SANDBOXIE_BACKEND = "sandboxie-app-level" as const;
@@ -35,13 +39,6 @@ export const SANDBOXIE_BACKEND = "sandboxie-app-level" as const;
 export interface SandboxiePaths {
 	startPath: string;
 	iniPath: string;
-}
-
-export interface SandboxieCommandResult {
-	code: number | null;
-	stdout: string;
-	stderr: string;
-	error?: string;
 }
 
 export interface SandboxieRuleSet {
@@ -118,12 +115,6 @@ interface SandboxieAdapterOptions {
 	sandboxRoot: string;
 	commandTimeoutMs?: number;
 	log?: (message: string) => void;
-}
-
-function commandText(file: string, args: readonly string[]): string {
-	return [file, ...args]
-		.map((x) => (/[\s"]/.test(x) ? JSON.stringify(x) : x))
-		.join(" ");
 }
 
 function lines(text: string): string[] {
@@ -395,14 +386,16 @@ interface SandboxieLeaseRecord {
 export class SandboxieAdapter {
 	readonly paths: SandboxiePaths;
 	readonly sandboxRoot: string;
-	private readonly commandTimeoutMs: number;
+	private readonly cli: SandboxieCli;
+	private readonly ini: SandboxieIni;
 	private readonly log: (message: string) => void;
 	private runtimeCounter = 0;
 
 	constructor(options: SandboxieAdapterOptions) {
 		this.paths = options.paths;
 		this.sandboxRoot = resolve(options.sandboxRoot);
-		this.commandTimeoutMs = options.commandTimeoutMs ?? 20_000;
+		this.cli = new SandboxieCli(options.commandTimeoutMs ?? 20_000);
+		this.ini = new SandboxieIni(this.cli, this.paths.iniPath);
 		this.log = options.log ?? (() => {});
 	}
 
@@ -453,77 +446,24 @@ export class SandboxieAdapter {
 		}
 	}
 
-	private async runCli(file: string, args: string[], timeoutMs = this.commandTimeoutMs): Promise<SandboxieCommandResult> {
-		return new Promise((resolveResult) => {
-			let stdout = "";
-			let stderr = "";
-			let settled = false;
-			const child = spawn(file, args, {
-				windowsHide: true,
-				stdio: ["ignore", "pipe", "pipe"],
-			});
-			const finish = (result: SandboxieCommandResult): void => {
-				if (settled) return;
-				settled = true;
-				resolveResult(result);
-			};
-			const timer = setTimeout(() => {
-				try {
-					child.kill();
-				} catch {
-					/* already exited */
-				}
-				finish({ code: null, stdout, stderr, error: `command timeout after ${timeoutMs}ms` });
-			}, timeoutMs);
-			child.stdout?.on("data", (data: Buffer) => (stdout += data.toString("utf8")));
-			child.stderr?.on("data", (data: Buffer) => (stderr += data.toString("utf8")));
-			child.on("error", (error) => {
-				clearTimeout(timer);
-				finish({ code: null, stdout, stderr, error: error.message });
-			});
-			child.on("close", (code) => {
-				clearTimeout(timer);
-				finish({ code, stdout, stderr });
-			});
-		});
+	private runCli(file: string, args: string[], timeoutMs?: number): Promise<SandboxieCommandResult> {
+		return this.cli.run(file, args, timeoutMs);
 	}
 
-	private runCliSync(file: string, args: string[], timeoutMs = this.commandTimeoutMs): SandboxieCommandResult {
-		const result = spawnSync(file, args, {
-			windowsHide: true,
-			encoding: "utf8",
-			stdio: ["ignore", "pipe", "pipe"],
-			timeout: timeoutMs,
-		});
-		return {
-			code: result.status,
-			stdout: typeof result.stdout === "string" ? result.stdout : "",
-			stderr: typeof result.stderr === "string" ? result.stderr : "",
-			error: result.error?.message,
-		};
+	private runCliSync(file: string, args: string[], timeoutMs?: number): SandboxieCommandResult {
+		return this.cli.runSync(file, args, timeoutMs);
 	}
 
-	private async runIni(args: string[]): Promise<SandboxieCommandResult> {
-		const result = await this.runCli(this.paths.iniPath, args);
-		if (result.code !== 0) {
-			throw new Error(
-				`SbieIni failed (${result.code ?? "no code"}): ${commandText(this.paths.iniPath, args)}${
-					result.error ? ` — ${result.error}` : ""
-				}${result.stderr || result.stdout ? `\n${(result.stderr || result.stdout).trim()}` : ""}`,
-			);
-		}
-		return result;
+	private runIni(args: string[]): Promise<SandboxieCommandResult> {
+		return this.ini.run(args);
 	}
 
 	private runStartSync(args: string[]): SandboxieCommandResult {
 		return this.runCliSync(this.paths.startPath, args);
 	}
 
-	private async queryRaw(section: string, setting?: string): Promise<string[]> {
-		const args = ["query", section];
-		if (setting !== undefined) args.push(setting);
-		const result = await this.runIni(args);
-		return lines(result.stdout);
+	private queryRaw(section: string, setting?: string): Promise<string[]> {
+		return this.ini.queryRaw(section, setting);
 	}
 
 	async listSections(): Promise<string[]> {
@@ -543,32 +483,20 @@ export class SandboxieAdapter {
 		return this.queryRaw(section, setting);
 	}
 
-	private async set(section: string, setting: string, value: string): Promise<void> {
-		await this.runIni(["set", section, setting, value]);
+	private set(section: string, setting: string, value: string): Promise<void> {
+		return this.ini.set(section, setting, value);
 	}
 
-	private async append(section: string, setting: string, value: string): Promise<void> {
-		await this.runIni(["append", section, setting, value]);
+	private append(section: string, setting: string, value: string): Promise<void> {
+		return this.ini.append(section, setting, value);
 	}
 
-	private async restoreSetting(section: string, setting: string, values: readonly string[]): Promise<void> {
-		if (values.length === 0) {
-			await this.set(section, setting, "");
-			return;
-		}
-		await this.set(section, setting, values[0]!);
-		for (const value of values.slice(1)) await this.append(section, setting, value);
+	private restoreSetting(section: string, setting: string, values: readonly string[]): Promise<void> {
+		return this.ini.restore(section, setting, values);
 	}
 
 	private restoreSettingSync(section: string, setting: string, values: readonly string[]): SandboxieCommandResult[] {
-		const results: SandboxieCommandResult[] = [];
-		if (values.length === 0) {
-			results.push(this.runCliSync(this.paths.iniPath, ["set", section, setting, ""]));
-			return results;
-		}
-		results.push(this.runCliSync(this.paths.iniPath, ["set", section, setting, values[0]!]));
-		for (const value of values.slice(1)) results.push(this.runCliSync(this.paths.iniPath, ["append", section, setting, value]));
-		return results;
+		return this.ini.restoreSync(section, setting, values);
 	}
 
 	async reload(): Promise<void> {

@@ -23,6 +23,8 @@ import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-p
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
 import { checkPythonExecutionPolicy } from "./inner/python-execution.js";
 import { BackgroundJobRegistry, type BackgroundJob, type BackgroundJobPort } from "./inner/background-jobs.js";
+import { SandboxieCli, formatSandboxieCommand } from "./sandboxie-cli.js";
+import { SandboxieIni } from "./sandboxie-ini.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -488,6 +490,18 @@ export async function selftest(): Promise<boolean> {
 		sanitizeSandboxEnvironment,
 	} = await import("./sandboxie.js");
 	check("Sandboxie box names are strict ASCII", sanitizeSandboxieBoxName("bad/name DefaultBox") === "bad_name_DefaultBox");
+	const cliProbe = new SandboxieCli(5_000).runSync(process.execPath, ["-e", "process.stdout.write('cli-ok')"]);
+	check("Sandboxie CLI adapter captures sync command output", cliProbe.code === 0 && cliProbe.stdout === "cli-ok");
+	check("Sandboxie CLI command rendering quotes whitespace", formatSandboxieCommand("C:/Program Files/tool.exe", ["query", "a b"]).includes('"C:/Program Files/tool.exe"') && formatSandboxieCommand("x", ["a b"]).includes('"a b"'));
+	const iniCommands: string[][] = [];
+	const fakeIniCli = {
+		run: async (_file: string, args: readonly string[]) => ({ code: 0, stdout: args[0] === "query" ? "a\r\nb\r\n" : "", stderr: "" }),
+		runSync: (_file: string, args: readonly string[]) => { iniCommands.push([...args]); return { code: 0, stdout: "", stderr: "" }; },
+	} as unknown as SandboxieCli;
+	const iniAdapter = new SandboxieIni(fakeIniCli, "SbieIni.exe");
+	check("Sandboxie INI adapter parses query output", JSON.stringify(await iniAdapter.queryRaw("Box", "Setting")) === JSON.stringify(["a", "b"]));
+	iniAdapter.restoreSync("GlobalSettings", "NetworkEnableWFP", ["y", "n"]);
+	check("Sandboxie INI adapter preserves multi-value restore order", iniCommands[0]?.join("|") === "set|GlobalSettings|NetworkEnableWFP|y" && iniCommands[1]?.join("|") === "append|GlobalSettings|NetworkEnableWFP|n");
 	check("generated box names retain the GeoRSI separator", /^GeoRSI_[0-9a-f]{16}$/.test(makeSandboxieBoxName("selftest")));
 	check("Sandboxie box names are length bounded", sanitizeSandboxieBoxName("x".repeat(100)).length <= 38);
 	const exchange = resolveExchangeWorkspace(join(process.cwd(), "runs", "demo", "episodes", "tag"));
