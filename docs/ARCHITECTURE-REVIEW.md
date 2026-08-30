@@ -233,6 +233,9 @@ RAG off/on 泛化对照
   register/refresh/timeout/exit/kill/status behavior. Workspace status JSON is
   evidence only—not an authority an agent process can forge—and terminal PIDs
   are never signalled again after possible OS PID reuse.
+- `src/inner/artifact-store.ts` owns authorized scratch preparation, public-data
+  copy, toolkit installation, and sanitized atomic evidence persistence. Path
+  authorization remains in `solve.ts`/`workspace-tools.ts` before destructive I/O.
 - `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
   toolkit、episode contract、prompt/submission policy 和 background-job state
   machine，保持行为稳定。进一步拆分 tool wiring/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。

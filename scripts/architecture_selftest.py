@@ -19,6 +19,7 @@ FORBIDDEN = {
     "src/inner/submission-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs"],
     "src/inner/python-execution.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
     "src/inner/background-jobs.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
+    "src/inner/artifact-store.ts": ["provider", "sandboxie", "piharness", "bench/eval", "workspace-tools"],
     "src/isolation-probe.ts": ["provider", "sandboxie", "piharness", "inner/solve", "bench/eval"],
     "src/sandboxie-cli.ts": ["provider", "piharness", "inner/", "bench/eval", "node:fs"],
     "src/sandboxie-ini.ts": ["provider", "piharness", "inner/", "bench/eval", "node:fs", "node:child_process"],

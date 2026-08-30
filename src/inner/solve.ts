@@ -12,7 +12,7 @@
  * cap is enforced by the caller refusing to issue further prompts.
  */
 import { spawn } from "node:child_process";
-import { cpSync, existsSync, closeSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, closeSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
@@ -38,16 +38,15 @@ import {
 	type SandboxieCleanupResult,
 } from "../sandboxie.js";
 import { queryTermsFromStatement, regionsForTask, renderRetrieved, retrieve, corpusVersion } from "../retrieval.js";
-import { atomicWriteJson } from "../journal.js";
 import { assertExchangeWorkspace } from "../workspace-tools.js";
 import { profileTask } from "../task-profile.js";
-import { SCIENCE_TOOLKIT_SOURCE } from "../science-toolkit.js";
 import { hostNetworkReachable, sandboxProbeSource } from "../isolation-probe.js";
 import type { EpisodeRequest, EpisodeResult } from "./episode-contract.js";
 import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./submission-policy.js";
 import { checkPythonExecutionPolicy, runPythonHost } from "./python-execution.js";
 import { BackgroundJobRegistry, type BackgroundJob } from "./background-jobs.js";
+import { persistEpisodeArtifacts, prepareEpisodeArtifacts } from "./artifact-store.js";
 
 export type { EpisodeResult } from "./episode-contract.js";
 export { runPythonHost } from "./python-execution.js";
@@ -106,21 +105,10 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 	const t0 = Date.now();
 	const deadline = t0 + cfg.episode_timeout_s * 1000;
 	const remainingMs = (): number => Math.max(0, deadline - Date.now());
-	// fresh scratch every episode: leftovers from a previous episode in the same
-	// role dir would contaminate the agent's context
-	rmSync(workspace, { recursive: true, force: true });
-	mkdirSync(workspace, { recursive: true });
-	if (sandboxed && requestedWorkspace !== workspace) {
-		rmSync(requestedWorkspace, { recursive: true, force: true });
-		mkdirSync(requestedWorkspace, { recursive: true });
-	}
+	// Destructive I/O begins only after strict path authorization.
+	prepareEpisodeArtifacts({ workspace, requestedWorkspace, problemDir: problem.dir });
 	if (sandboxed) assertExchangeWorkspace(workspace, repoRoot, privateRoot, extraProtectedRoots);
 	emit({ type: "episode_start", tag: opts.tag, problem: problem.id, role: opts.tag.split("-")[0], generation: scaffold.generation });
-
-	// Provide a small public, reproducible methods library. It improves first
-	// pass reliability on quantitative geology without exposing graders or
-	// answers; the agent may inspect or import it from the exchange workspace.
-	writeFileSync(join(workspace, "georsi_science.py"), SCIENCE_TOOLKIT_SOURCE, "utf8");
 	const taskProfile = profileTask(problem);
 
 	// proven lessons tagged for this problem's regions, inject into the prompt
@@ -167,15 +155,6 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 	let sandboxCleanupError: string | null = null;
 	let unregisterSandboxExit = (): void => {};
 	let pythonInvocation = 0;
-
-	// Copy the problem's data dir into the workspace: the agent gets the data
-	// it may read, but not the eval script or anything outside data/.
-	const srcData = join(problem.dir, "data");
-	const dstData = join(workspace, "data");
-	if (existsSync(srcData)) {
-		cpSync(srcData, dstData, { recursive: true });
-	}
-	mkdirSync(join(workspace, "solutions"), { recursive: true });
 
 	if (sandboxAdapter) {
 		try {
@@ -884,17 +863,13 @@ export async function solveEpisode(opts: EpisodeRequest): Promise<EpisodeResult>
 			result.fitness,
 		);
 	}
-	atomicWriteJson(join(workspace, "episode.json"), result);
-	if (requestedWorkspace !== workspace) {
-		mkdirSync(requestedWorkspace, { recursive: true });
-		atomicWriteJson(join(requestedWorkspace, "episode.json"), result);
-		const selectedAnswer = st.bestAnswer ?? st.answer;
-		if (selectedAnswer) {
-			const durableSolutions = join(requestedWorkspace, "solutions");
-			mkdirSync(durableSolutions, { recursive: true });
-			atomicWriteJson(join(durableSolutions, `${problem.id}.json`), selectedAnswer);
-		}
-	}
+	persistEpisodeArtifacts({
+		workspace,
+		requestedWorkspace,
+		problemId: problem.id,
+		result,
+		selectedAnswer: st.bestAnswer ?? st.answer,
+	});
 	emit({
 		type: "episode_end",
 		tag: opts.tag,

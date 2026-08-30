@@ -3,7 +3,7 @@
  * eval protocol against a scratch python script. Fast enough to run before
  * any paid episode.
  */
-import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, symlinkSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { applyEdits, builtinDomainKnowledge, composeSystemPrompt, scaffoldFingerprint, SEED_SCAFFOLD } from "./scaffold.js";
 import { Journal, atomicWriteJson, loadRunState, saveRunState, fingerprint, readJournalTail, type RunState } from "./journal.js";
@@ -24,6 +24,7 @@ import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-p
 import { createSubmissionState, recordPublicSubmission, validateQuizSubmission } from "./inner/submission-policy.js";
 import { checkPythonExecutionPolicy } from "./inner/python-execution.js";
 import { BackgroundJobRegistry, type BackgroundJob, type BackgroundJobPort } from "./inner/background-jobs.js";
+import { persistEpisodeArtifacts, prepareEpisodeArtifacts } from "./inner/artifact-store.js";
 import { SandboxieCli, formatSandboxieCommand } from "./sandboxie-cli.js";
 import { SandboxieIni } from "./sandboxie-ini.js";
 import { selectTopSurvivors } from "./outer/critique.js";
@@ -96,6 +97,19 @@ export async function selftest(): Promise<boolean> {
 	const tmp = join(process.cwd(), "runs", ".selftest");
 	rmSync(tmp, { recursive: true, force: true });
 	mkdirSync(tmp, { recursive: true });
+	const artifactProblem = join(tmp, "artifact-problem");
+	const artifactScratch = join(tmp, "artifact-scratch");
+	const artifactDurable = join(tmp, "artifact-durable");
+	mkdirSync(join(artifactProblem, "data"), { recursive: true });
+	writeFileSync(join(artifactProblem, "data", "input.csv"), "x\n1\n");
+	prepareEpisodeArtifacts({ workspace: artifactScratch, requestedWorkspace: artifactDurable, problemDir: artifactProblem });
+	check("artifact store prepares only public inputs and toolkit", existsSync(join(artifactScratch, "data", "input.csv")) && existsSync(join(artifactScratch, "georsi_science.py")) && existsSync(join(artifactScratch, "solutions")));
+	writeFileSync(join(artifactScratch, "agent-script.py"), "print('untrusted')\n");
+	const artifactResult = failedEpisodeResult("artifact", artifactScratch, "test evidence");
+	persistEpisodeArtifacts({ workspace: artifactScratch, requestedWorkspace: artifactDurable, problemId: "artifact", result: artifactResult, selectedAnswer: { value: 1 } });
+	const durableEntries = readdirSync(artifactDurable).sort();
+	check("artifact store persists sanitized evidence only", JSON.stringify(durableEntries) === JSON.stringify(["episode.json", "solutions"]) && existsSync(join(artifactDurable, "solutions", "artifact.json")) && !existsSync(join(artifactDurable, "agent-script.py")));
+
 	const j = new Journal(tmp);
 	j.append({ kind: "note", ts: "t", generation: 1, text: "hello" });
 	j.append({ kind: "episode", ts: "t", generation: 1, role: "challenger", fitness: 0.5, detail: [] });
