@@ -210,9 +210,13 @@ RAG off/on 泛化对照
   单一分类来源，避免多个字符串规则漂移。
 - `applyProblemRuntimeOverride()` 负责有限的题目运行参数合并，替代
   `({...base, ...override} as Config)` 的不安全 cast。
+- `src/inner/episode-contract.ts` owns the stable episode result/evidence
+  contract and the fixed-denominator failure factory shared by suite and exam.
+- `src/inner/prompt-policy.ts` contains pure initial/follow-up prompt decisions;
+  it has deterministic tests and no provider, evaluator, or Sandboxie dependency.
 - `src/inner/solve.ts` 仍是最大的 application service；本轮先抽出公开科学
-  toolkit 和 evidence contract，保持行为稳定。进一步拆分 submit/job/cleanup
-  应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。
+  toolkit、episode contract 和 prompt policy，保持行为稳定。进一步拆分
+  submit/job/cleanup 应在独立迁移中进行，每一步都要保持一个 writer 和完整回归。
 
 架构规则：trusted grading、agent workspace 和 provider credentials 的边界
 不能由 UI 或 model adapter 改写；application service 只能通过显式 context 和

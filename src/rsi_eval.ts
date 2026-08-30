@@ -14,7 +14,8 @@ import { ROOT } from "./config.js";
 import { makeEvalContext, type Problem } from "./bench/eval.js";
 import type { EpisodeRecord } from "./board.js";
 import type { Scaffold } from "./scaffold.js";
-import { solveEpisode, setBudgetExhausted, type EpisodeResult } from "./inner/solve.js";
+import { solveEpisode, setBudgetExhausted } from "./inner/solve.js";
+import { failedEpisodeResult, type EpisodeResult } from "./inner/episode-contract.js";
 import { TOKENS } from "./provider.js";
 import { addMemory, defaultObservation, snapshotMemory, type MemoryItem, type MemoryStore } from "./memory.js";
 import { knowledgePath, recordUsage } from "./knowledge.js";
@@ -103,20 +104,7 @@ export async function evaluateScaffold(opts: EvaluateScaffoldOptions): Promise<S
 				// abort the whole curriculum. Security failures stay visible in the
 				// episode error and never become a valid score.
 				cancelled = cancelled || controller?.stopRequested === true;
-				result = {
-					problemId: problem.id,
-					fitness: null,
-					bestPublic: null,
-					submits: 0,
-					turns: 0,
-					tokens: 0,
-					secs: 0,
-					error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500),
-					warnings: [],
-					workspace,
-					durableWorkspace: workspace,
-					knowledgeIds: [],
-				};
+				result = failedEpisodeResult(problem.id, workspace, error);
 			}
 			evaluated.push({ problem, result });
 			weighted.push({ fitness: result.fitness, weight: problem.weight });

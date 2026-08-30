@@ -14,6 +14,8 @@ FORBIDDEN = {
     "src/process-env.ts": ["sandboxie", "provider", "inner/", "tui/"],
     "src/budget.ts": ["provider", "sandboxie", "inner/", "tui/"],
     "src/task-profile.ts": ["provider", "sandboxie", "inner/", "tui/"],
+    "src/inner/episode-contract.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
+    "src/inner/prompt-policy.ts": ["provider", "sandboxie", "piharness", "bench/eval"],
     "src/bench/eval.ts": ["../sandboxie.js", "../provider.js", "../inner/"],
     "src/provider.ts": ["./bench/eval.js", "./inner/", "./rsi.js", "./tui/"],
 }

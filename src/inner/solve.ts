@@ -44,42 +44,10 @@ import { atomicWriteJson } from "../journal.js";
 import { assertExchangeWorkspace } from "../workspace-tools.js";
 import { profileTask } from "../task-profile.js";
 import { SCIENCE_TOOLKIT_SOURCE } from "../science-toolkit.js";
+import type { EpisodeResult } from "./episode-contract.js";
+import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./prompt-policy.js";
 
-export interface EpisodeResult {
-	problemId: string;
-	fitness: number | null;
-	bestPublic: number | null;
-	submits: number;
-	turns: number;
-	tokens: number;
-	secs: number;
-	error: string | null;
-	warnings: string[];
-	workspace: string;
-	/** sanitized durable evidence location requested by the caller */
-	durableWorkspace: string;
-	/** app-level isolation evidence; host-audit is explicit non-sandbox mode */
-	isolation?: {
-		backend: "sandboxie-app-level" | "host-audit";
-		boxName?: string;
-		exchangeWorkspace: string;
-		reload?: boolean;
-		processOwnershipVerified?: boolean;
-		networkProbe?: Record<string, unknown>;
-		cleanup?: Record<string, unknown>;
-	};
-	/** true when the driver routed a workspace candidate through submit after a model turn ended without a tool call */
-	submissionRecovery?: "candidate-file-driver";
-	/** quiz coverage recorded in durable evidence for crash diagnosis */
-	answerCount?: number;
-	answerTotal?: number;
-	publicHistory?: { score: number | null; note: string }[];
-	/** knowledge nodes injected into this episode, for deferred accounting */
-	knowledgeIds: string[];
-	knowledgeVersion?: string;
-	ragDocumentIds?: string[];
-	ragCorpusVersion?: string;
-}
+export type { EpisodeResult } from "./episode-contract.js";
 
 interface SubmitState {
 	answer: Record<string, unknown> | null;
@@ -1053,30 +1021,14 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 
 	try {
 		await harness.init();
-		const quizFirstPass = isQuiz
-			? "QUIZ FIRST-PASS CONTRACT: read data/quiz.jsonl once, make a best-effort answer for every item, write answers.json, and call submit with answers_file=\"answers.json\" and final=false in this first turn. Use compact answers and no long per-question explanation. A complete imperfect sheet is better than spending the turn on an unfinished derivation. Refine only after a public score.\n"
-			: "";
-		const openFirstPass = !isQuiz
-			? "OPEN-TASK FIRST-PASS CONTRACT: inspect the statement and available data/tools, perform only the minimum checks needed to form a valid answer, and submit a complete best-effort artifact in this first turn with final=false. Do not spend the whole turn on exploratory narration or repeated analysis; an imperfect valid submission creates feedback for refinement.\n"
-			: "";
 		const softSubmitTarget = Math.max(1, Math.min(cfg.eval_cap, Math.round(scaffold.eval_budget_hint || cfg.eval_cap)));
-		const initial =
-			`${problem.statement}\n\n` +
-			`Environment: you are in a scratch workspace; the dataset is in data/. ` +
-			`There is NO shell — write scripts to files (write tool) and execute them with the ` +
-			`run_python tool (quick scripts) — for computations longer than a couple of minutes ` +
-			`use start_job instead: it runs detached in the background and the system wakes you ` +
-			`when it finishes (hours are fine). A public georsi_science.py toolkit is available ` +
-			`for Aki b-values, Gumbel return levels, OLS slopes, and log-linear fits; inspect ` +
-			`its source and validate its output on data/reference data rather than copying constants. ` +
-			`Budget your time: a complete analysis in 2-4 scripts is ideal.\n` +
-			quizFirstPass +
-			openFirstPass +
-			`You may submit up to ${cfg.eval_cap} times; target at most ${softSubmitTarget} submissions unless public feedback shows a specific fix worth testing. ` +
-			`SUBMISSION GATE: as soon as one executed script produces a candidate, stop exploratory analysis and call submit with that candidate. ` +
-			`Do not end this turn after writing a solution file without calling submit; an approximate valid submission is better than an unsubmitted perfect answer. ` +
-			`Finish by calling submit with final=true.\n` +
-			(memBlock ? `\n${memBlock}\n` : "");
+		const initial = buildInitialEpisodePrompt({
+			statement: problem.statement,
+			isQuiz,
+			evalCap: cfg.eval_cap,
+			softSubmitTarget,
+			memoryBlock: memBlock,
+		});
 		log(`  [${opts.tag}] turn 1`);
 		emit({ type: "episode_turn", tag: opts.tag, turn: 1, maxTurns: cfg.max_turns, note: problem.id });
 		let out: PromptOutcome;
@@ -1119,39 +1071,19 @@ export async function solveEpisode(opts: SolveOpts): Promise<EpisodeResult> {
 					`BACKGROUND JOBS FINISHED: ${finished.join("; ") || "(all done)"}.\n` +
 					`Inspect their logs (jobs/*.log via job_status or read), then continue.\n`;
 			}
-			let nudge: string;
 			const budgetLeft = cfg.eval_cap - st.submits;
-			if (isQuiz && st.submits === 0) {
-				// batch-friendly escalation: early turns point at the task,
-				// later turns get concrete batch instructions (large one-shot
-				// sheets stall some models — measured on hy3 2026-08-25)
-				const batchHint =
-					turns >= 3
-						? " Work in batches of 15-20 questions: answer a batch, merge it into answers.json, repeat. You may submit once ~90% are answered — partial submissions score partially."
-						: "";
-				nudge =
-					jobWake +
-					"You have not submitted yet. Read data/quiz.jsonl, answer the questions, write answers.json ({qid: answer}), then call submit with answers_file=\"answers.json\". Unanswered questions count as wrong — always submit a complete sheet." +
-					batchHint;
-			} else if (st.submits === 0) {
-				nudge =
-					jobWake +
-					"You have not submitted yet. Run your analysis, then call the submit tool with your answer. A valid early submission beats an unsubmitted perfect plan.";
-			} else if (budgetLeft <= 0 || st.staleSubmits >= cfg.patience || out.aborted) {
-				nudge =
-					jobWake +
-					(budgetLeft <= 0
-						? "SUBMISSION BUDGET EXHAUSTED. "
-						: st.staleSubmits >= cfg.patience
-							? "No improvement in recent submissions. "
-							: "") +
-					"Finalize now: call submit with final=true using your best answer. Do not start new analysis.";
-			} else {
-				nudge =
-					`${jobWake}${st.lastFeedback}\n` +
-					`Public best: ${st.bestPublic?.toFixed(4) ?? "none"}. ` +
-					`You have ${budgetLeft} submission(s) left — refine the method (or confirm current best with final=true).`;
-			}
+			const nudge = buildFollowupPrompt({
+				isQuiz,
+				turnsCompleted: turns,
+				submits: st.submits,
+				budgetLeft,
+				patience: cfg.patience,
+				staleSubmits: st.staleSubmits,
+				lastFeedback: st.lastFeedback,
+				bestPublic: st.bestPublic,
+				previousTurnAborted: out.aborted,
+				jobWake,
+			});
 			log(`  [${opts.tag}] turn ${turn}: ${nudge.slice(0, 60)}...`);
 			emit({ type: "episode_turn", tag: opts.tag, turn, maxTurns: cfg.max_turns, note: nudge.slice(0, 80) });
 			out = await harness.prompt(nudge, remainingMs());

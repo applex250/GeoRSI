@@ -18,6 +18,8 @@ import { meanWithFailures, weightedFitnessMean } from "./metrics.js";
 import { examHasValidTrainingResult, type ExamProblemResult } from "./exam.js";
 import { resolveRequestMaxTokens } from "./provider.js";
 import { TokenLedger } from "./budget.js";
+import { failedEpisodeResult } from "./inner/episode-contract.js";
+import { buildFollowupPrompt, buildInitialEpisodePrompt } from "./inner/prompt-policy.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import type { Proposal } from "./outer/improve.js";
 import { execFileSync } from "node:child_process";
@@ -66,6 +68,11 @@ export async function selftest(): Promise<boolean> {
 	check("scaffold fingerprint ignores generation", scaffoldFingerprint({ ...SEED_SCAFFOLD, generation: 99 }) === scaffoldFingerprint(SEED_SCAFFOLD));
 	const scopedTipScaffold = applyEdits(SEED_SCAFFOLD, [{ op: "add_tip", text: "retain scope", genres: ["seismology"] }]);
 	check("replace preserves scoped tip metadata", typeof applyEdits(scopedTipScaffold, [{ op: "replace_tip", index: 0, text: "updated" }]).tips[0] === "object");
+	const initialQuizPrompt = buildInitialEpisodePrompt({ statement: "task", isQuiz: true, evalCap: 2, softSubmitTarget: 1, memoryBlock: "memory" });
+	check("episode initial prompt policy preserves quiz contract", initialQuizPrompt.includes("QUIZ FIRST-PASS CONTRACT") && initialQuizPrompt.includes("georsi_science.py") && initialQuizPrompt.includes("memory"));
+	const finalNudge = buildFollowupPrompt({ isQuiz: false, turnsCompleted: 2, submits: 2, budgetLeft: 0, patience: 2, staleSubmits: 0, lastFeedback: "", bestPublic: 0.5, previousTurnAborted: false });
+	check("episode follow-up policy enforces finalization", finalNudge.includes("BUDGET EXHAUSTED") && finalNudge.includes("final=true"));
+
 
 	const tmp = join(process.cwd(), "runs", ".selftest");
 	rmSync(tmp, { recursive: true, force: true });
@@ -252,7 +259,10 @@ export async function selftest(): Promise<boolean> {
 	check("RAG disabled by default", goodCfg.rag_enabled === false && goodCfg.rag_budget_chars === 2400);
 	check("fitness mean keeps failed tasks in denominator", meanWithFailures([1, null]) === 0.5);
 	check("weighted fitness honors failed task weight", weightedFitnessMean([{ fitness: 1, weight: 1 }, { fitness: null, weight: 3 }]) === 0.25);
+	const failedContract = failedEpisodeResult("p", "workspace", new Error("boom"));
+	check("episode failure factory preserves fixed-denominator contract", failedContract.problemId === "p" && failedContract.fitness === null && failedContract.knowledgeIds.length === 0 && failedContract.error?.includes("boom") === true);
 	const failedExam: ExamProblemResult[] = [{ problem: "quake_b", heldout: false, weight: 1, fitness: null, bestPublic: null, submits: 0, secs: 0, error: "failed", warnings: [], tokens: 0 }];
+
 	check("all-error standalone exam is not successful", !examHasValidTrainingResult(failedExam));
 	check("standalone exam succeeds only with valid training fitness", examHasValidTrainingResult([{ ...failedExam[0]!, fitness: 0 }]));
 	check("submit budget is positive", goodCfg.eval_cap > 0);

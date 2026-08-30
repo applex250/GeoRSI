@@ -12,7 +12,8 @@ import { ROOT } from "./config.js";
 import { getPiRuntime } from "./provider.js";
 import { loadProblems, makeEvalContext } from "./bench/eval.js";
 import { SEED_SCAFFOLD, type Scaffold } from "./scaffold.js";
-import { solveEpisode, type EpisodeResult } from "./inner/solve.js";
+import { solveEpisode } from "./inner/solve.js";
+import { failedEpisodeResult, type EpisodeResult } from "./inner/episode-contract.js";
 import { emptyMemory } from "./memory.js";
 import { atomicWriteJson, fingerprint, writeTextAtomic } from "./journal.js";
 import { protectedManifest } from "./guard.js";
@@ -58,23 +59,6 @@ export function examHasValidTrainingResult(results: readonly ExamProblemResult[]
 	return results.some((result) => !result.heldout && result.fitness != null);
 }
 
-function failedEpisode(problemId: string, workspace: string, error: unknown): EpisodeResult {
-	return {
-		problemId,
-		fitness: null,
-		bestPublic: null,
-		submits: 0,
-		turns: 0,
-		tokens: 0,
-		secs: 0,
-		error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : String(error).slice(0, 500),
-		warnings: [],
-		workspace,
-		durableWorkspace: workspace,
-		knowledgeIds: [],
-	};
-}
-
 
 export async function runExam(
 	cfg: Config,
@@ -117,7 +101,7 @@ export async function runExam(
 					persistKnowledgeUsage: false,
 				});
 			} catch (error) {
-				res = failedEpisode(problem.id, workspace, error);
+				res = failedEpisodeResult(problem.id, workspace, error);
 			}
 			results.push({
 				problem: problem.id,
@@ -247,7 +231,7 @@ export async function runHeldoutExam(
 					controller,
 				});
 			} catch (error) {
-				res = failedEpisode(problem.id, workspace, error);
+				res = failedEpisodeResult(problem.id, workspace, error);
 			}
 			results.push({
 				problem: problem.id,
