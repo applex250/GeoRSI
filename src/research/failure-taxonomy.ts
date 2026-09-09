@@ -26,12 +26,12 @@ export interface ResearchFailure {
 }
 
 const RULES: { class: ResearchFailureClass; pattern: RegExp; retryable: boolean; component: ResearchFailure["affectedComponent"] }[] = [
-	{ class: "no-submission", pattern: /no submission|not submitted/i, retryable: true, component: "recipe" },
+	{ class: "no-submission", pattern: /no submission|not submitted|did not call submit/i, retryable: true, component: "recipe" },
 	{ class: "invalid-artifact", pattern: /invalid artifact|artifact.*missing|non-degenerate|output file/i, retryable: true, component: "verifier" },
 	{ class: "data-schema", pattern: /schema|column|parse|malformed|missing field/i, retryable: true, component: "recipe" },
 	{ class: "unit-mismatch", pattern: /unit|dimension|conversion/i, retryable: true, component: "verifier" },
 	{ class: "crs", pattern: /\bcrs\b|projection|axis order|geometry/i, retryable: true, component: "verifier" },
-	{ class: "network", pattern: /network|dns|http|connection|socket|429|502|503|504/i, retryable: true, component: "recovery" },
+	{ class: "network", pattern: /network|dns|http|connection|socket|429|502|503|504|upstream|temporarily unavailable|empty assistant response|receipt.*is not successful|is not successful/i, retryable: true, component: "recovery" },
 	{ class: "citation", pattern: /citation|doi|reference|source url/i, retryable: true, component: "verifier" },
 	{ class: "method-selection", pattern: /method|estimator|model selection/i, retryable: true, component: "planner" },
 	{ class: "numerical-instability", pattern: /nan|infinity|singular|overflow|underflow|converge/i, retryable: true, component: "recipe" },
