@@ -220,7 +220,7 @@ function buildSubmissionSchema(kind: WorkNodeKind): typeof SUBMISSION_SCHEMA {
 /** Compact machine-readable shape the verification input artifact must have, per profile.
  * Included verbatim in the node prompt so attempt 1 can produce a passing artifact. */
 const VERIFIER_INPUT_CONTRACTS: Record<FamilyVerifierProfile, string> = {
-	"quantitative-v1": `JSON object {"rowCount":int,"missingCount":int,"duplicateCount":int,"columnsAudited":[string],"units":{field:unit},"estimand":string,"method":string,"stochasticMethod":bool,"finiteOutputs":bool,"randomSeed":int,"uncertainty":{"method":string,"lower":number,"upper":number},"sensitivityRuns":int>=2,"independentCheck":{"method":string,"relativeDifference":number,"tolerance":number}}`,
+	"quantitative-v1": `the JSON result file you write via the compute tool's resultFile option (cite its resultArtifactId — NOT the script/stdout artifacts), with exactly this shape: {"rowCount":int,"missingCount":int,"duplicateCount":int,"columnsAudited":[string],"units":{field:unit},"estimand":string,"method":string,"stochasticMethod":bool,"finiteOutputs":bool,"randomSeed":int,"uncertainty":{"method":string,"lower":number,"upper":number},"sensitivityRuns":int>=2,"independentCheck":{"method":string,"relativeDifference":number,"tolerance":number}}`,
 	"gis-v1": `JSON object {"inputCrs":[string],"outputCrs":string,"metricOperations":bool,"projectedForMetricOperations":bool,"axisOrderChecked":bool,"artifacts":[{...}],"requestedOutputPaths":[string],"replayStatisticsMatch":bool}`,
 	"literature-v1": `JSON object {"sources":[...],"claims":[...],"hypotheses":[...],"searchQueries":[string],"minimumSources":int,"requireContraryEvidence":bool,"noveltyScope":string,"noveltySearchCutoff":string}`,
 };
@@ -493,7 +493,25 @@ export class ResearchNodeExecutor {
 			if (expectedProfile && !verificationProfiles.includes(expectedProfile)) issues.push(`node requires ${expectedProfile} verification input`);
 			for (const verification of captured.verifications) {
 				for (const id of verification.evidenceIds) if (!knownForLinks.has(id)) issues.push(`verifier input cites unknown evidence: ${id}`);
-				if (!producedToolArtifacts.has(verification.inputArtifactId)) issues.push(`verifier input must reference a tool-produced CAS artifact, not model-staged content: ${verification.inputArtifactId}`);
+				if (!producedToolArtifacts.has(verification.inputArtifactId)) {
+					issues.push(`verifier input must reference a tool-produced CAS artifact, not model-staged content: ${verification.inputArtifactId}`);
+					continue;
+				}
+				// The input artifact must be the JSON result file itself — not the script/stdout — and
+				// must carry the verifier's required fields (luna-smoke-007 lesson).
+				const inputReference = this.deps.evidenceById(verification.inputArtifactId);
+				if (!inputReference || !this.deps.evidenceStore.verify(inputReference)) {
+					issues.push(`verifier input artifact is not readable canonical evidence: ${verification.inputArtifactId}`);
+					continue;
+				}
+				let payload: unknown;
+				try { payload = JSON.parse(this.deps.evidenceStore.read(inputReference).toString("utf8")); }
+				catch {
+					issues.push(`verifier input artifact ${verification.inputArtifactId.slice(0, 24)}… is not JSON — reference the resultFile artifact (resultArtifactId in the tool output), not the script/stdout artifacts`);
+					continue;
+				}
+				const expectedProfile = profileForNode(node.kind);
+				if (expectedProfile) issues.push(...validateFamilyVerifierInputStructure(expectedProfile, payload));
 			}
 			const claimIds = new Set<string>();
 			for (const claim of captured.claims ?? []) {
