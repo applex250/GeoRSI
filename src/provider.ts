@@ -28,6 +28,10 @@ import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { SUPPORTED_MODELS, assertSupportedModel, modelSpec, modelSpecForConfig, researchModelSpec, configuredModelIds, type Config, type ModelSpec, type ResearchModelConfig } from "./config.js";
+
+/** Cloudflare-fronted gateways (geiliapi) reject non-browser user agents with
+ * 403 error 1010; match the UA already proven by problems/_shared clients. */
+const GATEWAY_BROWSER_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36";
 import { getProfile } from "./models.js";
 import { TOKENS } from "./budget.js";
 
@@ -240,7 +244,7 @@ export async function preflightResearchModel(policy: ResearchModelConfig, apiKey
 	const modelsUrl = `${baseUrl}/models`;
 	let modelsResponse: Response;
 	try {
-		modelsResponse = await fetch(modelsUrl, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(12_000) });
+		modelsResponse = await fetch(modelsUrl, { headers: { Authorization: `Bearer ${apiKey}`, "User-Agent": GATEWAY_BROWSER_UA }, signal: AbortSignal.timeout(12_000) });
 	} catch (error) {
 		throw new Error(`research provider preflight failed at ${modelsUrl}: ${error instanceof Error ? error.message : String(error)}`);
 	}
@@ -268,7 +272,7 @@ export async function preflightResearchModel(policy: ResearchModelConfig, apiKey
 	};
 	let response: Response;
 	try {
-		response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(20_000) });
+		response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": GATEWAY_BROWSER_UA }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(20_000) });
 	} catch (error) {
 		throw new Error(`research OpenAI Completions capability probe failed: ${error instanceof Error ? error.message : String(error)}`);
 	}
@@ -397,6 +401,7 @@ export function buildModelsJson(
 			baseUrl: cfg.research_model?.base_url ?? cfg.geiliapi_base_url ?? "https://sub.geiliapi.com/v1",
 			apiKey: credentials.research,
 			api: cfg.research_model?.api ?? "openai-completions",
+			headers: { "User-Agent": GATEWAY_BROWSER_UA },
 			models: researchModels.map(mk),
 		};
 	}

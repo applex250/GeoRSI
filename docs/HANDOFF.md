@@ -143,7 +143,14 @@ competitionEligible = false
 
 真实 `research-live` 暂时不能宣称竞赛可用，原因如下：
 
-1. 尚未配置轮换后的 `GEILIAPI_API_KEY`，真实 capability probe 未执行。
+0. 【2026-09-09 实测】GeiliAPI 的 `gpt-5.6-luna` 通道上游故障：
+   `/chat/completions` 持续 502、`/responses` 503；同账号同网关的
+   `gpt-5.6-terra/sol/gpt-5.6` 正常。网关在 Cloudflare 后：
+   非浏览器 UA 被 403 error 1010 拦截（provider/probe 已改用浏览器 UA），
+   账号有并发限制（429 gateway_concurrency_limit，顺序调用可避开）。
+   恢复检测：`python scripts/research_probe.py --mode tool_call`。
+1. 密钥已轮换并配置（用户级环境变量 GEILIAPI_API_KEY，未进仓库/对话）；
+   因 0 中 Luna 通道故障，真实 capability probe 与 research-live 冒烟待通道恢复。
 2. Python 侧迁移已完成（`scripts/research_probe.py` 取代 `scripts/ai_pixel_probe.py`；verdict 按包内 modelPolicy 动态校验；model_client/judge 支持 geiliapi 与 `max_completion_tokens`），仅保留向后兼容 shim。
 3. P1 安全/证据问题仍需独立终审：
    - verifier input 必须从 CAS/tool output 解析或重算，不能信任模型提交的原始指标；

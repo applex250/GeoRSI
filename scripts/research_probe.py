@@ -26,6 +26,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
 THINKING_KEYS = (
     "effective_reasoning_effort",
     "reasoning_effort",
@@ -55,24 +56,32 @@ def api_key(policy: dict) -> str:
     return key
 
 
-def request(policy: dict, path: str, body: dict, timeout: int) -> tuple[dict, int]:
-    req = urllib.request.Request(
-        policy["base_url"].rstrip("/") + path,
-        data=json.dumps(body).encode("utf-8") if body is not None else None,
-        headers={
-            "Authorization": "Bearer " + api_key(policy),
-            "Content-Type": "application/json",
-            "User-Agent": "GeoRSI-Research-Probe/1.0",
-        },
-    )
-    started = time.monotonic()
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        detail = error.read(500).decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {error.code}: {detail}") from error
-    return payload, round(time.monotonic() - started, 3)
+def request(policy: dict, path: str, body: dict, timeout: int, retries: int = 2) -> tuple[dict, int]:
+    """One request with bounded retries on transient gateway failures (429/5xx)."""
+    last_error: Exception | None = None
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(
+            policy["base_url"].rstrip("/") + path,
+            data=json.dumps(body).encode("utf-8") if body is not None else None,
+            headers={
+                "Authorization": "Bearer " + api_key(policy),
+                "Content-Type": "application/json",
+                "User-Agent": UA,
+            },
+        )
+        started = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            return payload, round(time.monotonic() - started, 3)
+        except urllib.error.HTTPError as error:
+            detail = error.read(500).decode("utf-8", errors="replace")
+            if error.code in (429, 502, 503) and attempt < retries:
+                last_error = RuntimeError(f"HTTP {error.code}: {detail}")
+                time.sleep(3 * (attempt + 1))
+                continue
+            raise RuntimeError(f"HTTP {error.code}: {detail}") from error
+    raise RuntimeError(f"retries exhausted: {last_error}")
 
 
 def observed_thinking(payload: dict) -> str | None:
