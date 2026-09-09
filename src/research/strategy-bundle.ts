@@ -94,7 +94,7 @@ export const SEED_STRATEGY_BUNDLE: StrategyBundle = {
 	recovery: { maxNodeAttempts: 2, retryableFailureClasses: ["network", "timeout", "data-schema", "verification", "citation", "numerical-instability"], checkpointAfterEveryTransition: true },
 	routing: { allowFallbackModels: false },
 	communication: { reportTemplate: "research-report-v1", presentationSlides: 8, minimumDefenseQuestions: 12, requireEvidenceCitations: true },
-	budget: { roleOutputCaps: { goal: 4096, proposal: 4096, critic: 4096, planner: 6144, literature: 8192, quantitative: 16384, gis: 24576, verifier: 6144, report: 12288, defense: 8192, judge: 8192 }, maxEscalationsPerCall: 1, escalationFactor: 2, hardRequestMaxTokens: 32768 },
+	budget: { roleOutputCaps: { goal: 4096, proposal: 4096, critic: 4096, planner: 6144, literature: 8192, quantitative: 16384, gis: 24576, verifier: 6144, synthesis: 24576, report: 12288, defense: 8192, judge: 8192 }, maxEscalationsPerCall: 1, escalationFactor: 2, hardRequestMaxTokens: 32768 },
 	lineage: { parentFingerprint: null, generation: 0, changedComponent: null },
 };
 
