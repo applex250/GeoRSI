@@ -200,6 +200,23 @@ function profileForNode(kind: WorkNodeKind): FamilyVerifierProfile | null {
 	return null;
 }
 
+/** Schema-level hard constraint (luna-smoke-005 lesson): nodes with a fixed family verifier get
+ * a verifications array of EXACTLY ONE entry whose profile is pinned to the literal — duplicate
+ * or wrong profiles are unrepresentable, not merely discouraged. Other kinds keep the general
+ * union schema with the runtime duplicate gate as defense in depth. */
+function buildSubmissionSchema(kind: WorkNodeKind): typeof SUBMISSION_SCHEMA {
+	const expectedProfile = profileForNode(kind);
+	if (!expectedProfile) return SUBMISSION_SCHEMA;
+	return Type.Object({
+		...SUBMISSION_SCHEMA.properties,
+		verifications: Type.Array(Type.Object({
+			profile: Type.Literal(expectedProfile),
+			input_artifact: Type.String({ minLength: 1, maxLength: 160, description: "Artifact id PRODUCED BY A SCIENTIFIC TOOL (copy resultArtifactId or an id from evidenceIds of the python-host/web-fetch tool output). Model-staged model-artifact handles are rejected here." }),
+			evidence_ids: Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { minItems: 1, maxItems: 64 }),
+		}), { minItems: 1, maxItems: 1 }) as unknown as typeof SUBMISSION_SCHEMA.properties.verifications,
+	}) as unknown as typeof SUBMISSION_SCHEMA;
+}
+
 function exactModelReceiptIssue(receipt: ModelCallReceipt, policy: ResearchModelConfig): string | null {
 	const issues = validateModelCallReceipt(receipt, policy);
 	return issues.length > 0 ? issues[0]! : null;
@@ -423,7 +440,7 @@ export class ResearchNodeExecutor {
 			name: "submit_research_node_output",
 			label: "Submit research node output",
 			description: "Submit the node result exactly once. verifications[].input_artifact must be a tool-produced artifact id (resultArtifactId/evidenceIds from python-host or web-fetch output); provide exactly one verification entry per required verifier profile — duplicate profiles are rejected. model-artifact handles are accepted only for artifact_ids/decisions/narrative, never as verifier input.",
-			parameters: SUBMISSION_SCHEMA,
+			parameters: buildSubmissionSchema(node.kind),
 			execute: async (_callId, params) => {
 				ensureActive();
 				toolCalls += 1;
