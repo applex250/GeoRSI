@@ -1,9 +1,29 @@
 # GeoRSI Handoff
 
-更新时间：2026-08-30
+更新时间：2026-09-09（真实场景测试阶段）
 当前分支：`master`
-当前提交：`c6fd106 feat: unify research model policy into single research_model config`
-GitHub：`origin/master` 已同步到 `c6fd106`
+当前提交：见 `git log`（本文件随统一网关路由层提交更新）
+GitHub：`origin/master`
+
+## 0. 2026-09 阶段要点（先读这节）
+
+1. **沙盒默认关闭（开发期决策）**：`execution_backend` 缺省即 `host-audit`（直接主机执行，无隔离）。
+   显式 `"execution_backend": "sandboxie"` 才启用 Sandboxie。Sandboxie 代码全量保留；
+   相关故障（`/env:=Refresh` 空名环境对、`Start.exe` ownership 窗口）延后迭代再修。
+2. **诚实性不降级**：host-audit 运行记为 `runMode=host-development` + `isolationBackend=host-audit`
+   + `networkIsolationEnforced=false`，TS 门禁与 Python verdict 双侧强制其**永不满足竞赛资格**。
+3. **统一网关路由层**：`config/*.json` 的 `research_gateways` 登记表承载 endpoint/model/api/
+   thinking_evidence/**全部弹性参数**（probe_attempts=10、probe_timeout_ms、backoff、
+   session_retries=10）；`research_model.gateway` 单字段切换；
+   `npm run research:gateway -- alsl|geili|--list` 原子切换（先校验后写入，输出策略指纹）。
+   `thinking_evidence=requested-only` 的路由（geili completions 无回显）如实记录为不可竞赛。
+   TS/Python 展开逐字节一致，当前 alsl 指纹 `eccdf947cc216870b293280a`。
+4. **真机验证结论**：alsl(responses) 通道 Luna xhigh 真机全链路已通；host-audit 计算
+   `python-host` 连续 20+ 次成功（`DirectHostComputePort`，exchange 协议与 receipt 结构与
+   Sandboxie 端口一致）。真实冒烟发现的模型行为缺口以提示词修复（验证输入必须引用工具产出
+   artifact、每个 profile 仅一条验证），并以 `maxRetries` 吸收网关 429/5xx/超时抖动。
+5. **密钥纪律**：对话中出现过的 key 均视为泄露；冒烟结束后必须轮换 alsl key；
+   注册表 `HKCU\Environment` 的 `GEILIAPI_API_KEY` 残留待清理。
 
 ## 1. 项目定位
 
