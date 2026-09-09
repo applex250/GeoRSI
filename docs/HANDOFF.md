@@ -141,20 +141,15 @@ competitionEligible = false
 真实 `research-live` 暂时不能宣称竞赛可用，原因如下：
 
 1. 尚未配置轮换后的 `GEILIAPI_API_KEY`，真实 capability probe 未执行。
-2. Python 侧仍有旧 AI Pixel/Responses 假设，需要继续迁移：
-   - `scripts/ai_pixel_probe.py`
-   - `scripts/research_verdict.py`
-   - `problems/_shared/model_client.py`
-   - `problems/_shared/judge.py`
-3. 部分文档和旧测试描述仍然使用 AI Pixel/Responses 名称，需要同步清理。
-4. P1 安全/证据问题仍需独立终审：
+2. Python 侧迁移已完成（`scripts/research_probe.py` 取代 `scripts/ai_pixel_probe.py`；verdict 按包内 modelPolicy 动态校验；model_client/judge 支持 geiliapi 与 `max_completion_tokens`），仅保留向后兼容 shim。
+3. P1 安全/证据问题仍需独立终审：
    - verifier input 必须从 CAS/tool output 解析或重算，不能信任模型提交的原始指标；
    - cleanup 前 strict guard sweep 必须进入 `guardViolations`；
    - stdout/stderr/result 必须 no-follow、regular-file、canonical-under-exchange；
    - AbortSignal 必须贯穿 scientific tool、Sandboxie process、cleanup 和 replay；
    - terminal stop 后不得继续 synthesis/replay/persist；
    - source policy 和 task profile network mode 必须严格一致。
-5. provider-observed xhigh、usage、tool-loop、receipt/api/model 一致性需要真实 Geili probe 证明。
+4. provider-observed xhigh、usage、tool-loop、receipt/api/model 一致性需要真实 Geili probe 证明。
 
 因此当前结论仍是：
 

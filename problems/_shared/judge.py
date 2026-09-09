@@ -84,10 +84,11 @@ def _call(prompt, max_tokens=2000):
             }
             path = "/responses"
         else:
+            token_field = os.environ.get("RSILAB_JUDGE_MAX_TOKENS_FIELD", "max_tokens").strip() or "max_tokens"
             body = {
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
+                token_field: max_tokens,
                 "temperature": 0,
             }
             if effort and model != "muse-spark-1.2-contributor":

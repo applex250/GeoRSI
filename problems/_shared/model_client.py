@@ -27,6 +27,16 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chr
 _LEVEL_ORDER = ["off", "minimal", "none", "low", "medium", "high", "xhigh", "max"]
 
 
+def _research_model():
+    """Authoritative research model policy from config.json (may be absent)."""
+    try:
+        cfg = json.load(open(os.path.join(ROOT, "config.json"), encoding="utf-8"))
+    except Exception:
+        return None
+    rm = cfg.get("research_model")
+    return rm if isinstance(rm, dict) and rm.get("model") else None
+
+
 def _key_for(endpoint):
     if endpoint == "local":
         p = os.path.join(ROOT, "api_key_local.txt")
@@ -36,6 +46,9 @@ def _key_for(endpoint):
         return open(p, encoding="utf-8").read().strip() if os.path.exists(p) else ""
     if endpoint == "emooo":
         return os.environ.get("RSILAB_EMOOO_API_KEY", os.environ.get("GEORSI_EMOOO_API_KEY", "")).strip()
+    if endpoint in ("geiliapi", "research"):
+        rm = _research_model() or {}
+        return os.environ.get(rm.get("credential_env", "GEILIAPI_API_KEY"), "").strip()
     if endpoint == "ai-pixel":
         return os.environ.get("AI_PIXEL_API_KEY", "").strip()
     return open(os.path.join(ROOT, "api_key.txt"), encoding="utf-8").read().strip()
@@ -49,9 +62,20 @@ def _base_for(endpoint):
         return cfg.get("openrouter_base_url", "https://openrouter.ai/api/v1")
     if endpoint == "emooo":
         return cfg.get("emooo_base_url", "https://api.emooo.cc/v1")
+    if endpoint in ("geiliapi", "research"):
+        rm = _research_model() or {}
+        return os.environ.get("GEILIAPI_BASE_URL", rm.get("base_url", cfg.get("geiliapi_base_url", "https://sub.geiliapi.com/v1")))
     if endpoint == "ai-pixel":
         return os.environ.get("AI_PIXEL_BASE_URL", cfg.get("ai_pixel_base_url", "https://api.ai-pixel.online/v1"))
     return cfg["base_url"]
+
+
+def _max_tokens_field(model_id):
+    """max_completion_tokens for the configured research model; else max_tokens."""
+    rm = _research_model()
+    if rm and rm.get("model") == model_id:
+        return rm.get("max_tokens_field", "max_completion_tokens")
+    return "max_tokens"
 
 
 def _load_profiles():
@@ -148,7 +172,8 @@ def complete(model_id, messages, level="low", budget_tokens=None, max_tokens=400
                 body["reasoning"] = {"effort": effort}
             path = "/responses"
         else:
-            body = {"model": model_id, "messages": messages, "max_tokens": max_tokens,
+            body = {"model": model_id, "messages": messages,
+                    _max_tokens_field(model_id): max_tokens,
                     "temperature": 0, **extra}
             path = "/chat/completions"
         req = urllib.request.Request(base + path, data=json.dumps(body).encode(),

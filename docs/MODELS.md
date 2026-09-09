@@ -6,14 +6,14 @@
 
 | 模型 | 端点 / 协议 | 推理 | 当前角色 |
 |---|---|---|---|
-| **gpt-5.6-luna** | ai-pixel / **Responses API** | benchmark 固定 `xhigh`；live 生效性仍需 probe | 唯一获准的新模型调用；inner/outer/planner/verifier/报告 |
+| **gpt-5.6-luna** | geiliapi / chat-completions（`research_model` 单一配置） | 竞赛固定 `xhigh`；live 生效性仍需 probe | 唯一获准的新模型调用；inner/outer/planner/verifier/报告 |
 | hy3 | zen / chat-completions | low..xhigh | 历史配置；Luna-only campaign 禁止调用 |
 | mimo-v2.5 | zen / chat-completions | low..high | 历史配置；Luna-only campaign 禁止调用 |
 | GLM-5.3 Flash | OpenRouter / chat-completions | mandatory | 历史配置；Luna-only campaign 禁止调用 |
 | dsv4f | local / chat-completions | effort/budget | 历史配置；Luna-only campaign 禁止调用 |
 | muse-spark | zen / Responses API | 不支持 reasoning 参数 | 历史配置；Luna-only campaign 禁止调用 |
 
-> Luna 的 provider 配置来自用户提供的能力声明；在 Responses、tool-loop、usage 和 `xhigh` 生效性 probe 完成前，档案保持 `unverified-ai-pixel`。任何出现在对话、命令行或日志中的 key 都必须撤销。新 key 只从 `AI_PIXEL_API_KEY` 读取，项目不支持 ai-pixel key 文件 fallback。
+> Luna 的 provider 配置来自 `config` 的 `research_model` 块（当前 geiliapi / OpenAI Completions / `max_completion_tokens`）；在 catalog、tool-loop、usage 和 provider-observed `xhigh` probe 完成前，档案保持 `unverified-geiliapi`。任何出现在对话、命令行或日志中的 key 都必须撤销。新 key 只从 `GEILIAPI_API_KEY` 读取，项目不支持 key 文件 fallback。统一探针：`python scripts/research_probe.py`。
 
 ## 一、历史能力总览矩阵
 

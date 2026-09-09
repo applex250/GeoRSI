@@ -122,8 +122,20 @@ export interface ResearchModelConfig {
 	require_provider_observed_thinking: boolean;
 }
 
+/** Recursive sorted-key JSON so non-TS verifiers can reproduce fingerprints. */
+function canonicalConfigJson(value: unknown): string {
+	const sort = (input: unknown): unknown => {
+		if (Array.isArray(input)) return input.map(sort);
+		if (input && typeof input === "object") {
+			return Object.fromEntries(Object.entries(input as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, sort(item)]));
+		}
+		return input;
+	};
+	return JSON.stringify(sort(value));
+}
+
 export function researchModelConfigFingerprint(policy: ResearchModelConfig): string {
-	return createHash("sha256").update(JSON.stringify(policy)).digest("hex").slice(0, 24);
+	return createHash("sha256").update(canonicalConfigJson(policy)).digest("hex").slice(0, 24);
 }
 
 export function validateResearchModelConfig(policy: ResearchModelConfig): string[] {

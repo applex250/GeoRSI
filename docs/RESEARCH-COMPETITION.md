@@ -13,32 +13,40 @@ outside this MVP.
 
 ## Model policy
 
-New live campaigns are Luna-only:
+New live campaigns are Luna-only and derive every model fact from one config block:
 
 ```text
-provider = ai-pixel
-model = gpt-5.6-luna
-thinking = xhigh
-fallback models = none
+research_model.provider            = geiliapi
+research_model.base_url            = https://sub.geiliapi.com/v1
+research_model.model               = gpt-5.6-luna
+research_model.api                 = openai-completions
+research_model.thinking_level      = xhigh
+research_model.max_tokens_field    = max_completion_tokens
+research_model.credential_env      = GEILIAPI_API_KEY
+research_model.fallback            = none
 ```
 
-The ai-pixel credential is environment-only:
+The credential is environment-only:
 
 ```powershell
-$env:AI_PIXEL_API_KEY="<rotated-key>"
+$env:GEILIAPI_API_KEY="<rotated-key>"
 ```
 
 A key shown in a transcript, terminal argument, screenshot, or log is exposed
-and must be revoked. GeoRSI has no ai-pixel key-file fallback.
+and must be revoked. GeoRSI has no key-file fallback. Switching the research
+model or gateway means editing `research_model`; executor, attestation,
+judge, benchmark, and verdict code must stay provider-neutral.
 
 Before a live campaign:
 
 ```bash
-python scripts/ai_pixel_probe.py --mode all
+python scripts/research_probe.py
 ```
 
-The machine-readable model profile stays `unverified-ai-pixel` until Responses,
-xhigh, streaming/tool-loop, usage, PiHarness, and Sandboxie probes pass.
+The machine-readable model profile stays `unverified-geiliapi` until the OpenAI
+Completions catalog, xhigh thinking, tool-loop, usage, PiHarness, and Sandboxie
+probes pass. Competition packages persist the `modelPolicy` and its canonical
+fingerprint; the independent verdict re-validates receipts against that policy.
 
 The fixed task/weight/repetition protocol is declared in
 `config/research-benchmark-manifest.json` and mirrored by the typed
@@ -53,8 +61,9 @@ quality-first `0.01` score-band/token policy.
 ## Research node executor
 
 `src/research/research-node-executor.ts` is the production WorkGraph adapter. It
-creates one bounded Pi session per node and fails closed unless the runtime is
-exactly `ai-pixel/gpt-5.6-luna` via Responses with requested/effective `xhigh`.
+creates one bounded Pi session per node and fails closed unless the runtime
+matches `research_model` exactly (`provider/model/api`, currently
+`geiliapi/gpt-5.6-luna/openai-completions`) with requested/effective `xhigh`.
 It disables Pi built-in and exchange file tools; the model sees only explicit,
 TypeBox-bound `ScientificToolRegistry` adapters plus bounded artifact/submission
 capture tools. Context is node/dependency scoped and fingerprinted. Per-role

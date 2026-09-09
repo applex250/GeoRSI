@@ -146,6 +146,31 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
     mode = attestation.get("runMode")
     receipts = attestation.get("modelCalls") or []
     runtime_issues = []
+
+    # The package must commit the authoritative model policy; receipts are
+    # validated against it instead of a hardcoded provider identity.
+    policy = attestation.get("modelPolicy")
+    policy_issues: list[str] = []
+    if isinstance(policy, dict) and policy.get("model"):
+        required_policy_fields = ("provider", "base_url", "model", "api", "thinking_level", "max_tokens_field", "credential_env", "fallback")
+        missing = [field for field in required_policy_fields if not policy.get(field)]
+        if missing:
+            policy_issues.append(f"model policy missing fields: {', '.join(missing)}")
+        if policy.get("fallback") != "none":
+            policy_issues.append("model policy fallback must be none")
+        if policy.get("thinking_level") != "xhigh":
+            policy_issues.append("model policy thinking must be xhigh")
+        expected_fp = digest(policy)[:24]
+        if attestation.get("modelPolicyFingerprint") != expected_fp:
+            policy_issues.append("research model policy fingerprint mismatch")
+        expected_provider = policy.get("provider")
+        expected_model = policy.get("model")
+        expected_api = policy.get("api")
+        expected_thinking = policy.get("thinking_level")
+    else:
+        policy = None
+        expected_provider, expected_model, expected_api, expected_thinking = "ai-pixel", "gpt-5.6-luna", "openai-responses", "xhigh"
+
     if attestation.get("unitTestsPassed") is not True:
         runtime_issues.append("unit tests not attested")
     if attestation.get("guardViolations"):
@@ -176,8 +201,12 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
         runtime_issues.append("required contrary evidence links missing")
 
     if mode == "competition":
-        if not environment.get("evaluatorMetrics", {}).get("aiPixelCapabilityProbe"):
-            runtime_issues.append("competition package lacks provider-observed ai-pixel capability probe")
+        if policy is None:
+            runtime_issues.append("competition package must persist the authoritative research model policy")
+        runtime_issues.extend(policy_issues)
+        evaluator_metrics = environment.get("evaluatorMetrics", {})
+        if not (evaluator_metrics.get("researchCapabilityProbe") or evaluator_metrics.get("aiPixelCapabilityProbe")):
+            runtime_issues.append("competition package lacks provider-observed research capability probe")
         if not receipts:
             runtime_issues.append("competition package has no model-call receipts")
         if attestation.get("isolationBackend") != "sandboxie-app-level" or compute.get("backend") != "sandboxie-app-level" or compute.get("processOwnershipVerified") is not True:
@@ -203,7 +232,7 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
         total = receipt.get("totalTokens")
         if isinstance(total, bool) or not isinstance(total, int) or total < 0:
             runtime_issues.append(f"invalid totalTokens in model receipt {rid}")
-        if receipt.get("provider") != "ai-pixel" or receipt.get("model") != "gpt-5.6-luna" or receipt.get("api") != "openai-responses" or receipt.get("requestedThinking") != "xhigh" or receipt.get("effectiveThinking") != "xhigh" or receipt.get("success") is not True or not isinstance(receipt.get("outputTokens"), int) or isinstance(receipt.get("outputTokens"), bool) or receipt.get("outputTokens") <= 0:
+        if receipt.get("provider") != expected_provider or receipt.get("model") != expected_model or receipt.get("api") != expected_api or receipt.get("requestedThinking") != expected_thinking or receipt.get("effectiveThinking") != expected_thinking or receipt.get("success") is not True or not isinstance(receipt.get("outputTokens"), int) or isinstance(receipt.get("outputTokens"), bool) or receipt.get("outputTokens") <= 0:
             runtime_issues.append(f"forbidden or invalid model receipt {rid}")
     receipt_totals = []
     for item in receipts:
