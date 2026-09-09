@@ -9,6 +9,8 @@ export interface ScientificToolContext {
 	nodeId: string;
 	allowedCapabilities: readonly string[];
 	remainingWallMs: number;
+	/** Cooperative cancellation; checked before and after every tool execution. */
+	signal?: AbortSignal;
 }
 
 export interface ScientificToolResult<Output> {
@@ -81,6 +83,7 @@ export class ScientificToolRegistry {
 		if (!tool) throw new Error(`unknown scientific tool: ${toolId}`);
 		if (!context.allowedCapabilities.includes(tool.capability)) throw new Error(`node ${context.nodeId} is not allowed capability ${tool.capability}`);
 		if (context.remainingWallMs <= 0) throw new Error(`node ${context.nodeId} has no remaining wall-clock budget`);
+		if (context.signal?.aborted) throw new Error(`node ${context.nodeId} aborted before tool ${tool.id}`);
 		const issues = tool.validate(input);
 		if (issues.length > 0) throw new Error(`invalid ${tool.id} input: ${issues.join("; ")}`);
 		const started = this.now();
@@ -100,6 +103,7 @@ export class ScientificToolRegistry {
 		};
 		try {
 			const result = await tool.execute(context, input);
+			if (context.signal?.aborted) throw new Error(`node ${context.nodeId} aborted during tool ${tool.id}; result discarded`);
 			const completed = this.now();
 			const safeOutput = sanitizeResearchEvidence(result.output);
 			const receipt: ScientificToolReceipt = {

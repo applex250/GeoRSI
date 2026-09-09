@@ -28,6 +28,7 @@ import { basename, isAbsolute, join, resolve, sep } from "node:path";
 import type { Config } from "./config.js";
 import { isProcessAlive, terminateProcessTree } from "./process.js";
 import { sanitizeExecutionEnvironment } from "./process-env.js";
+import { readWorkspaceFileStrict } from "./workspace-tools.js";
 import { SandboxieCli, type SandboxieCommandResult } from "./sandboxie-cli.js";
 import { SandboxieIni } from "./sandboxie-ini.js";
 import { SandboxieGlobalLease } from "./sandboxie-lease.js";
@@ -924,18 +925,23 @@ export class SandboxieAdapter {
 			}
 			throw error;
 		}
-		return {
-			launcherPid: launched.child.pid,
-			targetPids,
-			exitCode: result.code,
-			timedOut,
-			error: result.error,
-			stdout: readTail(launched.launcherStdoutPath, 3000) + readTail(options.stdoutPath, 3000),
-			stderr: readTail(launched.launcherStderrPath, 1500) + readTail(options.stderrPath, 1500),
-			launcherStdoutPath: launched.launcherStdoutPath,
-			launcherStderrPath: launched.launcherStderrPath,
-			wrapperPath: launched.wrapperPath,
-		};
+		return (() => {
+			const stdout = readBoxOutputStrict(options.cwd, options.stdoutPath, 3000);
+			const stderr = readBoxOutputStrict(options.cwd, options.stderrPath, 1500);
+			const violations = [stdout.violation, stderr.violation].filter((value): value is string => !!value);
+			return {
+				launcherPid: launched.child.pid,
+				targetPids,
+				exitCode: result.code,
+				timedOut,
+				stdout: readTail(launched.launcherStdoutPath, 3000) + stdout.text,
+				stderr: readTail(launched.launcherStderrPath, 1500) + stderr.text,
+				error: [result.error, ...violations].filter(Boolean).join("; ") || undefined,
+				launcherStdoutPath: launched.launcherStdoutPath,
+				launcherStderrPath: launched.launcherStderrPath,
+				wrapperPath: launched.wrapperPath,
+			};
+		})();
 	}
 
 	async startPython(options: SandboxiePythonRunOptions): Promise<SandboxieBackgroundRun> {
@@ -1182,6 +1188,20 @@ function readTail(path: string, maxChars: number): string {
 		return text.slice(-maxChars);
 	} catch {
 		return "";
+	}
+}
+
+/**
+ * Strict no-follow read of agent-influenceable output logs. The launcher logs
+ * are written by Start.exe before the box exists, so they stay best-effort;
+ * the python stdout/stderr files inside the workspace are attacker-influenced
+ * and any containment violation invalidates the run via `violation`.
+ */
+function readBoxOutputStrict(workspaceRoot: string, path: string, maxChars: number): { text: string; violation?: string } {
+	try {
+		return { text: readWorkspaceFileStrict(workspaceRoot, path).toString("utf8").slice(-maxChars) };
+	} catch (error) {
+		return { text: "", violation: `box output read rejected: ${path}: ${error instanceof Error ? error.message : String(error)}` };
 	}
 }
 

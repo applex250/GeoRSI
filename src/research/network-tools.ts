@@ -19,7 +19,7 @@ export interface NetworkFetchResponse {
 }
 
 export interface NetworkFetchPort {
-	fetch(request: NetworkFetchRequest): Promise<NetworkFetchResponse>;
+	fetch(request: NetworkFetchRequest, signal?: AbortSignal): Promise<NetworkFetchResponse>;
 }
 
 function validateHttpUrl(value: unknown): string[] {
@@ -50,8 +50,10 @@ export function createWebFetchTool(
 			return issues;
 		},
 		execute: async (context, input) => {
+			if (context.signal?.aborted) throw new Error(`web-fetch aborted before launch for node ${context.nodeId}`);
 			const method = input.method ?? "GET";
-			const response = await port.fetch({ url: input.url, method, timeoutMs: input.timeoutMs ?? Math.min(30_000, context.remainingWallMs), maxBytes: input.maxBytes ?? 5_000_000 });
+			const response = await port.fetch({ url: input.url, method, timeoutMs: input.timeoutMs ?? Math.min(30_000, context.remainingWallMs), maxBytes: input.maxBytes ?? 5_000_000 }, context.signal);
+			if (context.signal?.aborted) throw new Error(`web-fetch aborted after completion for node ${context.nodeId}; response discarded`);
 			if (response.status < 200 || response.status >= 400) throw new Error(`web fetch HTTP ${response.status}`);
 			if (response.body.byteLength > (input.maxBytes ?? 5_000_000)) throw new Error("web fetch exceeded maxBytes");
 			const contentType = response.headers["content-type"] ?? "application/octet-stream";

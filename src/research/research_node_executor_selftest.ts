@@ -147,12 +147,24 @@ async function main(): Promise<void> {
 		const store = new ContentAddressedEvidenceStore(join(root, "evidence"));
 		const references = new Map<string, EvidenceRef>();
 		const registry = new ScientificToolRegistry();
+		registry.register({
+			id: "quant-result",
+			version: "1",
+			capability: "compute",
+			validate: () => [],
+			execute: async (context, input: { value: unknown }) => {
+				const reference = store.putJson(input.value, { kind: "tool-output", logicalName: `${context.nodeId}-quant-result.json`, producerNodeId: context.nodeId });
+				return { output: { artifactIds: [reference.id] }, artifactIds: [reference.id], evidenceRefs: [reference] };
+			},
+		});
 		let observedOpts: HarnessOpts | undefined;
 		const fakeHarness = (invalidVerification = false, call = receipt()): ((opts: HarnessOpts) => ResearchHarness) => (opts) => {
 			observedOpts = opts;
 			return {
 				init: async () => {},
 				prompt: async () => {
+					const quant = await tool(opts, "research_quant-result").execute("quant-call", { value: invalidVerification ? { ...quantitativeInput, units: {} } : quantitativeInput });
+					const quantIds = JSON.parse(textResult(quant)) as { output: { artifactIds: string[] } };
 					const staged = await tool(opts, "record_research_artifact").execute("artifact-call", { kind: "table", logical_name: "result.json", media_type: "application/json", content: JSON.stringify({ b: 1.0 }) });
 					const handle = textResult(staged).split(" ").at(-1)!;
 					await tool(opts, "submit_research_node_output").execute("submit-call", {
@@ -160,7 +172,7 @@ async function main(): Promise<void> {
 						summary: "A bounded fixture result",
 						artifact_ids: [handle],
 						decisions: [{ question: "method", alternatives: ["Aki", "regression"], selected: "Aki", evidence_ids: [handle], uncertainty: "fixture uncertainty" }],
-						verifications: [{ profile: "quantitative-v1", input: invalidVerification ? { ...quantitativeInput, units: {} } : quantitativeInput, evidence_ids: [handle] }],
+						verifications: [{ profile: "quantitative-v1", input_artifact: quantIds.output.artifactIds[0]!, evidence_ids: [handle, quantIds.output.artifactIds[0]!] }],
 					});
 					return successOutcome(call);
 				},
@@ -178,14 +190,14 @@ async function main(): Promise<void> {
 			evidenceById: (id) => references.get(id),
 			registerEvidence: (reference) => references.set(reference.id, reference),
 			toolRegistry: registry,
-			toolBindings: [],
+			toolBindings: [{ toolId: "quant-result", description: "fixture verifier-input producer", parameters: Type.Object({ value: Type.Unknown() }) }],
 			createHarness: fakeHarness(),
 		});
 		const node = makeNode();
 		const execution = await executor.executeNode(node, makeGraph(node), new AbortController().signal);
 		check("executor fixes Luna xhigh and disables ambient tools", observedOpts?.thinkingLevel === "xhigh" && observedOpts.maxRetries === 0 && observedOpts.builtinTools?.length === 0 && observedOpts.exchangeTools === false);
 		check("executor applies hard per-call output share", observedOpts?.maxOutputTokens === 500 && (capHarnessModelOutput(lunaModel(), 500) as { maxTokens?: number }).maxTokens === 500);
-		check("executor reports exact model/tool/output usage", execution.usage.modelCalls === 1 && execution.usage.toolCalls === 2 && execution.usage.outputTokens === 100);
+		check("executor reports exact model/tool/output usage", execution.usage.modelCalls === 1 && execution.usage.toolCalls === 3 && execution.usage.outputTokens === 100);
 		check("executor only returns canonical CAS artifacts", execution.artifactIds.length >= 3 && execution.artifactIds.every((id) => !!references.get(id) && store.verify(references.get(id)!)));
 		const verification = await executor.verifyNode(node, execution, makeGraph(node), new AbortController().signal);
 		check("quantitative verification is deterministic and model-free", verification.passed && verification.usage.modelCalls === 0 && verification.usage.toolCalls === 0);
@@ -205,10 +217,43 @@ async function main(): Promise<void> {
 		catch { downgradeRejected = true; }
 		check("downgraded receipt fails before model artifacts persist", downgradeRejected && references.size === beforeFailed);
 
-		const invalidExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [], createHarness: fakeHarness(true) });
+		const invalidExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [{ toolId: "quant-result", description: "fixture verifier-input producer", parameters: Type.Object({ value: Type.Unknown() }) }], createHarness: fakeHarness(true) });
 		const invalidExecution = await invalidExecutor.executeNode(node, makeGraph(node), new AbortController().signal);
 		const invalidResult = await invalidExecutor.verifyNode(node, invalidExecution, makeGraph(node), new AbortController().signal);
 		check("invalid quantitative fixture cannot pass deterministic verifier", !invalidResult.passed && invalidResult.issues.some((issue) => issue.includes("units")));
+
+		const forgedHarness = (opts: HarnessOpts): ResearchHarness => ({
+			init: async () => {},
+			prompt: async () => {
+				const staged = await tool(opts, "record_research_artifact").execute("forged-artifact", { kind: "table", logical_name: "forged.json", media_type: "application/json", content: JSON.stringify(quantitativeInput) });
+				const handle = textResult(staged).split(" ").at(-1)!;
+				await tool(opts, "submit_research_node_output").execute("forged-submit", {
+					version: 1,
+					summary: "forged verifier input",
+					artifact_ids: [handle],
+					decisions: [],
+					verifications: [{ profile: "quantitative-v1", input_artifact: handle, evidence_ids: [handle] }],
+				});
+				return successOutcome();
+			},
+			abort: () => {},
+			dispose: () => {},
+		});
+		const forgedExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [{ toolId: "quant-result", description: "fixture verifier-input producer", parameters: Type.Object({ value: Type.Unknown() }) }], createHarness: forgedHarness });
+		let forgedInputRejected = false;
+		try { await forgedExecutor.executeNode(makeNode(), makeGraph(makeNode()), new AbortController().signal); }
+		catch (error) { forgedInputRejected = String(error).includes("tool-produced CAS artifact"); }
+		check("model-staged verifier input is rejected in favor of tool-produced CAS artifacts", forgedInputRejected);
+
+		const signalRegistry = new ScientificToolRegistry();
+		let signalToolRan = false;
+		signalRegistry.register({ id: "sig", version: "1", capability: "compute", validate: () => [], execute: async () => { signalToolRan = true; return { output: {} }; } });
+		const abortedController = new AbortController();
+		abortedController.abort();
+		let abortedToolRejected = false;
+		try { await signalRegistry.execute("sig", { missionId: "m", episodeId: "e", nodeId: "n", allowedCapabilities: ["compute"], remainingWallMs: 1000, signal: abortedController.signal }, {}); }
+		catch { abortedToolRejected = true; }
+		check("scientific tool registry refuses aborted signals before execution", abortedToolRejected && !signalToolRan);
 
 		const toolRegistry = new ScientificToolRegistry(() => new Date("2026-01-01T00:00:00.000Z"), () => "tool-receipt");
 		toolRegistry.register({

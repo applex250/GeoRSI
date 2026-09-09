@@ -7,7 +7,7 @@
  * the exchange root before delegating to the official tool implementation.
  */
 import { access, lstat, mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
-import { constants, realpathSync } from "node:fs";
+import { constants, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import {
 	createEditToolDefinition,
@@ -101,6 +101,43 @@ async function assertNewInside(root: string, absolutePath: string): Promise<void
 
 function guard(root: string, absolutePath: string): Promise<void> {
 	return assertExistingInside(root, absolutePath);
+}
+
+/**
+ * Host-side no-follow read of a sandbox-produced file.
+ *
+ * Refuses lexical traversal, symlink/reparse components, non-regular files,
+ * oversized files, and any realpath that resolves outside the workspace root.
+ * This is the only sanctioned way to read result/stdout/stderr files that a
+ * boxed agent process could have influenced.
+ */
+export function readWorkspaceFileStrict(root: string, absolutePath: string, maxBytes = 64 * 1024 * 1024): Buffer {
+	const rootPath = resolve(root);
+	const candidate = resolve(absolutePath);
+	if (!lexicalInside(rootPath, candidate)) throw new Error(`workspace read rejected: path escapes workspace: ${absolutePath}`);
+	const rel = relative(rootPath, candidate);
+	const components = rel && rel !== "." ? rel.split(/[\\/]+/).filter(Boolean) : [];
+	let current = rootPath;
+	for (const component of components) {
+		current = resolve(current, component);
+		const info = lstatSync(current, { throwIfNoEntry: false });
+		if (!info) throw new Error(`workspace read rejected: missing path component: ${absolutePath}`);
+		if (info.isSymbolicLink()) throw new Error(`workspace read rejected: symlink/reparse component: ${absolutePath}`);
+	}
+	const info = lstatSync(candidate, { throwIfNoEntry: false });
+	if (!info) throw new Error(`workspace read rejected: missing file: ${absolutePath}`);
+	if (info.isSymbolicLink() || !info.isFile()) throw new Error(`workspace read rejected: not a regular file: ${absolutePath}`);
+	if (info.size > maxBytes) throw new Error(`workspace read rejected: file exceeds ${maxBytes} bytes: ${absolutePath}`);
+	let actual: string;
+	try {
+		actual = realpathSync.native(candidate);
+	} catch (error) {
+		throw new Error(`workspace read rejected: cannot canonicalize: ${absolutePath}: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	if (!lexicalInside(rootPath, actual)) throw new Error(`workspace read rejected: resolved path escapes workspace: ${absolutePath}`);
+	const content = readFileSync(candidate);
+	if (content.byteLength !== info.size) throw new Error(`workspace read rejected: size changed during read: ${absolutePath}`);
+	return content;
 }
 
 /** Return official pi tool definitions whose operations are exchange-guarded. */

@@ -1,8 +1,8 @@
 /** Fail-closed scientific-compute tool contract; concrete ports must use Sandboxie and never host fallback. */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
-import { assertExchangeWorkspace } from "../workspace-tools.js";
+import { assertExchangeWorkspace, readWorkspaceFileStrict } from "../workspace-tools.js";
 import { assertSandboxPythonCommand, makeSandboxieBoxName, type SandboxieAdapter, type SandboxieBoxRecord } from "../sandboxie.js";
 import type { SandboxieCleanupResult } from "../sandboxie-cleanup.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
@@ -21,6 +21,8 @@ export interface SandboxieComputeRequest {
 	resultFile?: string;
 	timeoutMs: number;
 	networkMode: "blocked" | "open";
+	/** Cooperative cancellation; abort terminates the box before completion. */
+	signal?: AbortSignal;
 }
 
 export interface SandboxieComputeRunReceipt {
@@ -46,7 +48,7 @@ export interface SandboxieComputeRunReceipt {
 
 export interface SandboxieResearchComputePort {
 	run(request: SandboxieComputeRequest): Promise<SandboxieComputeRunReceipt>;
-	replay(receipts: readonly SandboxieComputeRunReceipt[]): Promise<ComputeReplayAttestation>;
+	replay(receipts: readonly SandboxieComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation>;
 }
 
 export interface SandboxiePythonComputePortOptions {
@@ -80,6 +82,7 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 	}
 
 	async run(request: SandboxieComputeRequest): Promise<SandboxieComputeRunReceipt> {
+		if (request.signal?.aborted) throw new Error(`Sandboxie compute ${request.nodeId} aborted before launch`);
 		if (request.networkMode !== this.options.networkMode) throw new Error(`Sandboxie compute request network mode ${request.networkMode} does not match configured mode ${this.options.networkMode}`);
 		const id = `${request.nodeId}-${++this.counter}-${randomUUID().slice(0, 8)}`;
 		this.requests.set(id, { ...request });
@@ -95,14 +98,21 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 		let runError: unknown;
 		let resultText: string | undefined;
 		let cleanup: SandboxieCleanupResult;
+		const abortBox = (): void => {
+			if (record) {
+				try { this.options.adapter.terminateSync(record.name); } catch { /* abort path is best effort */ }
+			}
+		};
+		const onAbort = (): void => abortBox();
+		request.signal?.addEventListener("abort", onAbort, { once: true });
 		try {
 			record = await this.options.adapter.prepareBox({ name: generatedBoxName, exchangeWorkspace: cwd, repoRoot: this.options.repoRoot, privateRoot: this.options.privateRoot, additionalProtectedRoots: this.options.additionalProtectedRoots, networkMode: request.networkMode });
 			try { run = await this.options.adapter.runPython({ boxName: record.name, pythonCmd: this.options.pythonCmd, scriptPath, cwd, stdoutPath, stderrPath, timeoutMs: request.timeoutMs }); }
 			catch (error) { runError = error; }
+			if (request.signal?.aborted) runError = runError ?? new Error("Sandboxie compute aborted by signal");
 			if (!runError && request.resultFile) {
 				try {
-					const content = readFileSync(join(cwd, safeResultFile(request.resultFile)));
-					if (content.byteLength > 50_000_000) throw new Error("Sandboxie compute result file exceeded 50MB");
+					const content = readWorkspaceFileStrict(cwd, join(cwd, safeResultFile(request.resultFile)), 50_000_000);
 					resultText = content.toString("utf8");
 				} catch (error) { runError = error; }
 			}
@@ -110,6 +120,8 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 		} catch (error) {
 			runError = runError ?? error;
 			cleanup = record ? incompleteCleanup(error) : incompleteCleanup(error);
+		} finally {
+			request.signal?.removeEventListener("abort", onAbort);
 		}
 		const receipt: SandboxieComputeRunReceipt = {
 			version: 1, id, backend: "sandboxie-app-level", boxName: record?.name ?? generatedBoxName, networkMode: request.networkMode,
@@ -123,12 +135,13 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 		return receipt;
 	}
 
-	async replay(receipts: readonly SandboxieComputeRunReceipt[]): Promise<ComputeReplayAttestation> {
+	async replay(receipts: readonly SandboxieComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation> {
 		if (receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, this.options.networkMode).length > 0)) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 		for (const original of receipts) {
+			if (signal?.aborted) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 			const request = this.requests.get(original.id);
 			if (!request || createHash("sha256").update(request.script).digest("hex") !== original.scriptSha256) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
-			const replayed = await this.run(request);
+			const replayed = await this.run({ ...request, signal });
 			if (validateSandboxieComputeReceipt(replayed, request.networkMode).length > 0 || replayed.exitCode !== original.exitCode || replayed.timedOut !== original.timedOut || replayed.stdout !== original.stdout || replayed.stderr !== original.stderr || replayed.result !== original.result) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 		}
 		return { passed: true, backend: "sandboxie-app-level", processOwnershipVerified: receipts.every((receipt) => receipt.processOwnershipVerified) };
@@ -139,7 +152,8 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 export class SandboxieNetworkFetchPort implements NetworkFetchPort {
 	constructor(private readonly compute: SandboxieResearchComputePort, private readonly missionId: string, private readonly networkMode: "blocked" | "open", private readonly onReceipt?: (receipt: SandboxieComputeRunReceipt) => void) {}
 
-	async fetch(request: NetworkFetchRequest): Promise<NetworkFetchResponse> {
+	async fetch(request: NetworkFetchRequest, signal?: AbortSignal): Promise<NetworkFetchResponse> {
+		if (signal?.aborted) throw new Error("Sandboxie network fetch aborted before launch");
 		if (!/^https?:$/i.test(new URL(request.url).protocol)) throw new Error("Sandboxie network fetch only permits HTTP(S)");
 		const script = [
 			"import base64, json, urllib.request",
@@ -152,7 +166,7 @@ export class SandboxieNetworkFetchPort implements NetworkFetchPort {
 			"    payload = {\"status\": response.status, \"final_url\": response.geturl(), \"headers\": {str(k).lower(): str(v) for k, v in response.headers.items()}, \"too_large\": len(body) > limit, \"body_b64\": base64.b64encode(body[:limit]).decode(\"ascii\")}",
 			"    open(\"result.json\", \"w\", encoding=\"utf-8\").write(json.dumps(payload, separators=(\",\", \":\")))",
 		].join("\n");
-		const receipt = await this.compute.run({ missionId: this.missionId, nodeId: "network-fetch", purpose: `HTTP ${request.method} ${request.url}`, script, resultFile: "result.json", timeoutMs: request.timeoutMs, networkMode: this.networkMode });
+		const receipt = await this.compute.run({ missionId: this.missionId, nodeId: "network-fetch", purpose: `HTTP ${request.method} ${request.url}`, script, resultFile: "result.json", timeoutMs: request.timeoutMs, networkMode: this.networkMode, signal });
 		this.onReceipt?.(receipt);
 		const line = receipt.result;
 		if (!line) throw new Error(`Sandboxie network fetch produced no response payload (exit=${receipt.exitCode})`);
@@ -188,7 +202,7 @@ export function createSandboxiePythonResearchTool(input: {
 	networkMode: "blocked" | "open";
 	capability?: string;
 	onRunReceipt?: (receipt: SandboxieComputeRunReceipt) => void;
-}): ScientificTool<{ purpose: string; script: string; timeoutMs?: number }, { receiptId: string; backend: string; boxName: string; exitCode: number; stdoutTail: string; stderrTail: string; evidenceIds: string[] }> {
+}): ScientificTool<{ purpose: string; script: string; timeoutMs?: number; resultFile?: string }, { receiptId: string; backend: string; boxName: string; exitCode: number; stdoutTail: string; stderrTail: string; evidenceIds: string[]; resultArtifactId?: string }> {
 	return {
 		id: "sandboxie-python",
 		version: "1",
@@ -202,16 +216,24 @@ export function createSandboxiePythonResearchTool(input: {
 			return issues;
 		},
 		execute: async (context, request) => {
+			if (context.signal?.aborted) throw new Error(`sandboxie-python aborted before launch for node ${context.nodeId}`);
 			const timeoutMs = Math.min(request.timeoutMs ?? 120_000, context.remainingWallMs);
-			const receipt = await input.port.run({ missionId: context.missionId, nodeId: context.nodeId, purpose: request.purpose, script: request.script, timeoutMs, networkMode: input.networkMode });
+			const receipt = await input.port.run({ missionId: context.missionId, nodeId: context.nodeId, purpose: request.purpose, script: request.script, timeoutMs, networkMode: input.networkMode, resultFile: request.resultFile, signal: context.signal });
 			input.onRunReceipt?.(receipt);
 			const issues = validateSandboxieComputeReceipt(receipt, input.networkMode);
 			if (issues.length > 0) throw new Error(issues.join("; "));
+			if (context.signal?.aborted) throw new Error(`sandboxie-python aborted after completion for node ${context.nodeId}`);
 			for (const reference of receipt.generatedEvidence) if (!input.evidenceStore.verify(reference)) throw new Error(`Sandboxie compute produced unverifiable evidence: ${reference.id}`);
 			const scriptEvidence = input.evidenceStore.putText(request.script, { kind: "script", logicalName: `${context.nodeId}-sandboxie.py`, producerNodeId: context.nodeId, mediaType: "text/x-python" });
 			const stdoutEvidence = input.evidenceStore.putText(String(sanitizeResearchEvidence(receipt.stdout)), { kind: "tool-output", logicalName: `${context.nodeId}-stdout.txt`, producerNodeId: context.nodeId, mediaType: "text/plain" });
 			const evidenceRefs = [scriptEvidence, stdoutEvidence, ...receipt.generatedEvidence];
 			if (receipt.stderr) evidenceRefs.push(input.evidenceStore.putText(String(sanitizeResearchEvidence(receipt.stderr)), { kind: "tool-output", logicalName: `${context.nodeId}-stderr.txt`, producerNodeId: context.nodeId, mediaType: "text/plain" }));
+			let resultArtifactId: string | undefined;
+			if (typeof receipt.result === "string" && request.resultFile) {
+				const resultEvidence = input.evidenceStore.putText(receipt.result, { kind: "tool-output", logicalName: `${context.nodeId}-${safeResultFile(request.resultFile)}`, producerNodeId: context.nodeId, mediaType: "application/json" });
+				evidenceRefs.push(resultEvidence);
+				resultArtifactId = resultEvidence.id;
+			}
 			return {
 				output: {
 					receiptId: receipt.id,
@@ -221,6 +243,7 @@ export function createSandboxiePythonResearchTool(input: {
 					stdoutTail: String(sanitizeResearchEvidence(receipt.stdout)).slice(-4000),
 					stderrTail: String(sanitizeResearchEvidence(receipt.stderr)).slice(-2000),
 					evidenceIds: evidenceRefs.map((reference) => reference.id),
+					resultArtifactId,
 				},
 				artifactIds: evidenceRefs.map((reference) => reference.id),
 				evidenceRefs,
@@ -230,12 +253,13 @@ export function createSandboxiePythonResearchTool(input: {
 	};
 }
 
-export async function attestSandboxieComputeReplay(port: SandboxieResearchComputePort, receipts: readonly SandboxieComputeRunReceipt[], expectedNetworkMode?: "blocked" | "open"): Promise<ComputeReplayAttestation> {
+export async function attestSandboxieComputeReplay(port: SandboxieResearchComputePort, receipts: readonly SandboxieComputeRunReceipt[], expectedNetworkMode?: "blocked" | "open", signal?: AbortSignal): Promise<ComputeReplayAttestation> {
+	if (signal?.aborted) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 	const expected = expectedNetworkMode ?? receipts[0]?.networkMode;
 	if (!expected || receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, expected).length > 0)) {
 		return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 	}
-	const attestation = await port.replay(receipts);
+	const attestation = await port.replay(receipts, signal);
 	return attestation.backend === "sandboxie-app-level" && attestation.processOwnershipVerified
 		? attestation
 		: { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };

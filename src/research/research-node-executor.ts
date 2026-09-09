@@ -66,7 +66,8 @@ interface CapturedArtifact {
 
 export interface CapturedVerification {
 	profile: FamilyVerifierProfile;
-	input: unknown;
+	/** Canonical tool-produced artifact whose CAS content the host parses as verifier input. */
+	inputArtifactId: string;
 	evidenceIds: string[];
 }
 
@@ -164,7 +165,7 @@ const SUBMISSION_SCHEMA = Type.Object({
 	}), { maxItems: 8 }),
 	verifications: Type.Array(Type.Object({
 		profile: Type.Union(VERIFIER_PROFILES.map((profile) => Type.Literal(profile))),
-		input: Type.Unknown(),
+		input_artifact: Type.String({ minLength: 1, maxLength: 160 }),
 		evidence_ids: Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { minItems: 1, maxItems: 64 }),
 	}), { maxItems: 3 }),
 	hypotheses: Type.Optional(Type.Array(HYPOTHESIS_SCHEMA, { maxItems: 16 })),
@@ -359,7 +360,7 @@ export class ResearchNodeExecutor {
 						toolCalls += 1;
 						let executed: Awaited<ReturnType<ScientificToolRegistry["execute"]>>;
 						try {
-							executed = await this.deps.toolRegistry.execute(tool.id, { missionId: this.deps.mission.id, episodeId: this.deps.mission.id, nodeId: node.id, allowedCapabilities: node.allowedCapabilities, remainingWallMs: remainingWallMs() }, params);
+							executed = await this.deps.toolRegistry.execute(tool.id, { missionId: this.deps.mission.id, episodeId: this.deps.mission.id, nodeId: node.id, allowedCapabilities: node.allowedCapabilities, remainingWallMs: remainingWallMs(), signal }, params);
 						} catch (error) {
 							const receipt = (error as { receipt?: ScientificToolReceipt }).receipt;
 							if (receipt) {
@@ -420,7 +421,7 @@ export class ResearchNodeExecutor {
 					summary: params.summary,
 					artifactIds: params.artifact_ids,
 					decisions: params.decisions.map((decision) => ({ question: decision.question, alternatives: decision.alternatives, selected: decision.selected, evidenceIds: decision.evidence_ids, uncertainty: decision.uncertainty })),
-					verifications: params.verifications.map((verification) => ({ profile: verification.profile, input: verification.input, evidenceIds: verification.evidence_ids })),
+					verifications: params.verifications.map((verification) => ({ profile: verification.profile, inputArtifactId: verification.input_artifact, evidenceIds: verification.evidence_ids })),
 					hypotheses: params.hypotheses?.map((hypothesis) => ({ id: hypothesis.id, statement: hypothesis.statement, rationaleEvidenceIds: hypothesis.rationale_evidence_ids, expectedObservation: hypothesis.expected_observation, falsifier: hypothesis.falsifier, status: hypothesis.status })),
 					claims: params.claims?.map((claim) => ({ id: claim.id, text: claim.text, status: claim.status, evidenceIds: claim.evidence_ids, uncertainty: claim.uncertainty, limitations: claim.limitations })),
 					valueCard: params.value_card ? {
@@ -488,7 +489,10 @@ export class ResearchNodeExecutor {
 		if (new Set(verificationProfiles).size !== verificationProfiles.length) throw new Error("research node submitted duplicate verifier profiles");
 		const expectedProfile = profileForNode(node.kind);
 		if (expectedProfile && !verificationProfiles.includes(expectedProfile)) throw new Error(`node ${node.id} requires ${expectedProfile} verification input`);
-		for (const verification of captured.verifications) for (const id of verification.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`verifier input cites unknown evidence: ${id}`);
+		for (const verification of captured.verifications) {
+			for (const id of verification.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`verifier input cites unknown evidence: ${id}`);
+			if (!producedToolArtifacts.has(verification.inputArtifactId)) throw new Error(`verifier input must reference a tool-produced CAS artifact, not model-staged content: ${verification.inputArtifactId}`);
+		}
 		const claimIds = new Set<string>();
 		for (const claim of captured.claims ?? []) {
 			if (claimIds.has(claim.id)) throw new Error(`duplicate research claim ID: ${claim.id}`);
@@ -523,12 +527,13 @@ export class ResearchNodeExecutor {
 		}
 		const canonicalize = (id: string): string => handleMap.get(id) ?? id;
 		const verificationInputEvidenceIds: Record<string, string> = {};
+		const verificationEvidenceIds: Record<string, string[]> = {};
 		for (const verification of captured.verifications) {
 			const canonicalEvidenceIds = unique(verification.evidenceIds.map(canonicalize));
-			const safeInput = sanitizeResearchEvidence(verification.input);
-			const reference = this.deps.evidenceStore.putJson({ version: 1, profile: verification.profile, input: safeInput, evidenceIds: canonicalEvidenceIds }, { kind: "tool-output", logicalName: `${node.id}-${verification.profile}-input.json`, producerNodeId: node.id });
-			this.deps.registerEvidence(reference);
-			verificationInputEvidenceIds[verification.profile] = reference.id;
+			const canonicalInputArtifact = canonicalize(verification.inputArtifactId);
+			if (!producedToolArtifacts.has(canonicalInputArtifact) && !producedToolArtifacts.has(verification.inputArtifactId)) throw new Error(`verifier input artifact is not tool-produced: ${verification.inputArtifactId}`);
+			verificationInputEvidenceIds[verification.profile] = canonicalInputArtifact;
+			verificationEvidenceIds[verification.profile] = canonicalEvidenceIds;
 		}
 		const canonicalArtifacts = unique(captured.artifactIds.map(canonicalize));
 		const canonicalHypotheses = captured.hypotheses?.map((hypothesis) => ({ ...hypothesis, rationaleEvidenceIds: hypothesis.rationaleEvidenceIds.map(canonicalize) }));
@@ -549,7 +554,7 @@ export class ResearchNodeExecutor {
 			summary: sanitizeResearchEvidence(captured.summary) as string,
 			artifactIds: canonicalArtifacts,
 			decisions: captured.decisions.map((decision) => ({ ...decision, evidenceIds: decision.evidenceIds.map(canonicalize) })),
-			verifications: captured.verifications.map((verification) => ({ ...verification, evidenceIds: verification.evidenceIds.map(canonicalize) })),
+			verifications: captured.verifications.map((verification) => ({ profile: verification.profile, inputArtifactId: canonicalize(verification.inputArtifactId), evidenceIds: verification.evidenceIds.map(canonicalize) })),
 			hypotheses: canonicalHypotheses,
 			claims: canonicalClaims,
 			valueCard: canonicalValueCard,
@@ -577,7 +582,7 @@ export class ResearchNodeExecutor {
 		this.deps.registerEvidence(submissionReference);
 		return {
 			artifactIds: unique([...canonicalArtifacts, ...Object.values(verificationInputEvidenceIds), submissionReference.id]),
-			metadata: { nodeSubmissionEvidenceId: submissionReference.id, verificationInputEvidenceIds, contextFingerprint: context.fingerprint, role },
+			metadata: { nodeSubmissionEvidenceId: submissionReference.id, verificationInputEvidenceIds, verificationEvidenceIds, contextFingerprint: context.fingerprint, role },
 			usage: { modelCalls: observedReceipts.length, toolCalls, outputTokens },
 		};
 	}
@@ -593,6 +598,9 @@ export class ResearchNodeExecutor {
 		const inputIds = metadata.verificationInputEvidenceIds && typeof metadata.verificationInputEvidenceIds === "object"
 			? metadata.verificationInputEvidenceIds as Record<string, string>
 			: {};
+		const evidenceIdMap = metadata.verificationEvidenceIds && typeof metadata.verificationEvidenceIds === "object"
+			? metadata.verificationEvidenceIds as Record<string, string[]>
+			: {};
 		const verifierEvidenceIds: string[] = [];
 		for (const [profileValue, inputEvidenceId] of Object.entries(inputIds)) {
 			if (!VERIFIER_PROFILES.includes(profileValue as FamilyVerifierProfile)) {
@@ -605,16 +613,16 @@ export class ResearchNodeExecutor {
 				issues.push(`verifier input evidence is invalid: ${inputEvidenceId}`);
 				continue;
 			}
-			let payload: { profile?: unknown; input?: unknown; evidenceIds?: unknown };
-			try { payload = JSON.parse(this.deps.evidenceStore.read(inputReference).toString("utf8")) as typeof payload; }
+			let payload: unknown;
+			try { payload = JSON.parse(this.deps.evidenceStore.read(inputReference).toString("utf8")); }
 			catch (error) {
-				issues.push(`verifier input is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+				issues.push(`verifier input artifact is not valid JSON: ${profile}: ${error instanceof Error ? error.message : String(error)}`);
 				continue;
 			}
-			const linkedEvidenceIds = Array.isArray(payload.evidenceIds) ? payload.evidenceIds.filter((id): id is string => typeof id === "string") : [];
+			const linkedEvidenceIds = Array.isArray(evidenceIdMap[profile]) ? evidenceIdMap[profile]!.filter((id): id is string => typeof id === "string") : [];
 			const linkedEvidence = linkedEvidenceIds.map((id) => this.deps.evidenceById(id)).filter((reference): reference is EvidenceRef => !!reference);
-			if (payload.profile !== profile || linkedEvidenceIds.length === 0) {
-				issues.push(`verifier input is not bound to profile/evidence: ${profile}`);
+			if (linkedEvidenceIds.length === 0 || linkedEvidence.length !== linkedEvidenceIds.length) {
+				issues.push(`verifier input is not bound to canonical evidence: ${profile}`);
 				continue;
 			}
 			if (linkedEvidenceIds.some((id) => {
@@ -624,13 +632,13 @@ export class ResearchNodeExecutor {
 				issues.push(`verifier input cites unknown or corrupt evidence: ${profile}`);
 				continue;
 			}
-			const bindingIssues = validateFamilyEvidenceBinding(profile, payload.input, linkedEvidence);
+			const bindingIssues = validateFamilyEvidenceBinding(profile, payload, linkedEvidence);
 			if (bindingIssues.length > 0) {
 				issues.push(...bindingIssues);
 				continue;
 			}
 			let verification: ScientificVerificationResult;
-			try { verification = dispatchFamilyVerifier(profile, payload.input); }
+			try { verification = dispatchFamilyVerifier(profile, payload); }
 			catch (error) {
 				issues.push(`${profile} verifier crashed: ${error instanceof Error ? error.message : String(error)}`);
 				continue;
@@ -645,7 +653,7 @@ export class ResearchNodeExecutor {
 			this.familyAttestations.set(profile, {
 				profile,
 				result: verification,
-				inputHash: familyInputHash(profile, payload.input, linkedEvidenceIds),
+				inputHash: familyInputHash(profile, payload, linkedEvidenceIds),
 				evidenceIds: unique([...linkedEvidenceIds, inputReference.id, resultReference.id]),
 			});
 		}
