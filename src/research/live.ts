@@ -153,7 +153,10 @@ export interface ResearchDeterministicPreflight {
 /** Run all deterministic gates before a live campaign. No LLM is invoked here. */
 export function runResearchDeterministicPreflight(): ResearchDeterministicPreflight {
 	const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-	const output = execFileSync(npm, ["run", "check"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+	// Node >= 20.12 / 22 refuses spawnSync of .cmd batch files without a shell
+	// (CVE-2024-27980 hardening). The argument vector is a fixed literal list,
+	// so shell expansion cannot inject anything.
+	const output = execFileSync(npm, ["run", "check"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
 	process.stdout.write(output);
 	return { version: 1, command: "npm run check", passed: true, outputHash: createHash("sha256").update(output).digest("hex") };
 }
