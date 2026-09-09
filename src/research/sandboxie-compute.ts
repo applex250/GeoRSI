@@ -237,11 +237,12 @@ export function createSandboxiePythonResearchTool(input: {
 		version: "1" as const,
 		capability: input.capability ?? input.toolId ?? "sandboxie-python",
 		validate: (value) => {
-			const request = value as { purpose?: unknown; script?: unknown; timeoutMs?: unknown };
+			const request = value as { purpose?: unknown; script?: unknown; timeoutMs?: unknown; resultFile?: unknown };
 			const issues: string[] = [];
 			if (typeof request.purpose !== "string" || !request.purpose.trim() || request.purpose.length > 500) issues.push("purpose must be 1..500 characters");
 			if (typeof request.script !== "string" || !request.script.trim() || request.script.length > 250_000) issues.push("script must be 1..250000 characters");
 			if (request.timeoutMs !== undefined && (!Number.isSafeInteger(request.timeoutMs) || Number(request.timeoutMs) <= 0 || Number(request.timeoutMs) > 900_000)) issues.push("timeoutMs must be within 1..900000");
+			if (request.resultFile !== undefined && (typeof request.resultFile !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(request.resultFile))) issues.push("resultFile must be a safe basename (letters, digits, dot, underscore, hyphen; no slashes)");
 			return issues;
 		},
 		execute: async (context, request) => {
