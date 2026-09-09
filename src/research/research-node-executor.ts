@@ -200,20 +200,28 @@ function profileForNode(kind: WorkNodeKind): FamilyVerifierProfile | null {
 	return null;
 }
 
-/** Schema-level hard constraint (luna-smoke-005 lesson): nodes with a fixed family verifier get
- * a verifications array of EXACTLY ONE entry whose profile is pinned to the literal — duplicate
- * or wrong profiles are unrepresentable, not merely discouraged. Other kinds keep the general
- * union schema with the runtime duplicate gate as defense in depth. */
-function buildSubmissionSchema(kind: WorkNodeKind): typeof SUBMISSION_SCHEMA {
-	const expectedProfile = profileForNode(kind);
-	if (!expectedProfile) return SUBMISSION_SCHEMA;
+/** Exact verifier-profile set a node must submit: stage nodes map to their family verifier;
+ * verification nodes must cover the mission's family profiles (mirrors verifyNode's exact-match
+ * gate, so the schema and the verifier can never disagree). */
+function expectedProfilesForNode(kind: WorkNodeKind, mission: ResearchMission): FamilyVerifierProfile[] {
+	if (kind === "verification") return requiredFamilyVerifierProfiles(mission.taskProfile) as FamilyVerifierProfile[];
+	const single = profileForNode(kind);
+	return single ? [single] : [];
+}
+
+/** Schema-level hard constraint (luna-smoke-005 lesson): nodes with a fixed verifier-profile set
+ * get a verifications array of EXACTLY that set (each profile pinned) — duplicates, omissions and
+ * wrong profiles are unrepresentable. Other kinds keep the general union schema with the runtime
+ * duplicate gate as defense in depth. */
+function buildSubmissionSchema(pinnedProfiles: readonly FamilyVerifierProfile[]): typeof SUBMISSION_SCHEMA {
+	if (pinnedProfiles.length === 0) return SUBMISSION_SCHEMA;
 	return Type.Object({
 		...SUBMISSION_SCHEMA.properties,
 		verifications: Type.Array(Type.Object({
-			profile: Type.Literal(expectedProfile),
+			profile: pinnedProfiles.length === 1 ? Type.Literal(pinnedProfiles[0]!) : Type.Union(pinnedProfiles.map((profile) => Type.Literal(profile))),
 			input_artifact: Type.String({ minLength: 1, maxLength: 160, description: "Artifact id PRODUCED BY A SCIENTIFIC TOOL (copy resultArtifactId or an id from evidenceIds of the python-host/web-fetch tool output). Model-staged model-artifact handles are rejected here." }),
 			evidence_ids: Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { minItems: 1, maxItems: 64 }),
-		}), { minItems: 1, maxItems: 1 }) as unknown as typeof SUBMISSION_SCHEMA.properties.verifications,
+		}), { minItems: pinnedProfiles.length, maxItems: pinnedProfiles.length }) as unknown as typeof SUBMISSION_SCHEMA.properties.verifications,
 	}) as unknown as typeof SUBMISSION_SCHEMA;
 }
 
@@ -541,7 +549,7 @@ export class ResearchNodeExecutor {
 			name: "submit_research_node_output",
 			label: "Submit research node output",
 			description: "Submit the node result exactly once. verifications[].input_artifact must be a tool-produced artifact id (resultArtifactId/evidenceIds from python-host or web-fetch output); provide exactly one verification entry per required verifier profile — duplicate profiles are rejected. model-artifact handles are accepted only for artifact_ids/decisions/narrative, never as verifier input.",
-			parameters: buildSubmissionSchema(node.kind),
+			parameters: buildSubmissionSchema(expectedProfilesForNode(node.kind, this.deps.mission)),
 			execute: async (_callId, params) => {
 				ensureActive();
 				toolCalls += 1;
@@ -601,8 +609,8 @@ export class ResearchNodeExecutor {
 		const observedReceipts: ModelCallReceipt[] = [];
 		try {
 			await harness.init();
-		const verifierProfile = profileForNode(node.kind);
-		const verifierContract = verifierProfile ? `\n\nVERIFIER INPUT CONTRACT: the ${verifierProfile} verification input artifact (referenced by verifications[0].input_artifact) must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile]}` : "";
+		const verifierProfile = expectedProfilesForNode(node.kind, this.deps.mission);
+		const verifierContract = verifierProfile.length > 0 ? `\n\nVERIFIER INPUT CONTRACT: this node must submit ${verifierProfile.length} verification entr${verifierProfile.length === 1 ? "y" : "ies"} with profile ${verifierProfile.join(", ")}. Each verification input artifact must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile[0]!]}${node.kind === "verification" ? " — this is an INDEPENDENT re-derivation: recompute from the raw data yourself and emit your own complete audit JSON, not a copy of the analysis node's summary." : ""}` : "";
 		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}`, remainingWallMs());
 			for (const receipt of outcome.modelCalls ?? (outcome.modelCall ? [outcome.modelCall] : [])) observedReceipts.push(receipt);
 			// Submission nudge (luna-smoke-012/013 sensitivity pattern): the model sometimes ends its
