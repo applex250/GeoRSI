@@ -85,7 +85,33 @@ export class ScientificToolRegistry {
 		if (context.remainingWallMs <= 0) throw new Error(`node ${context.nodeId} has no remaining wall-clock budget`);
 		if (context.signal?.aborted) throw new Error(`node ${context.nodeId} aborted before tool ${tool.id}`);
 		const issues = tool.validate(input);
-		if (issues.length > 0) throw new Error(`invalid ${tool.id} input: ${issues.join("; ")}`);
+		if (issues.length > 0) {
+			// Validation failures must be visible: emit a failure receipt so the ledger shows why
+			// the model's tool calls never reached execution (smoke-008/009 lesson).
+			const started = this.now();
+			const safeInput = sanitizeResearchEvidence(input);
+			const receipt: ScientificToolReceipt = {
+				version: 1,
+				id: this.makeId(),
+				missionId: context.missionId,
+				episodeId: context.episodeId,
+				nodeId: context.nodeId,
+				toolId: tool.id,
+				toolVersion: tool.version,
+				capability: tool.capability,
+				startedAt: started.toISOString(),
+				completedAt: started.toISOString(),
+				wallMs: 0,
+				status: "failure",
+				inputHash: digest(safeInput),
+				input: safeInput,
+				outputHash: digest(""),
+				artifactIds: [],
+				error: `invalid ${tool.id} input: ${issues.join("; ")}`.slice(0, 500),
+			};
+			this.onReceipt(receipt);
+			throw Object.assign(new Error(receipt.error), { receipt });
+		}
 		const started = this.now();
 		const safeInput = sanitizeResearchEvidence(input);
 		const base = {
