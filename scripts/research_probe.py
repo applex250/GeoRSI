@@ -42,8 +42,8 @@ def load_policy(config_path: Path) -> dict:
     missing = [key for key in required if not policy.get(key)]
     if missing:
         raise SystemExit(f"research_model missing fields: {', '.join(missing)}")
-    if policy["api"] != "openai-completions":
-        raise SystemExit("research probe currently requires openai-completions")
+    if policy["api"] not in ("openai-completions", "openai-responses"):
+        raise SystemExit("research probe requires openai-completions or openai-responses")
     if policy["thinking_level"] != "xhigh":
         raise SystemExit("research probe requires thinking_level xhigh")
     return policy
@@ -127,34 +127,44 @@ def catalog(policy: dict) -> dict:
 
 
 def tool_call(policy: dict) -> dict:
-    body = {
-        "model": policy["model"],
-        "messages": [{"role": "user", "content": "Call georsi_capability_probe with answer=1."}],
-        "reasoning_effort": policy["thinking_level"],
-        policy["max_tokens_field"]: 256,
-        "stream": False,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "georsi_capability_probe",
-                "description": "Record the capability probe answer.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"answer": {"type": "integer"}},
-                    "required": ["answer"],
-                    "additionalProperties": False,
-                },
-                "strict": True,
-            },
-        }],
-        "tool_choice": {"type": "function", "function": {"name": "georsi_capability_probe"}},
+    message = "Call georsi_capability_probe with answer=1."
+    tool = {
+        "type": "function",
+        "name": "georsi_capability_probe",
+        "description": "Record the capability probe answer.",
+        "parameters": {"type": "object", "properties": {"answer": {"type": "integer"}}, "required": ["answer"], "additionalProperties": False},
+        "strict": True,
     }
-    payload, elapsed = request(policy, "/chat/completions", body, 60)
+    if policy["api"] == "openai-responses":
+        body = {
+            "model": policy["model"],
+            "input": message,
+            "reasoning": {"effort": policy["thinking_level"]},
+            "max_output_tokens": 2048,
+            "tools": [tool],
+            "tool_choice": {"type": "function", "name": "georsi_capability_probe"},
+        }
+        path = "/responses"
+    else:
+        body = {
+            "model": policy["model"],
+            "messages": [{"role": "user", "content": message}],
+            "reasoning_effort": policy["thinking_level"],
+            policy["max_tokens_field"]: 256,
+            "stream": False,
+            "tools": [{"type": "function", "function": tool}],
+            "tool_choice": {"type": "function", "function": {"name": "georsi_capability_probe"}},
+        }
+        path = "/chat/completions"
+    payload, elapsed = request(policy, path, body, 120)
     usage = usage_of(payload)
-    choices = payload.get("choices") or []
-    message = choices[0].get("message", {}) if choices and isinstance(choices[0], dict) else {}
-    calls = message.get("tool_calls") or []
-    names = [call.get("function", {}).get("name") for call in calls if isinstance(call, dict)]
+    if policy["api"] == "openai-responses":
+        names = [item.get("name") for item in payload.get("output", []) if isinstance(item, dict) and item.get("type") == "function_call"]
+    else:
+        choices = payload.get("choices") or []
+        message_obj = choices[0].get("message", {}) if choices and isinstance(choices[0], dict) else {}
+        calls = message_obj.get("tool_calls") or []
+        names = [call.get("function", {}).get("name") for call in calls if isinstance(call, dict)]
     thinking = observed_thinking(payload)
     return {
         "probe": "tool_call",

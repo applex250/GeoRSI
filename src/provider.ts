@@ -232,14 +232,12 @@ function researchProbeFingerprint(result: Omit<ResearchCapabilityProbeResult, "f
 }
 
 /**
- * Authenticate and require a bounded, provider-observed Responses capability
- * probe. A missing /models endpoint is not evidence of capability: the probe
- * must prove exact model identity, returned xhigh metadata, function calling,
- * and usage before a runtime can be composed.
+ * Authenticate and require a bounded, provider-observed capability probe.
+ * Exact model identity, reasoning effort echo, function calling, and usage
+ * must all be proven before a runtime can be composed.
  */
 export async function preflightResearchModel(policy: ResearchModelConfig, apiKey: string): Promise<ResearchCapabilityProbeResult> {
 	if (!apiKey) throw new Error(`research model "${policy.model}" selected but ${policy.credential_env} is not set`);
-	const modelId = policy.model;
 	const baseUrl = policy.base_url.replace(/\/+$/, "");
 	const modelsUrl = `${baseUrl}/models`;
 	let modelsResponse: Response;
@@ -254,12 +252,62 @@ export async function preflightResearchModel(policy: ResearchModelConfig, apiKey
 		const ids = payload && typeof payload === "object" && Array.isArray((payload as { data?: unknown }).data)
 			? ((payload as { data: unknown[] }).data).map((item) => item && typeof item === "object" ? (item as { id?: unknown }).id : undefined).filter((id): id is string => typeof id === "string")
 			: [];
-		if (!ids.includes(modelId)) throw new Error(`research provider is reachable but does not list exact model "${modelId}"`);
+		if (!ids.includes(policy.model)) throw new Error(`research provider is reachable but does not list exact model "${policy.model}"`);
 	} else {
 		throw new Error(`research provider preflight failed at ${modelsUrl}: HTTP ${modelsResponse.status}`);
 	}
+	if (policy.api === "openai-responses") return preflightResponsesResearch(policy, apiKey, baseUrl);
+	return preflightCompletionsResearch(policy, apiKey, baseUrl);
+}
 
-	if (policy.api !== "openai-completions") throw new Error("research capability probe currently requires openai-completions");
+/** Responses-style probe: the only transport observed to echo
+ * reasoning.effort back, so the provider-observed xhigh echo is required. */
+async function preflightResponsesResearch(policy: ResearchModelConfig, apiKey: string, baseUrl: string): Promise<ResearchCapabilityProbeResult> {
+	const modelId = policy.model;
+	const probeUrl = `${baseUrl}/responses`;
+	const probeBody: Record<string, unknown> = {
+		model: modelId,
+		input: "Call georsi_capability_probe with answer=1.",
+		reasoning: { effort: "xhigh" },
+		max_output_tokens: 256,
+		tools: [{ type: "function", name: "georsi_capability_probe", description: "Record the capability probe answer.", parameters: { type: "object", properties: { answer: { type: "integer" } }, required: ["answer"], additionalProperties: false }, strict: true }],
+		tool_choice: { type: "function", name: "georsi_capability_probe" },
+	};
+	let response: Response;
+	try {
+		response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": GATEWAY_BROWSER_UA }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(30_000) });
+	} catch (error) {
+		throw new Error(`research Responses capability probe failed: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	let payload: Record<string, unknown>;
+	try {
+		const text = (await response.text()).slice(0, 128_000);
+		payload = JSON.parse(text) as Record<string, unknown>;
+	} catch {
+		throw new Error(`research capability probe returned invalid JSON (HTTP ${response.status})`);
+	}
+	if (!response.ok) throw new Error(`research capability probe failed: HTTP ${response.status}`);
+	if (payload.model !== modelId) throw new Error(`research capability probe returned model ${String(payload.model)} instead of ${modelId}`);
+	if (payload.status !== undefined && payload.status !== "completed") throw new Error(`research capability probe did not complete: ${String(payload.status)}`);
+	const reasoning = payload.reasoning && typeof payload.reasoning === "object" ? payload.reasoning as Record<string, unknown> : undefined;
+	if (reasoning?.effort !== "xhigh") throw new Error(`research capability probe did not echo provider-observed reasoning.effort=xhigh (got ${String(reasoning?.effort)})`);
+	const rawUsage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : {};
+	const usage = {
+		inputTokens: Number(rawUsage.input_tokens ?? rawUsage.prompt_tokens ?? 0),
+		outputTokens: Number(rawUsage.output_tokens ?? rawUsage.completion_tokens ?? 0),
+		totalTokens: Number(rawUsage.total_tokens ?? 0),
+	};
+	if (![usage.inputTokens, usage.outputTokens, usage.totalTokens].every((value) => Number.isSafeInteger(value) && value >= 0) || usage.outputTokens <= 0 || usage.totalTokens < usage.outputTokens) throw new Error("research capability probe did not return valid usage");
+	const output = Array.isArray(payload.output) ? payload.output : [];
+	const toolCallObserved = output.some((item) => item && typeof item === "object" && (item as { type?: unknown }).type === "function_call" && (item as { name?: unknown }).name === "georsi_capability_probe");
+	if (!toolCallObserved) throw new Error("research capability probe did not produce the required function call");
+	const unsigned: Omit<ResearchCapabilityProbeResult, "fingerprint"> = { version: 1, provider: policy.provider, model: modelId, api: policy.api, endpoint: probeUrl, requestedThinking: "xhigh", effectiveThinking: "xhigh", toolCallObserved, usage };
+	return { ...unsigned, fingerprint: researchProbeFingerprint(unsigned) };
+}
+
+async function preflightCompletionsResearch(policy: ResearchModelConfig, apiKey: string, baseUrl: string): Promise<ResearchCapabilityProbeResult> {
+	const modelId = policy.model;
+	if (policy.api !== "openai-completions") throw new Error("completions probe requires openai-completions");
 	const probeUrl = `${baseUrl}/chat/completions`;
 	const probeBody: Record<string, unknown> = {
 		model: modelId,
@@ -391,7 +439,7 @@ export function buildModelsJson(
 	}
 	const researchSpec = cfg.research_model ? researchModelSpec(cfg.research_model) : undefined;
 	const researchModels = [
-		...SUPPORTED_MODELS.filter((model) => selected.has(model.id) && model.endpoint === "geiliapi" && !model.retired),
+		...SUPPORTED_MODELS.filter((model) => selected.has(model.id) && (model.endpoint === "geiliapi" || model.endpoint === "alsl") && !model.retired),
 		...(researchSpec && selected.has(researchSpec.id) ? [researchSpec] : []),
 	];
 	if (credentials.research && researchModels.length > 0) {
@@ -413,6 +461,7 @@ function providerIdForModel(cfg: Config, id: string, spec: ModelSpec): string {
 	if (spec.endpoint === "local") return "local";
 	if (spec.endpoint === "openrouter") return "openrouter";
 	if (spec.endpoint === "emooo") return "emooo";
+	if (spec.endpoint === "alsl") return cfg.research_model?.provider ?? "alsl";
 	if (spec.endpoint === "geiliapi") return cfg.research_model?.provider ?? "geiliapi";
 	return "zen";
 }

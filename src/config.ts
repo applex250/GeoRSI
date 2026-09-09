@@ -73,7 +73,7 @@ export interface ModelSpec {
 	/** how requests to this model must leave the machine */
 	route: "direct" | "proxy";
 	/** which endpoint serves this model */
-	endpoint: "zen" | "local" | "openrouter" | "emooo" | "geiliapi" | "research";
+	endpoint: "zen" | "local" | "openrouter" | "emooo" | "geiliapi" | "alsl" | "research";
 	/** true context window, tokens (drives pi compaction decisions) */
 	contextWindow: number;
 	/** provider-advertised max output, tokens (informational; we cap lower) */
@@ -89,7 +89,7 @@ export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
 	{ id: "mimo-v2.5-pro", api: "openai-completions", route: "direct", endpoint: "emooo", contextWindow: 1048576, maxOutput: 131072, thinkingLevelMap: { xhigh: "xhigh", max: null }, compat: { thinkingFormat: "zai", supportsReasoningEffort: true, supportsDeveloperRole: false, supportsUsageInStreaming: true, supportsFinishReason: true, supportsStrictMode: false, maxTokensField: "max_tokens" }, note: "temporary emooo.cc route; chat/completions selected over Responses after live probe; thinking enabled/disabled with minimal/low/medium/high/xhigh" },
-	{ id: "gpt-5.6-luna", api: "openai-completions", route: "direct", endpoint: "geiliapi", contextWindow: 600000, maxOutput: 128000, thinkingLevelMap: { off: "none", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" }, compat: { supportsDeveloperRole: true, supportsReasoningEffort: true, supportsUsageInStreaming: true, supportsFinishReason: true, maxTokensField: "max_completion_tokens" }, note: "geiliapi OpenAI Completions Luna; production campaigns require xhigh and environment-only GEILIAPI_API_KEY; live profile remains unverified until probes pass" },
+	{ id: "gpt-5.6-luna", api: "openai-responses", route: "direct", endpoint: "alsl", contextWindow: 600000, maxOutput: 128000, thinkingLevelMap: { off: "none", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" }, compat: { supportsStrictMode: true, supportsFinishReason: true }, note: "ai.alsl.xyz Responses Luna; production campaigns require xhigh with provider-observed reasoning.effort echo and environment-only GEORSI_RESEARCH_API_KEY; geiliapi completions channel was 502-down at adoption time" },
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
 	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: OpenRouter testing alias returned 404 and points to z-ai/glm-5.3-flash" },

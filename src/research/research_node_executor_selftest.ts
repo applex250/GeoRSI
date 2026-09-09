@@ -22,13 +22,13 @@ function check(label: string, condition: unknown): void {
 }
 
 const researchModelPolicy: ResearchModelConfig = {
-	provider: "geiliapi",
-	base_url: "https://sub.geiliapi.com/v1",
+	provider: "alsl",
+	base_url: "https://ai.alsl.xyz/v1",
 	model: "gpt-5.6-luna",
-	api: "openai-completions",
+	api: "openai-responses",
 	thinking_level: "xhigh",
 	max_tokens_field: "max_completion_tokens",
-	credential_env: "GEILIAPI_API_KEY",
+	credential_env: "GEORSI_RESEARCH_API_KEY",
 	fallback: "none",
 	context_window: 600_000,
 	max_output: 128_000,
@@ -43,8 +43,8 @@ function lunaModel(overrides: Record<string, unknown> = {}): Model<any> {
 	return {
 		id: "gpt-5.6-luna",
 		name: "gpt-5.6-luna",
-		provider: "geiliapi",
-		api: "openai-completions",
+		provider: "alsl",
+		api: "openai-responses",
 		baseUrl: "https://invalid.test/v1",
 		reasoning: true,
 		input: ["text"],
@@ -59,7 +59,7 @@ function lunaModel(overrides: Record<string, unknown> = {}): Model<any> {
 function receipt(overrides: Partial<ModelCallReceipt> = {}): ModelCallReceipt {
 	return {
 		id: "response-1",
-		provider: "geiliapi",
+		provider: "alsl",
 		model: "gpt-5.6-luna",
 		requestedThinking: "xhigh",
 		effectiveThinking: "xhigh",
@@ -68,7 +68,7 @@ function receipt(overrides: Partial<ModelCallReceipt> = {}): ModelCallReceipt {
 		reasoningTokens: 50,
 		totalTokens: 300,
 		success: true,
-		api: "openai-completions",
+		api: "openai-responses",
 		stopReason: "stop",
 		...overrides,
 	};
@@ -205,7 +205,7 @@ async function main(): Promise<void> {
 		const verification = await executor.verifyNode(node, execution, makeGraph(node), new AbortController().signal);
 		check("quantitative verification is deterministic and model-free", verification.passed && verification.usage.modelCalls === 0 && verification.usage.toolCalls === 0);
 		check("family attestation binds input and canonical evidence", executor.familyVerifications().length === 1 && executor.familyVerifications()[0]?.profile === "quantitative-v1" && executor.familyVerifications()[0]!.evidenceIds.every((id) => references.has(id)));
-		check("exact per-call research-model receipt is retained", executor.modelReceipts().length === 1 && executor.modelReceipts()[0]?.provider === "geiliapi");
+		check("exact per-call research-model receipt is retained", executor.modelReceipts().length === 1 && executor.modelReceipts()[0]?.provider === "alsl");
 		const committed = contextMemory.catalog().find((entry) => entry.nodeId === node.id);
 		check("node submission commits read-only context memory with artifacts", committed !== undefined && committed.artifacts.length > 0 && contextMemory.fetch(committed.artifacts[0]!.evidenceId).excerpt.length > 0);
 		check("graph state is synced before node context assembly", contextMemory.progress()[node.id] === "running");

@@ -1,12 +1,12 @@
 {
-  "research_model": {
-    "provider": "geiliapi",
-    "base_url": "https://sub.geiliapi.com/v1",
+    "research_model": {
+    "provider": "alsl",
+    "base_url": "https://ai.alsl.xyz/v1",
     "model": "gpt-5.6-luna",
-    "api": "openai-completions",
+    "api": "openai-responses",
     "thinking_level": "xhigh",
     "max_tokens_field": "max_completion_tokens",
-    "credential_env": "GEILIAPI_API_KEY",
+    "credential_env": "GEORSI_RESEARCH_API_KEY",
     "fallback": "none",
     "context_window": 600000,
     "max_output": 128000,
