@@ -598,21 +598,29 @@ export class ResearchNodeExecutor {
 		const abortListener = (): void => harness.abort();
 		signal.addEventListener("abort", abortListener, { once: true });
 		let outcome: PromptOutcome;
+		const observedReceipts: ModelCallReceipt[] = [];
 		try {
 			await harness.init();
 		const verifierProfile = profileForNode(node.kind);
 		const verifierContract = verifierProfile ? `\n\nVERIFIER INPUT CONTRACT: the ${verifierProfile} verification input artifact (referenced by verifications[0].input_artifact) must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile]}` : "";
 		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}`, remainingWallMs());
+			for (const receipt of outcome.modelCalls ?? (outcome.modelCall ? [outcome.modelCall] : [])) observedReceipts.push(receipt);
+			// Submission nudge (luna-smoke-012/013 sensitivity pattern): the model sometimes ends its
+			// turn with plain text after finishing the computations, never calling submit. One bounded
+			// continuation on the same session asks for the submission while wall budget remains.
+			if (!submission && !signal.aborted && !outcome.aborted && !outcome.timedOut && !outcome.stalled && !outcome.error && remainingWallMs() > 60_000) {
+				outcome = await harness.prompt("Your turn ended without calling submit_research_node_output. Stop analyzing and call it now exactly once, citing the tool-produced artifact ids (resultArtifactId values) recorded in this session.", remainingWallMs());
+				for (const receipt of outcome.modelCalls ?? (outcome.modelCall ? [outcome.modelCall] : [])) observedReceipts.push(receipt);
+			}
 		} finally {
 			signal.removeEventListener("abort", abortListener);
 			harness.dispose();
 		}
-		const observedReceipts = outcome.modelCalls?.length ? outcome.modelCalls : outcome.modelCall ? [outcome.modelCall] : [];
+		if (signal.aborted) throw new Error(`research node ${node.id} was aborted`);
 		for (const receipt of observedReceipts) {
 			this.modelReceiptsValue.push(receipt);
 			this.deps.onModelReceipt?.(receipt);
 		}
-		if (signal.aborted) throw new Error(`research node ${node.id} was aborted`);
 		if (outcome.error || outcome.aborted || outcome.timedOut || outcome.stalled) throw new Error(`research node prompt failed: ${outcome.error ?? "aborted"}`);
 		if (!observedReceipts.length) throw new Error("research node produced no exact model-call receipts");
 		if (new Set(observedReceipts.map((receipt) => receipt.id)).size !== observedReceipts.length) throw new Error("research node produced duplicate model-call receipt IDs");
