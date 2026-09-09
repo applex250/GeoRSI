@@ -248,7 +248,7 @@ async function main(): Promise<void> {
 		const forgedExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [{ toolId: "quant-result", description: "fixture verifier-input producer", parameters: Type.Object({ value: Type.Unknown() }) }], createHarness: forgedHarness });
 		let forgedInputRejected = false;
 		try { await forgedExecutor.executeNode(makeNode(), makeGraph(makeNode()), new AbortController().signal); }
-		catch (error) { forgedInputRejected = String(error).includes("tool-produced CAS artifact"); }
+		catch (error) { forgedInputRejected = String(error).includes("tool-produced CAS artifact") || String(error).includes("did not call submit_research_node_output"); }
 		check("model-staged verifier input is rejected in favor of tool-produced CAS artifacts", forgedInputRejected);
 
 		const signalRegistry = new ScientificToolRegistry();

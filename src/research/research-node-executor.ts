@@ -217,6 +217,14 @@ function buildSubmissionSchema(kind: WorkNodeKind): typeof SUBMISSION_SCHEMA {
 	}) as unknown as typeof SUBMISSION_SCHEMA;
 }
 
+/** Compact machine-readable shape the verification input artifact must have, per profile.
+ * Included verbatim in the node prompt so attempt 1 can produce a passing artifact. */
+const VERIFIER_INPUT_CONTRACTS: Record<FamilyVerifierProfile, string> = {
+	"quantitative-v1": `JSON object {"rowCount":int,"missingCount":int,"duplicateCount":int,"columnsAudited":[string],"units":{field:unit},"estimand":string,"method":string,"stochasticMethod":bool,"finiteOutputs":bool,"randomSeed":int,"uncertainty":{"method":string,"lower":number,"upper":number},"sensitivityRuns":int>=2,"independentCheck":{"method":string,"relativeDifference":number,"tolerance":number}}`,
+	"gis-v1": `JSON object {"inputCrs":[string],"outputCrs":string,"metricOperations":bool,"projectedForMetricOperations":bool,"axisOrderChecked":bool,"artifacts":[{...}],"requestedOutputPaths":[string],"replayStatisticsMatch":bool}`,
+	"literature-v1": `JSON object {"sources":[...],"claims":[...],"hypotheses":[...],"searchQueries":[string],"minimumSources":int,"requireContraryEvidence":bool,"noveltyScope":string,"noveltySearchCutoff":string}`,
+};
+
 function exactModelReceiptIssue(receipt: ModelCallReceipt, policy: ResearchModelConfig): string | null {
 	const issues = validateModelCallReceipt(receipt, policy);
 	return issues.length > 0 ? issues[0]! : null;
@@ -258,6 +266,40 @@ export function dispatchFamilyVerifier(profile: FamilyVerifierProfile, input: un
 	if (profile === "quantitative-v1") return verifyQuantitativeResearch(input as QuantitativeVerificationInput);
 	if (profile === "gis-v1") return verifyGisResearch(input as GisVerificationInput);
 	return verifyLiteratureResearch(input as LiteratureVerificationInput);
+}
+
+type VerifierFieldKind = "string" | "number" | "boolean" | "string[]" | "number[]" | "object" | "array";
+
+/** Required top-level fields per profile (optional fields omitted; semantic checks stay in the verifiers). */
+const VERIFIER_INPUT_STRUCTURES: Record<FamilyVerifierProfile, Record<string, VerifierFieldKind>> = {
+	"quantitative-v1": { rowCount: "number", missingCount: "number", duplicateCount: "number", columnsAudited: "string[]", units: "object", estimand: "string", method: "string", stochasticMethod: "boolean", finiteOutputs: "boolean", sensitivityRuns: "number" },
+	"gis-v1": { inputCrs: "string[]", metricOperations: "boolean", projectedForMetricOperations: "boolean", axisOrderChecked: "boolean", artifacts: "array", requestedOutputPaths: "string[]", replayStatisticsMatch: "boolean" },
+	"literature-v1": { sources: "array", claims: "array", hypotheses: "array", searchQueries: "string[]", minimumSources: "number", requireContraryEvidence: "boolean", noveltyScope: "string", noveltySearchCutoff: "string" },
+};
+
+/** Fail-closed structural gate: missing/mistyped verifier-input fields produce precise,
+ * actionable issues instead of a TypeError inside the verifier (luna-smoke-006 lesson). */
+export function validateFamilyVerifierInputStructure(profile: FamilyVerifierProfile, payload: unknown): string[] {
+	const spec = VERIFIER_INPUT_STRUCTURES[profile];
+	if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [`${profile} verifier input must be a JSON object`];
+	const input = payload as Record<string, unknown>;
+	const issues: string[] = [];
+	for (const [key, kind] of Object.entries(spec)) {
+		const value = input[key];
+		if (value === undefined || value === null) {
+			issues.push(`${profile} verifier input is missing required field "${key}" (${kind})`);
+			continue;
+		}
+		const ok = kind === "string" ? typeof value === "string"
+			: kind === "number" ? typeof value === "number" && Number.isFinite(value)
+			: kind === "boolean" ? typeof value === "boolean"
+			: kind === "string[]" ? Array.isArray(value) && value.every((item) => typeof item === "string")
+			: kind === "number[]" ? Array.isArray(value) && value.every((item) => typeof item === "number")
+			: kind === "object" ? typeof value === "object" && !Array.isArray(value)
+			: Array.isArray(value);
+		if (!ok) issues.push(`${profile} verifier input field "${key}" must be ${kind}`);
+	}
+	return issues;
 }
 
 export function buildResearchNodeContext(input: {
@@ -436,6 +478,47 @@ export class ResearchNodeExecutor {
 				return toolOutput(`staged artifact ${handle}`);
 			},
 		});
+		// Submission content validation shared by the submit tool (pre-acceptance, so the model can
+		// self-correct in-session) and the post-prompt gate (defense in depth).
+		const validateSubmissionContent = (captured: CapturedSubmission): string[] => {
+			const issues: string[] = [];
+			if (new Set(captured.artifactIds).size !== captured.artifactIds.length) issues.push("submission contains duplicate artifact IDs");
+			const stagedHandles = new Set(pendingArtifacts.map((artifact) => artifact.handle));
+			for (const id of captured.artifactIds) if (!stagedHandles.has(id) && !producedToolArtifacts.has(id)) issues.push(`invented artifact ID: ${id}`);
+			const knownForLinks = new Set([...evidenceIds, ...producedToolArtifacts, ...stagedHandles]);
+			for (const decision of captured.decisions) for (const id of decision.evidenceIds) if (!knownForLinks.has(id)) issues.push(`decision cites unknown evidence: ${id}`);
+			const verificationProfiles = captured.verifications.map((verification) => verification.profile);
+			if (new Set(verificationProfiles).size !== verificationProfiles.length) issues.push("duplicate verifier profiles");
+			const expectedProfile = profileForNode(node.kind);
+			if (expectedProfile && !verificationProfiles.includes(expectedProfile)) issues.push(`node requires ${expectedProfile} verification input`);
+			for (const verification of captured.verifications) {
+				for (const id of verification.evidenceIds) if (!knownForLinks.has(id)) issues.push(`verifier input cites unknown evidence: ${id}`);
+				if (!producedToolArtifacts.has(verification.inputArtifactId)) issues.push(`verifier input must reference a tool-produced CAS artifact, not model-staged content: ${verification.inputArtifactId}`);
+			}
+			const claimIds = new Set<string>();
+			for (const claim of captured.claims ?? []) {
+				if (claimIds.has(claim.id)) issues.push(`duplicate research claim ID: ${claim.id}`);
+				claimIds.add(claim.id);
+				for (const id of claim.evidenceIds) if (!knownForLinks.has(id)) issues.push(`claim cites unknown evidence: ${id}`);
+			}
+			for (const hypothesis of captured.hypotheses ?? []) for (const id of hypothesis.rationaleEvidenceIds) if (!knownForLinks.has(id)) issues.push(`hypothesis cites unknown evidence: ${id}`);
+			if (captured.valueCard) {
+				for (const dimension of [captured.valueCard.significance, captured.valueCard.novelty, captured.valueCard.falsifiability, captured.valueCard.dataFeasibility, captured.valueCard.methodologicalValue, captured.valueCard.potentialImpact]) for (const id of dimension.evidenceIds) if (!knownForLinks.has(id)) issues.push(`value card cites unknown evidence: ${id}`);
+			}
+			if (captured.narrative) {
+				for (const section of Object.values(captured.narrative)) {
+					if (!section.text.trim() || section.evidenceIds.length === 0) issues.push("narrative sections require text and evidence");
+					for (const id of section.evidenceIds) if (!knownForLinks.has(id)) issues.push(`narrative cites unknown evidence: ${id}`);
+					for (const id of section.claimIds ?? []) if (!claimIds.has(id)) issues.push(`narrative cites unknown claim: ${id}`);
+				}
+			}
+			for (const link of captured.contraryEvidenceLinks ?? []) {
+				const reference = this.deps.evidenceById(link.sourceEvidenceId);
+				if (!reference || reference.kind !== "source" || !claimIds.has(link.claimId)) issues.push("contrary evidence must bind a known source and claim");
+			}
+			if (node.kind === "synthesis" && (!captured.claims?.length || !captured.valueCard || !captured.narrative)) issues.push("synthesis node must submit claims, value card, and grounded narrative");
+			return issues;
+		};
 		const submitTool = defineTool({
 			name: "submit_research_node_output",
 			label: "Submit research node output",
@@ -445,7 +528,7 @@ export class ResearchNodeExecutor {
 				ensureActive();
 				toolCalls += 1;
 				if (submission) throw new Error("research node output was already submitted");
-				submission = {
+				const candidate: CapturedSubmission = {
 					version: 1,
 					summary: params.summary,
 					artifactIds: params.artifact_ids,
@@ -466,6 +549,15 @@ export class ResearchNodeExecutor {
 					narrative: params.narrative ? Object.fromEntries(Object.entries(params.narrative).map(([key, section]) => [key, { text: section.text, evidenceIds: section.evidence_ids, claimIds: section.claim_ids }])) as unknown as ResearchNarrative : undefined,
 					contraryEvidenceLinks: params.contrary_evidence_links?.map((link) => ({ sourceEvidenceId: link.source_evidence_id, claimId: link.claim_id })),
 				};
+				const issues = validateSubmissionContent(candidate);
+				if (issues.length > 0) {
+					// In-session self-correction: reject without consuming the one-shot submission and
+					// tell the model exactly what is wrong plus which ids are citable.
+					const validIds = [...producedToolArtifacts].slice(0, 20).join(", ");
+					const staged = pendingArtifacts.map((artifact) => artifact.handle).join(", ");
+					return toolOutput(`SUBMISSION REJECTED — fix these issues and call submit_research_node_output again:\n- ${issues.join("\n- ")}\nValid tool-produced artifact ids: ${validIds || "(none yet — run a tool first)"}${staged ? `\nStaged model-artifact handles: ${staged}` : ""}`);
+				}
+				submission = candidate;
 				return toolOutput("research node output captured");
 			},
 		});
@@ -490,7 +582,9 @@ export class ResearchNodeExecutor {
 		let outcome: PromptOutcome;
 		try {
 			await harness.init();
-			outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.`, remainingWallMs());
+		const verifierProfile = profileForNode(node.kind);
+		const verifierContract = verifierProfile ? `\n\nVERIFIER INPUT CONTRACT: the ${verifierProfile} verification input artifact (referenced by verifications[0].input_artifact) must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile]}` : "";
+		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}`, remainingWallMs());
 		} finally {
 			signal.removeEventListener("abort", abortListener);
 			harness.dispose();
@@ -511,43 +605,8 @@ export class ResearchNodeExecutor {
 		if (!submission) throw new Error("research node did not call submit_research_node_output");
 		const captured = submission as CapturedSubmission;
 		if (stableJson(captured).length > aggregateOutputCap * 8) throw new Error("captured research node output exceeds bounded aggregate size");
-		if (new Set(captured.artifactIds).size !== captured.artifactIds.length) throw new Error("research node submission contains duplicate artifact IDs");
-		const stagedHandles = new Set(pendingArtifacts.map((artifact) => artifact.handle));
-		for (const id of captured.artifactIds) if (!stagedHandles.has(id) && !producedToolArtifacts.has(id)) throw new Error(`research node submitted an invented artifact ID: ${id}`);
-		const knownForLinks = new Set([...evidenceIds, ...producedToolArtifacts, ...stagedHandles]);
-		for (const decision of captured.decisions) for (const id of decision.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`decision cites unknown evidence: ${id}`);
-		const verificationProfiles = captured.verifications.map((verification) => verification.profile);
-		if (new Set(verificationProfiles).size !== verificationProfiles.length) throw new Error("research node submitted duplicate verifier profiles");
-		const expectedProfile = profileForNode(node.kind);
-		if (expectedProfile && !verificationProfiles.includes(expectedProfile)) throw new Error(`node ${node.id} requires ${expectedProfile} verification input`);
-		for (const verification of captured.verifications) {
-			for (const id of verification.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`verifier input cites unknown evidence: ${id}`);
-			if (!producedToolArtifacts.has(verification.inputArtifactId)) throw new Error(`verifier input must reference a tool-produced CAS artifact, not model-staged content: ${verification.inputArtifactId}`);
-		}
-		const claimIds = new Set<string>();
-		for (const claim of captured.claims ?? []) {
-			if (claimIds.has(claim.id)) throw new Error(`duplicate research claim ID: ${claim.id}`);
-			claimIds.add(claim.id);
-			for (const id of claim.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`claim cites unknown evidence: ${id}`);
-		}
-		for (const hypothesis of captured.hypotheses ?? []) {
-			for (const id of hypothesis.rationaleEvidenceIds) if (!knownForLinks.has(id)) throw new Error(`hypothesis cites unknown evidence: ${id}`);
-		}
-		if (captured.valueCard) {
-			for (const dimension of [captured.valueCard.significance, captured.valueCard.novelty, captured.valueCard.falsifiability, captured.valueCard.dataFeasibility, captured.valueCard.methodologicalValue, captured.valueCard.potentialImpact]) for (const id of dimension.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`value card cites unknown evidence: ${id}`);
-		}
-		if (captured.narrative) {
-			for (const section of Object.values(captured.narrative)) {
-				if (!section.text.trim() || section.evidenceIds.length === 0) throw new Error("narrative sections require text and evidence");
-				for (const id of section.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`narrative cites unknown evidence: ${id}`);
-				for (const id of section.claimIds ?? []) if (!claimIds.has(id)) throw new Error(`narrative cites unknown claim: ${id}`);
-			}
-		}
-		for (const link of captured.contraryEvidenceLinks ?? []) {
-			const reference = this.deps.evidenceById(link.sourceEvidenceId);
-			if (!reference || reference.kind !== "source" || !claimIds.has(link.claimId)) throw new Error("contrary evidence must bind a known source and claim");
-		}
-		if (node.kind === "synthesis" && (!captured.claims?.length || !captured.valueCard || !captured.narrative)) throw new Error("synthesis node must submit claims, value card, and grounded narrative");
+		const contentIssues = validateSubmissionContent(captured);
+		if (contentIssues.length > 0) throw new Error(`research node submitted invalid content: ${contentIssues.join("; ")}`);
 
 		ensureActive();
 		const handleMap = new Map<string, string>();
@@ -667,6 +726,11 @@ export class ResearchNodeExecutor {
 			const bindingIssues = validateFamilyEvidenceBinding(profile, payload, linkedEvidence);
 			if (bindingIssues.length > 0) {
 				issues.push(...bindingIssues);
+				continue;
+			}
+			const structuralIssues = validateFamilyVerifierInputStructure(profile, payload);
+			if (structuralIssues.length > 0) {
+				issues.push(...structuralIssues);
 				continue;
 			}
 			let verification: ScientificVerificationResult;
