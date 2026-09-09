@@ -8,9 +8,9 @@
  *   npx tsx src/run.ts research-live --config config/research-competition-luna.json --mission path/to/mission.json [--plan path/to/plan.json] --run-name NAME
  *   npx tsx src/run.ts rsi [--gens N] [--resume] [--run-name NAME]
  */
-import { readFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, rmSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { loadConfig, ROOT } from "./config.js";
+import { loadConfig, researchModelConfigFingerprint, ROOT } from "./config.js";
 import { selftest } from "./selftest.js";
 import { runRsi } from "./rsi.js";
 import { examHasValidTrainingResult, runExam } from "./exam.js";
@@ -30,8 +30,10 @@ function parseArgs(argv: string[]): Record<string, string | boolean | undefined>
 			} else {
 				out[key] = true;
 			}
-		} else {
+		} else if (out._cmd === undefined) {
 			out._cmd = a;
+		} else if (out._extra === undefined) {
+			out._extra = a;
 		}
 	}
 	return out;
@@ -41,6 +43,48 @@ async function main() {
 	const args = parseArgs(process.argv.slice(2));
 	const cmd = String(args._cmd ?? "rsi");
 	const cfg = loadConfig(args.config ? String(args.config) : undefined);
+
+	if (cmd === "research-gateway") {
+		// Unified gateway routing switch: one command flips research_model.gateway in the config
+		// file; all endpoint/resilience/thinking-evidence settings come from the registered entry.
+		const configPath = args.config ? String(args.config) : join(ROOT, "config", "research-competition-luna.json");
+		const target = args.gateway ? String(args.gateway) : String(args._extra ?? "");
+		const raw = JSON.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
+		const gateways = (raw.research_gateways ?? {}) as Record<string, unknown>;
+		const names = Object.keys(gateways).sort();
+		if (!target || args.list === true) {
+			console.log(`registered gateways in ${configPath}:`);
+			for (const name of names) {
+				const entry = gateways[name] as Record<string, unknown>;
+				console.log(`  ${name.padEnd(10)} provider=${String(entry.provider)} model=${String(entry.model)} api=${String(entry.api)} thinking_evidence=${String(entry.thinking_evidence ?? "(derived)")}`);
+			}
+			const current = (raw.research_model as Record<string, unknown> | undefined)?.gateway;
+			console.log(`current gateway: ${current ?? "(explicit research_model, no gateway route)"}`);
+			process.exit(0);
+		}
+		if (!gateways[target]) {
+			console.error(`unknown gateway "${target}"; registered: ${names.join(", ") || "(none)"}`);
+			process.exit(1);
+		}
+		raw.research_model = { gateway: target };
+		// Validate the switched config fully parses (expansion + validation) before writing.
+		const tempPath = `${configPath}.gateway-switch.tmp.json`;
+		writeFileSync(tempPath, JSON.stringify(raw, null, 2) + "\n", { encoding: "utf8" });
+		try {
+			const switched = loadConfig(tempPath);
+			if (!switched.research_model) throw new Error("expanded config has no research_model");
+			const fp = researchModelConfigFingerprint(switched.research_model);
+			renameSync(tempPath, configPath);
+			console.log(`research gateway switched -> ${target}`);
+			console.log(`  provider=${switched.research_model.provider} model=${switched.research_model.model} api=${switched.research_model.api}`);
+			console.log(`  thinking_evidence=${switched.research_model.thinking_evidence ?? "provider-observed"} resilience=${JSON.stringify(switched.research_model.resilience)}`);
+			console.log(`  policy fingerprint=${fp}${switched.research_model.thinking_evidence !== "provider-observed" ? "\n  NOTE: this route is NOT competition-eligible (thinking evidence below provider-observed)" : ""}`);
+		} catch (error) {
+			rmSync(tempPath, { force: true });
+			throw error;
+		}
+		process.exit(0);
+	}
 
 	if (cmd === "selftest") {
 		const ok = await selftest();

@@ -741,6 +741,7 @@ export class SandboxieAdapter {
 		timeoutMs: number,
 		expectedImage?: string,
 	): Promise<number[]> {
+		const debug = process.env.RSILAB_SANDBOXIE_DEBUG === "1";
 		return new Promise((resolvePids, reject) => {
 			const started = Date.now();
 			let lastPids: number[] = [];
@@ -755,6 +756,7 @@ export class SandboxieAdapter {
 				const expectedStem = expectedImage?.toLowerCase().replace(/\.exe$/, "");
 				const imageMap = expectedStem ? processImageMap() : new Map<number, string>();
 				for (const pid of listed.pids) observed.add(`${pid}:${imageMap.get(pid) ?? "unknown"}`);
+				if (debug) this.log(`[sandboxie:debug] box=${name} t=${Date.now() - started}ms listpids=[${listed.pids.join(",")}] images=[${listed.pids.map((pid) => imageMap.get(pid) ?? "?").join(",")}] expect=${expectedStem ?? "any"}`);
 				const pids = listed.pids.filter(
 					(pid) =>
 						pid !== process.pid &&
@@ -768,7 +770,8 @@ export class SandboxieAdapter {
 					return;
 				}
 				if (Date.now() - started >= timeoutMs) {
-					reject(new Error(`Sandboxie process ownership could not be proven for box ${name}; baseline=[${[...baselinePids].join(",")}] current=[${lastPids.join(",")}] observed=[${[...observed].slice(-20).join(",")}] expectedImage=${expectedImage ?? "any"}`));
+					const described = [...observed].slice(-20).join(",");
+					reject(new Error(`Sandboxie process ownership could not be proven for box ${name} within ${timeoutMs}ms; baseline=[${[...baselinePids].join(",")}] current=[${lastPids.join(",")}] observed=[${described}] expectedImage=${expectedImage ?? "any"}`));
 					return;
 				}
 				setTimeout(poll, 100);
@@ -1214,9 +1217,8 @@ export function defaultExchangeRoot(): string {
 }
 
 export function isSandboxieBackend(cfg: Config): boolean {
-	if (cfg.execution_backend === "sandboxie") return true;
-	if (cfg.execution_backend === "host-audit") return false;
-	return process.platform === "win32";
+	// Default is host-audit (no isolation); sandboxie requires the explicit opt-in.
+	return cfg.execution_backend === "sandboxie";
 }
 
 export function ensureAbsoluteExchangeWorkspace(path: string, root?: string): string {

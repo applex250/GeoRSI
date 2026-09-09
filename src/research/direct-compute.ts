@@ -1,0 +1,165 @@
+/** Explicit host-audit compute port: runs Python directly on the host with NO sandbox isolation.
+ * Every receipt honestly records backend="host-audit" and networkIsolationEnforced=false; such runs
+ * are never competition-eligible. This is the development default while Sandboxie hardening is
+ * deferred to a later iteration; the Sandboxie path remains fully available via
+ * execution_backend="sandboxie". */
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync, openSync, writeSync, closeSync } from "node:fs";
+import { join } from "node:path";
+import { sanitizeExecutionEnvironment } from "../process-env.js";
+import { assertExchangeWorkspace, readWorkspaceFileStrict } from "../workspace-tools.js";
+import type { SandboxieCleanupResult } from "../sandboxie-cleanup.js";
+import type { ComputeReplayAttestation } from "./runtime-attestation.js";
+import { validateHostComputeReceipt, type SandboxieComputeRequest, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
+
+const MAX_CAPTURE_BYTES = 2_000_000;
+
+/** No box exists in host-audit mode; cleanup fields are structural no-ops recorded honestly. */
+function hostCleanupResult(): SandboxieCleanupResult {
+	return { terminated: false, deletedData: false, removedConfig: false, reloaded: false, boxStillEnabled: false, globalWfpRestored: false, leaseReleased: false, errors: [] };
+}
+
+function safeResultFile(value: string): string {
+	if (!value || value.includes("..") || value.includes("/") || value.includes("\\") || value.startsWith(".")) throw new Error(`host-audit compute resultFile must be one safe basename: ${value}`);
+	return value;
+}
+
+/** Runs one host Python process per compute call inside the bounded exchange workspace. */
+export class DirectHostComputePort implements SandboxieResearchComputePort {
+	private counter = 0;
+	private readonly requests = new Map<string, SandboxieComputeRequest>();
+
+	constructor(private readonly options: { pythonCmd: string; workspace: string; repoRoot: string; privateRoot: string; log?: (message: string) => void }) {
+		assertExchangeWorkspace(options.workspace, options.repoRoot, options.privateRoot, []);
+		mkdirSync(options.workspace, { recursive: true });
+	}
+
+	async run(request: SandboxieComputeRequest): Promise<SandboxieComputeRunReceipt> {
+		if (request.signal?.aborted) throw new Error(`host-audit compute ${request.nodeId} aborted before launch`);
+		const id = `${request.nodeId}-${++this.counter}-${randomId()}`;
+		this.requests.set(id, { ...request });
+		const cwd = join(this.options.workspace, "compute", id);
+		mkdirSync(cwd, { recursive: true });
+		const scriptPath = join(cwd, "main.py");
+		const stdoutPath = join(cwd, "stdout.log");
+		const stderrPath = join(cwd, "stderr.log");
+		writeFileSync(scriptPath, request.script, { encoding: "utf8", flag: "wx", mode: 0o600 });
+		const started = Date.now();
+		let exitCode: number | null = null;
+		let timedOut = false;
+		let runError: unknown;
+		let stdout = "";
+		let stderr = "";
+		let targetPids: number[] = [];
+		const child = spawn(this.options.pythonCmd, [scriptPath], {
+			cwd,
+			env: sanitizeExecutionEnvironment(),
+			windowsHide: true,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		if (child.pid) targetPids = [child.pid];
+		const killTree = (): void => {
+			if (!child.pid) return;
+			if (process.platform === "win32") {
+				// Tree-kill so python-spawned children (GDAL helpers, etc.) cannot outlive the request.
+				const result = spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+				if (result.status !== 0) try { child.kill(); } catch { /* best effort */ }
+			} else {
+				try { child.kill("SIGKILL"); } catch { /* best effort */ }
+			}
+		};
+		const onAbort = (): void => killTree();
+		request.signal?.addEventListener("abort", onAbort, { once: true });
+		const timer = setTimeout(() => {
+			timedOut = true;
+			killTree();
+		}, Math.max(1, request.timeoutMs));
+		const drain = (stream: NodeJS.ReadableStream | null, sink: (chunk: string) => void, file: string): Promise<void> =>
+			new Promise((resolveDrain) => {
+				if (!stream) {
+					resolveDrain();
+					return;
+				}
+				let handle: number | null = null;
+				try { handle = openSync(file, "w"); } catch { handle = null; }
+				let total = 0;
+				stream.on("data", (chunk: Buffer) => {
+					total += chunk.length;
+					if (handle !== null) {
+						try { writeSync(handle, chunk); } catch { /* log file best effort */ }
+					}
+					if (total <= MAX_CAPTURE_BYTES) sink(chunk.toString("utf8"));
+				});
+				stream.on("end", () => {
+					if (handle !== null) try { closeSync(handle); } catch { /* ignore */ }
+					resolveDrain();
+				});
+				stream.on("error", () => {
+					if (handle !== null) try { closeSync(handle); } catch { /* ignore */ }
+					resolveDrain();
+				});
+			});
+		try {
+			const stdoutDone = drain(child.stdout, (chunk) => { stdout += chunk; }, stdoutPath);
+			const stderrDone = drain(child.stderr, (chunk) => { stderr += chunk; }, stderrPath);
+			const closed = new Promise<void>((resolveClosed) => child.once("close", (code) => { exitCode = code; resolveClosed(); }));
+			await Promise.all([stdoutDone, stderrDone, closed]);
+		} catch (error) {
+			runError = error;
+			killTree();
+		} finally {
+			clearTimeout(timer);
+			request.signal?.removeEventListener("abort", onAbort);
+		}
+		if (request.signal?.aborted) runError = runError ?? new Error("host-audit compute aborted by signal");
+		let resultText: string | undefined;
+		if (!runError && request.resultFile) {
+			try {
+				resultText = readWorkspaceFileStrict(cwd, join(cwd, safeResultFile(request.resultFile)), 50_000_000).toString("utf8");
+			} catch (error) { runError = error; }
+		}
+		const receipt: SandboxieComputeRunReceipt = {
+			version: 1,
+			id,
+			backend: "host-audit",
+			boxName: "",
+			networkMode: request.networkMode,
+			networkIsolationEnforced: false,
+			processOwnershipVerified: targetPids.length > 0,
+			targetPids,
+			exitCode,
+			timedOut,
+			stdout,
+			stderr: runError ? `${stderr}\n${String(runError)}`.trim() : stderr,
+			generatedEvidence: [],
+			cleanup: hostCleanupResult(),
+			error: runError ? String(runError).slice(0, 500) : undefined,
+			result: resultText,
+			resultFile: request.resultFile,
+			scriptSha256: createHash("sha256").update(request.script).digest("hex"),
+		};
+		this.options.log?.(`[research] host-audit compute ${id}: exit=${receipt.exitCode} wall=${Date.now() - started}ms`);
+		return receipt;
+	}
+
+	async replay(receipts: readonly SandboxieComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation> {
+		if (receipts.length === 0 || receipts.some((receipt) => validateHostComputeReceipt(receipt, receipt.networkMode).length > 0)) {
+			return { passed: false, backend: "host-audit", processOwnershipVerified: false };
+		}
+		for (const original of receipts) {
+			if (signal?.aborted) return { passed: false, backend: "host-audit", processOwnershipVerified: false };
+			const request = this.requests.get(original.id);
+			if (!request || createHash("sha256").update(request.script).digest("hex") !== original.scriptSha256) return { passed: false, backend: "host-audit", processOwnershipVerified: false };
+			const replayed = await this.run({ ...request, signal });
+			if (validateHostComputeReceipt(replayed, request.networkMode).length > 0 || replayed.exitCode !== original.exitCode || replayed.timedOut !== original.timedOut || replayed.stdout !== original.stdout || replayed.stderr !== original.stderr || replayed.result !== original.result) {
+				return { passed: false, backend: "host-audit", processOwnershipVerified: false };
+			}
+		}
+		return { passed: true, backend: "host-audit", processOwnershipVerified: receipts.every((receipt) => receipt.processOwnershipVerified) };
+	}
+}
+
+function randomId(): string {
+	return createHash("sha256").update(`${process.pid}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 8);
+}

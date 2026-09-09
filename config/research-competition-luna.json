@@ -1,20 +1,6 @@
 {
-    "research_model": {
-    "provider": "alsl",
-    "base_url": "https://ai.alsl.xyz/v1",
-    "model": "gpt-5.6-luna",
-    "api": "openai-responses",
-    "thinking_level": "xhigh",
-    "max_tokens_field": "max_completion_tokens",
-    "credential_env": "GEORSI_RESEARCH_API_KEY",
-    "fallback": "none",
-    "context_window": 600000,
-    "max_output": 128000,
-    "supports_developer_role": true,
-    "supports_reasoning_effort": true,
-    "supports_usage": true,
-    "supports_tool_loop": true,
-    "require_provider_observed_thinking": true
+  "research_model": {
+    "gateway": "alsl"
   },
   "inner_model": "gpt-5.6-luna",
   "inner_thinking_level": "xhigh",
@@ -24,7 +10,7 @@
   "single_model_id": "gpt-5.6-luna",
   "single_model_thinking_level": "xhigh",
   "network_mode": "open",
-  "execution_backend": "sandboxie",
+  "execution_backend": "host-audit",
   "execution_policy": "audit",
   "generations": 3,
   "proposals": 3,
@@ -46,11 +32,80 @@
   "rag_enabled": true,
   "rag_budget_chars": 3600,
   "problems": [
-    { "id": "quake_b", "genre": "seismology", "weight": 1 },
-    { "id": "quake_b_real", "genre": "capstone-seismology", "weight": 1 },
-    { "id": "flood_rp", "genre": "hydrology", "weight": 1 },
-    { "id": "climate_trend", "genre": "climatology", "weight": 1 },
-    { "id": "gabench_54", "genre": "gis-remote-sensing", "weight": 1 },
-    { "id": "poro_perm", "genre": "petrophysics", "heldout": true, "weight": 1 }
-  ]
+    {
+      "id": "quake_b",
+      "genre": "seismology",
+      "weight": 1
+    },
+    {
+      "id": "quake_b_real",
+      "genre": "capstone-seismology",
+      "weight": 1
+    },
+    {
+      "id": "flood_rp",
+      "genre": "hydrology",
+      "weight": 1
+    },
+    {
+      "id": "climate_trend",
+      "genre": "climatology",
+      "weight": 1
+    },
+    {
+      "id": "gabench_54",
+      "genre": "gis-remote-sensing",
+      "weight": 1
+    },
+    {
+      "id": "poro_perm",
+      "genre": "petrophysics",
+      "heldout": true,
+      "weight": 1
+    }
+  ],
+  "research_gateways": {
+    "alsl": {
+      "provider": "alsl",
+      "base_url": "https://ai.alsl.xyz/v1",
+      "model": "gpt-5.6-luna",
+      "api": "openai-responses",
+      "thinking_level": "xhigh",
+      "thinking_evidence": "provider-observed",
+      "credential_env": "GEORSI_RESEARCH_API_KEY",
+      "max_tokens_field": "max_completion_tokens",
+      "context_window": 600000,
+      "max_output": 128000,
+      "supports_developer_role": true,
+      "supports_reasoning_effort": true,
+      "resilience": {
+        "probe_attempts": 10,
+        "probe_timeout_ms": 90000,
+        "probe_backoff_ms": 3000,
+        "probe_backoff_cap_ms": 20000,
+        "session_retries": 10
+      }
+    },
+    "geili": {
+      "provider": "geiliapi",
+      "base_url": "https://sub.geiliapi.com/v1",
+      "model": "gpt-5.6-luna",
+      "api": "openai-completions",
+      "thinking_level": "xhigh",
+      "thinking_evidence": "requested-only",
+      "credential_env": "GEORSI_RESEARCH_API_KEY",
+      "max_tokens_field": "max_tokens",
+      "context_window": 600000,
+      "max_output": 128000,
+      "supports_developer_role": true,
+      "supports_reasoning_effort": true,
+      "resilience": {
+        "probe_attempts": 10,
+        "probe_timeout_ms": 60000,
+        "probe_backoff_ms": 3000,
+        "probe_backoff_cap_ms": 20000,
+        "session_retries": 10
+      }
+    }
+  }
 }

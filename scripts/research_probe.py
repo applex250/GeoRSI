@@ -33,10 +33,66 @@ THINKING_KEYS = (
 )
 
 
+RESILIENCE_DEFAULTS = {
+    "probe_attempts": 10,
+    "probe_timeout_ms": 90000,
+    "probe_backoff_ms": 3000,
+    "probe_backoff_cap_ms": 20000,
+    "session_retries": 10,
+}
+
+
+def resolve_research_model(cfg: dict) -> dict:
+    """Mirror src/config.ts parseResearchModelConfig gateway expansion byte-for-byte:
+    research_model.gateway selects a research_gateways entry; explicit sibling fields
+    override; defaults are filled exactly as the TS side fills them."""
+    policy = cfg.get("research_model")
+    if not isinstance(policy, dict):
+        raise SystemExit("config has no research_model block")
+    gateways = cfg.get("research_gateways") or {}
+    gateway_name = policy.get("gateway")
+    if gateway_name:
+        entry = gateways.get(gateway_name)
+        if not isinstance(entry, dict):
+            raise SystemExit(f'research_model.gateway "{gateway_name}" is not registered in research_gateways')
+        source = dict(entry)
+        for key, value in policy.items():
+            if key != "gateway" and value is not None:
+                source[key] = value
+        source["gateway"] = gateway_name
+    else:
+        source = dict(policy)
+    thinking_evidence = source.get("thinking_evidence")
+    if thinking_evidence not in ("provider-observed", "requested-only", "unverified"):
+        thinking_evidence = "provider-observed" if source.get("api") == "openai-responses" else "requested-only"
+    resolved = {
+        "provider": str(source.get("provider", "")),
+        "base_url": str(source.get("base_url", "")),
+        "model": str(source.get("model", "")),
+        "api": "openai-responses" if source.get("api") == "openai-responses" else "openai-completions",
+        "thinking_level": str(source.get("thinking_level", "xhigh")),
+        "max_tokens_field": "max_tokens" if source.get("max_tokens_field") == "max_tokens" else "max_completion_tokens",
+        "credential_env": str(source.get("credential_env", "")),
+        "fallback": "none",
+        "context_window": int(source.get("context_window", 600000)),
+        "max_output": int(source.get("max_output", 128000)),
+        "supports_developer_role": source.get("supports_developer_role") is True,
+        "supports_reasoning_effort": source.get("supports_reasoning_effort") is True,
+        "supports_usage": source.get("supports_usage") is not False,
+        "supports_tool_loop": source.get("supports_tool_loop") is not False,
+        "require_provider_observed_thinking": False if thinking_evidence != "provider-observed" else source.get("require_provider_observed_thinking") is not False,
+        "thinking_evidence": thinking_evidence,
+        "resilience": {**RESILIENCE_DEFAULTS, **{k: int(v) for k, v in (source.get("resilience") or {}).items()}},
+    }
+    if gateway_name:
+        resolved["gateway"] = gateway_name
+    return resolved
+
+
 def load_policy(config_path: Path) -> dict:
     cfg = json.loads(config_path.read_text(encoding="utf-8"))
-    policy = cfg.get("research_model")
-    if not isinstance(policy, dict) or not policy.get("model"):
+    policy = resolve_research_model(cfg)
+    if not policy.get("model"):
         raise SystemExit("config has no research_model block")
     required = ("provider", "base_url", "model", "api", "thinking_level", "max_tokens_field", "credential_env")
     missing = [key for key in required if not policy.get(key)]

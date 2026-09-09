@@ -19,6 +19,15 @@ export function sanitizeExecutionEnvironment(env?: NodeJS.ProcessEnv): NodeJS.Pr
 			delete safe[key];
 		}
 	}
+	// Malformed environment entries break Sandboxie Start.exe: an empty or
+	// "="-prefixed variable name is forwarded as an illegal /env:=VALUE argument
+	// and the boxed process is never started (real-machine finding 2026-09-09).
+	for (const key of Object.keys(safe)) {
+		if (key.length === 0 || key.startsWith("=") || /[\r\n\0]/.test(key)) {
+			console.error(`[env] dropped malformed environment entry: ${JSON.stringify(key.slice(0, 40))}=${JSON.stringify(String(safe[key]).slice(0, 40))}`);
+			delete safe[key];
+		}
+	}
 	safe.PYTHONUNBUFFERED = "1";
 	safe.PYTHONIOENCODING = "utf-8";
 	return safe;

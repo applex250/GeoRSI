@@ -1005,7 +1005,7 @@ export async function selftest(): Promise<boolean> {
 	const rootArgs = sandboxieRootCommandArgs("GeoRSI_test", "python.exe", "C:/tmp/runner.py");
 	check("/box root command does not misuse /fcp", rootArgs[0] === "/box:GeoRSI_test" && !rootArgs.includes("/fcp"));
 	check("delete sandbox uses command token", sandboxieDeleteCommandArgs("GeoRSI_test")[1] === "delete_sandbox_silent");
-	check("Windows defaults to Sandboxie backend", isSandboxieBackend({} as import("./config.js").Config) === (process.platform === "win32"));
+	check("default backend is host-audit (no isolation unless explicitly opted in)", isSandboxieBackend({} as import("./config.js").Config) === false);
 	check("explicit host-audit override disables Sandboxie", !isSandboxieBackend({ execution_backend: "host-audit" } as import("./config.js").Config));
 	check("explicit sandboxie override enables backend", isSandboxieBackend({ execution_backend: "sandboxie" } as import("./config.js").Config));
 	const perProblemCfg = Object.assign({ execution_backend: "sandboxie" }, { execution_backend: "host-audit" });

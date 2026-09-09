@@ -45,7 +45,7 @@ export interface ResearchRuntimeAttestation {
 	/** Exact model policy copied from Config.research_model for independent verification. */
 	modelPolicy?: ResearchModelConfig;
 	modelPolicyFingerprint?: string;
-	runMode: "competition" | "deterministic-demo";
+	runMode: "competition" | "deterministic-demo" | "host-development";
 	unitTestsPassed: boolean;
 	guardViolations: string[];
 	cleanupPassed: boolean;
@@ -105,6 +105,13 @@ export function validateRuntimeAttestation(attestation: ResearchRuntimeAttestati
 		if (attestation.isolationBackend !== "sandboxie-app-level") issues.push("competition runtime requires Sandboxie app-level isolation");
 		if (compute.backend !== "sandboxie-app-level" || !compute.processOwnershipVerified) issues.push("competition compute replay requires verified Sandboxie ownership");
 		if (attestation.modelCalls.length === 0) issues.push("competition runtime requires model-call receipts");
+		if ((attestation.modelPolicy?.thinking_evidence ?? "provider-observed") !== "provider-observed") issues.push("competition runtime requires provider-observed thinking evidence");
+	} else if (attestation.runMode === "host-development") {
+		// Honest development mode: isolation is disabled by configuration; the package stays
+		// permanently ineligible but every other gate still applies.
+		if (attestation.isolationBackend !== "host-audit") issues.push("host-development runtime must attest host-audit isolation");
+		if (compute.backend !== "host-audit") issues.push("host-development compute replay must use the host-audit backend");
+		issues.push("host-development runtime is not competition-eligible: sandbox isolation disabled by configuration");
 	} else {
 		issues.push("deterministic demo is not competition-eligible runtime evidence");
 	}

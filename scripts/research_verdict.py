@@ -211,9 +211,17 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
             runtime_issues.append("competition package has no model-call receipts")
         if attestation.get("isolationBackend") != "sandboxie-app-level" or compute.get("backend") != "sandboxie-app-level" or compute.get("processOwnershipVerified") is not True:
             runtime_issues.append("competition isolation/compute attestation is insufficient")
+        if (policy or {}).get("thinking_evidence", "provider-observed") != "provider-observed":
+            runtime_issues.append("competition requires provider-observed thinking evidence")
     elif mode == "deterministic-demo":
         if compute.get("backend") != "deterministic-test-double":
             runtime_issues.append("deterministic demo has wrong compute backend")
+    elif mode == "host-development":
+        # Honest development mode: sandbox isolation disabled by configuration; the package
+        # stays ineligible (expected_eligible below requires competition mode) but the
+        # attestation must pair consistently with the host-audit compute backend.
+        if attestation.get("isolationBackend") != "host-audit" or compute.get("backend") != "host-audit":
+            runtime_issues.append("host-development package must attest host-audit isolation honestly")
     else:
         runtime_issues.append("unknown research run mode")
     receipt_ids = set()

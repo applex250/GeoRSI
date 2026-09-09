@@ -10,7 +10,7 @@ import { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import { ResearchNodeExecutor, type ResearchHarness } from "./research-node-executor.js";
 import { ResearchContextMemory } from "./context-memory.js";
 import type { ModelCallReceipt } from "./runtime-attestation.js";
-import { createSandboxiePythonResearchTool, attestSandboxieComputeReplay, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
+import { createSandboxiePythonResearchTool, attestComputeReplay, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
 import { SEED_STRATEGY_BUNDLE } from "./strategy-bundle.js";
 import { ScientificToolRegistry } from "./tool-registry.js";
 
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
 		});
 		const node = makeNode();
 		const execution = await executor.executeNode(node, makeGraph(node), new AbortController().signal);
-		check("executor fixes Luna xhigh and disables ambient tools", observedOpts?.thinkingLevel === "xhigh" && observedOpts.maxRetries === 0 && observedOpts.builtinTools?.length === 0 && observedOpts.exchangeTools === false);
+		check("executor fixes Luna xhigh and keeps bounded retry for transient gateway errors", observedOpts?.thinkingLevel === "xhigh" && observedOpts.maxRetries === 10 && observedOpts.builtinTools?.length === 0 && observedOpts.exchangeTools === false);
 		check("executor applies hard per-call output share", observedOpts?.maxOutputTokens === 500 && (capHarnessModelOutput(lunaModel(), 500) as { maxTokens?: number }).maxTokens === 500);
 		check("executor reports exact model/tool/output usage", execution.usage.modelCalls === 1 && execution.usage.toolCalls === 3 && execution.usage.outputTokens === 100);
 		check("executor only returns canonical CAS artifacts", execution.artifactIds.length >= 3 && execution.artifactIds.every((id) => !!references.get(id) && store.verify(references.get(id)!)));
@@ -305,7 +305,7 @@ async function main(): Promise<void> {
 		sandboxRegistry.register(createSandboxiePythonResearchTool({ port: sandboxPort, evidenceStore: store, networkMode: "blocked", onRunReceipt: (runReceipt) => computeReceipts.push(runReceipt) }));
 		const boxed = await sandboxRegistry.execute("sandboxie-python", { missionId: mission.id, episodeId: mission.id, nodeId: "boxed", allowedCapabilities: ["sandboxie-python"], remainingWallMs: 30_000 }, { purpose: "fixture", script: "print(4)", timeoutMs: 1000 });
 		check("Sandboxie compute tool requires ownership cleanup and canonical evidence", boxed.receipt.status === "success" && computeReceipts.length === 1 && boxed.result.evidenceRefs?.every((reference) => store.verify(reference)));
-		check("Sandboxie compute replay attestation remains backend-bound", (await attestSandboxieComputeReplay(sandboxPort, computeReceipts)).passed);
+		check("Sandboxie compute replay attestation remains backend-bound", (await attestComputeReplay(sandboxPort, computeReceipts)).passed);
 		check("host-like compute receipt cannot satisfy Sandboxie gate", validateSandboxieComputeReceipt({ ...computeReceipts[0]!, backend: "host-audit" as never }, "blocked").some((issue) => issue.includes("did not use Sandboxie")));
 
 		console.log(`RESEARCH_NODE_EXECUTOR_OK ${passed} passed`);

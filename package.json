@@ -1,39 +1,40 @@
 {
-	"name": "georsi",
-	"version": "1.1.0",
-	"private": true,
-	"type": "module",
-	"description": "Self-evolving geoscience research RSI system on the pi agent harness",
-	"scripts": {
-		"typecheck": "tsc -p tsconfig.json --noEmit",
-		"selftest": "tsx src/run.ts selftest",
-		"smoke": "tsx src/run.ts smoke",
-		"exam": "tsx src/run.ts exam",
-		"rsi": "tsx src/run.ts rsi",
-		"resume": "tsx src/run.ts rsi --resume",
-		"tui": "tsx src/run.ts tui",
-		"tuitest": "tsx src/tui/headless-check.ts && tsx src/tui/altscreen-check.ts && tsx config/think-check.ts && tsx config/control-check.ts",
-		"agent": "node node_modules/@earendil-works/pi-coding-agent/dist/cli.js -e extensions/georsi.ts",
-		"extcheck": "tsx src/tui/ext-check.ts",
-		"emitcheck": "tsx src/tui/emit-check.ts",
-		"sandboxie:selftest": "tsx src/sandboxie_selftest.ts",
-		"research:selftest": "tsx src/research/demo_selftest.ts && tsx src/research/research_node_executor_selftest.ts && tsx src/research/orchestrator_selftest.ts && tsx src/research/context_memory_selftest.ts",
-		"research:demo": "tsx src/run.ts research-demo",
-		"research:live": "tsx src/run.ts research-live",
-		"check": "npm run typecheck && npm run selftest && npm run research:selftest && npm run tuitest && python scripts/struct_selftest.py && python scripts/run_verdict_selftest.py && python scripts/architecture_selftest.py && python -m compileall -q scripts problems/_shared"
-	},
-	"dependencies": {
-		"@earendil-works/pi-agent-core": "0.84.2",
-		"@earendil-works/pi-ai": "0.84.2",
-		"@earendil-works/pi-coding-agent": "0.84.2",
-		"@earendil-works/pi-tui": "0.84.2",
-		"chalk": "6.0.0",
-		"typebox": "1.1.38",
-		"undici": "8.9.0"
-	},
-	"devDependencies": {
-		"@types/node": "^22.0.0",
-		"tsx": "^4.19.0",
-		"typescript": "^5.6.0"
-	}
+  "name": "georsi",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-evolving geoscience research RSI system on the pi agent harness",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "selftest": "tsx src/run.ts selftest",
+    "smoke": "tsx src/run.ts smoke",
+    "exam": "tsx src/run.ts exam",
+    "rsi": "tsx src/run.ts rsi",
+    "resume": "tsx src/run.ts rsi --resume",
+    "tui": "tsx src/run.ts tui",
+    "tuitest": "tsx src/tui/headless-check.ts && tsx src/tui/altscreen-check.ts && tsx config/think-check.ts && tsx config/control-check.ts",
+    "agent": "node node_modules/@earendil-works/pi-coding-agent/dist/cli.js -e extensions/georsi.ts",
+    "extcheck": "tsx src/tui/ext-check.ts",
+    "emitcheck": "tsx src/tui/emit-check.ts",
+    "sandboxie:selftest": "tsx src/sandboxie_selftest.ts",
+    "research:selftest": "tsx src/research/demo_selftest.ts && tsx src/research/research_node_executor_selftest.ts && tsx src/research/orchestrator_selftest.ts && tsx src/research/context_memory_selftest.ts && tsx src/research/direct_compute_selftest.ts",
+    "research:demo": "tsx src/run.ts research-demo",
+    "research:live": "tsx src/run.ts research-live",
+    "check": "npm run typecheck && npm run selftest && npm run research:selftest && npm run tuitest && python scripts/struct_selftest.py && python scripts/run_verdict_selftest.py && python scripts/architecture_selftest.py && python -m compileall -q scripts problems/_shared",
+    "research:gateway": "tsx src/run.ts research-gateway"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.84.2",
+    "@earendil-works/pi-ai": "0.84.2",
+    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@earendil-works/pi-tui": "0.84.2",
+    "chalk": "6.0.0",
+    "typebox": "1.1.38",
+    "undici": "8.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
 }

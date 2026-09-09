@@ -28,9 +28,12 @@ export interface SandboxieComputeRequest {
 export interface SandboxieComputeRunReceipt {
 	version: 1;
 	id: string;
-	backend: "sandboxie-app-level";
+	/** "sandboxie-app-level" = boxed; "host-audit" = explicit host execution with NO isolation. */
+	backend: "sandboxie-app-level" | "host-audit";
 	boxName: string;
 	networkMode: "blocked" | "open";
+	/** Honest network-isolation claim: true only for boxed blocked-mode runs. Host runs must record false. */
+	networkIsolationEnforced?: boolean;
 	processOwnershipVerified: boolean;
 	targetPids: number[];
 	exitCode: number | null;
@@ -124,7 +127,7 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 			request.signal?.removeEventListener("abort", onAbort);
 		}
 		const receipt: SandboxieComputeRunReceipt = {
-			version: 1, id, backend: "sandboxie-app-level", boxName: record?.name ?? generatedBoxName, networkMode: request.networkMode,
+			version: 1, id, backend: "sandboxie-app-level", boxName: record?.name ?? generatedBoxName, networkMode: request.networkMode, networkIsolationEnforced: request.networkMode === "blocked",
 			processOwnershipVerified: !!run && run.targetPids.length > 0, targetPids: run?.targetPids ?? [], exitCode: run?.exitCode ?? null, timedOut: run?.timedOut ?? false,
 			stdout: run?.stdout ?? "", stderr: run?.stderr ?? (runError ? String(runError) : ""), generatedEvidence: [], cleanup, error: runError ? String(runError).slice(0, 500) : undefined,
 			result: resultText,
@@ -186,6 +189,7 @@ export function validateSandboxieComputeReceipt(receipt: SandboxieComputeRunRece
 	if (receipt.version !== 1) issues.push("Sandboxie compute receipt version must be 1");
 	if (receipt.backend !== "sandboxie-app-level") issues.push("scientific compute did not use Sandboxie app-level isolation");
 	if (receipt.networkMode !== expectedNetworkMode) issues.push("Sandboxie compute network mode mismatch");
+	if (receipt.networkIsolationEnforced !== undefined && receipt.networkIsolationEnforced !== (expectedNetworkMode === "blocked")) issues.push("Sandboxie compute network isolation claim mismatch");
 	if (!receipt.processOwnershipVerified || receipt.targetPids.length === 0 || receipt.targetPids.some((pid) => !Number.isSafeInteger(pid) || pid <= 0)) issues.push("Sandboxie compute process ownership was not verified");
 	if (receipt.exitCode !== 0 || receipt.timedOut) issues.push(`Sandboxie compute failed: exit=${receipt.exitCode} timeout=${receipt.timedOut}`);
 	if (!sandboxieCleanupComplete(receipt.cleanup)) issues.push("Sandboxie compute cleanup is incomplete");
@@ -196,17 +200,42 @@ export function validateSandboxieComputeReceipt(receipt: SandboxieComputeRunRece
 	return issues;
 }
 
+/** Host-audit receipts keep the same envelope but make no isolation claims and have no box. */
+export function validateHostComputeReceipt(receipt: SandboxieComputeRunReceipt, expectedNetworkMode: "blocked" | "open"): string[] {
+	const issues: string[] = [];
+	if (receipt.version !== 1) issues.push("host-audit compute receipt version must be 1");
+	if (receipt.backend !== "host-audit") issues.push("host-audit compute receipt backend mismatch");
+	if (receipt.boxName !== "") issues.push("host-audit compute must not claim a Sandboxie box");
+	if (receipt.networkMode !== expectedNetworkMode) issues.push("host-audit compute network mode mismatch");
+	if (receipt.networkIsolationEnforced !== false) issues.push("host-audit compute must record networkIsolationEnforced=false");
+	if (!receipt.processOwnershipVerified || receipt.targetPids.length === 0 || receipt.targetPids.some((pid) => !Number.isSafeInteger(pid) || pid <= 0)) issues.push("host-audit compute process pid was not captured");
+	if (receipt.exitCode !== 0 || receipt.timedOut) issues.push(`host-audit compute failed: exit=${receipt.exitCode} timeout=${receipt.timedOut}`);
+	if (receipt.cleanup.errors.length > 0) issues.push(`host-audit compute cleanup errors: ${receipt.cleanup.errors.join("; ")}`);
+	if (receipt.error) issues.push(`host-audit compute reported an error: ${receipt.error}`);
+	if (receipt.resultFile && typeof receipt.result !== "string") issues.push("host-audit compute result file is missing");
+	if (!receipt.id.trim()) issues.push("host-audit compute receipt identity is missing");
+	if (!/^[a-f0-9]{64}$/i.test(receipt.scriptSha256)) issues.push("host-audit compute script hash is invalid");
+	return issues;
+}
+
+/** Dispatch on the receipt backend so mixed-mode callers validate with the honest rule set. */
+export function validateComputeReceipt(receipt: SandboxieComputeRunReceipt, expectedNetworkMode: "blocked" | "open"): string[] {
+	return receipt.backend === "host-audit" ? validateHostComputeReceipt(receipt, expectedNetworkMode) : validateSandboxieComputeReceipt(receipt, expectedNetworkMode);
+}
+
 export function createSandboxiePythonResearchTool(input: {
 	port: SandboxieResearchComputePort;
 	evidenceStore: ContentAddressedEvidenceStore;
 	networkMode: "blocked" | "open";
 	capability?: string;
+	/** Tool surface id; host-audit mode passes "python-host" so the model sees the honest name. */
+	toolId?: string;
 	onRunReceipt?: (receipt: SandboxieComputeRunReceipt) => void;
 }): ScientificTool<{ purpose: string; script: string; timeoutMs?: number; resultFile?: string }, { receiptId: string; backend: string; boxName: string; exitCode: number; stdoutTail: string; stderrTail: string; evidenceIds: string[]; resultArtifactId?: string }> {
 	return {
-		id: "sandboxie-python",
-		version: "1",
-		capability: input.capability ?? "sandboxie-python",
+		id: input.toolId ?? "sandboxie-python",
+		version: "1" as const,
+		capability: input.capability ?? input.toolId ?? "sandboxie-python",
 		validate: (value) => {
 			const request = value as { purpose?: unknown; script?: unknown; timeoutMs?: unknown };
 			const issues: string[] = [];
@@ -220,7 +249,7 @@ export function createSandboxiePythonResearchTool(input: {
 			const timeoutMs = Math.min(request.timeoutMs ?? 120_000, context.remainingWallMs);
 			const receipt = await input.port.run({ missionId: context.missionId, nodeId: context.nodeId, purpose: request.purpose, script: request.script, timeoutMs, networkMode: input.networkMode, resultFile: request.resultFile, signal: context.signal });
 			input.onRunReceipt?.(receipt);
-			const issues = validateSandboxieComputeReceipt(receipt, input.networkMode);
+			const issues = validateComputeReceipt(receipt, input.networkMode);
 			if (issues.length > 0) throw new Error(issues.join("; "));
 			if (context.signal?.aborted) throw new Error(`sandboxie-python aborted after completion for node ${context.nodeId}`);
 			for (const reference of receipt.generatedEvidence) if (!input.evidenceStore.verify(reference)) throw new Error(`Sandboxie compute produced unverifiable evidence: ${reference.id}`);
@@ -253,14 +282,16 @@ export function createSandboxiePythonResearchTool(input: {
 	};
 }
 
-export async function attestSandboxieComputeReplay(port: SandboxieResearchComputePort, receipts: readonly SandboxieComputeRunReceipt[], expectedNetworkMode?: "blocked" | "open", signal?: AbortSignal): Promise<ComputeReplayAttestation> {
-	if (signal?.aborted) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+/** Replays compute receipts under the honest rule set for their backend. */
+export async function attestComputeReplay(port: SandboxieResearchComputePort, receipts: readonly SandboxieComputeRunReceipt[], expectedNetworkMode?: "blocked" | "open", signal?: AbortSignal): Promise<ComputeReplayAttestation> {
+	const hostBackend = receipts[0]?.backend === "host-audit";
+	const failedAttestation: ComputeReplayAttestation = hostBackend ? { passed: false, backend: "host-audit", processOwnershipVerified: false } : { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+	if (signal?.aborted) return failedAttestation;
 	const expected = expectedNetworkMode ?? receipts[0]?.networkMode;
-	if (!expected || receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, expected).length > 0)) {
-		return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+	if (!expected || receipts.length === 0 || receipts.some((receipt) => validateComputeReceipt(receipt, expected).length > 0)) {
+		return failedAttestation;
 	}
 	const attestation = await port.replay(receipts, signal);
-	return attestation.backend === "sandboxie-app-level" && attestation.processOwnershipVerified
-		? attestation
-		: { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+	const backendOk = hostBackend ? attestation.backend === "host-audit" : attestation.backend === "sandboxie-app-level";
+	return backendOk && attestation.processOwnershipVerified ? attestation : failedAttestation;
 }

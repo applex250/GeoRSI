@@ -103,6 +103,44 @@ export function modelSpec(id: string): ModelSpec | undefined {
 
 export type ConfigThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
+/** How the thinking level is evidenced: only provider-observed supports competition claims. */
+export type ThinkingEvidenceLevel = "provider-observed" | "requested-only" | "unverified";
+
+/** Transient-failure resilience knobs; one place, per gateway, no hardcoded retries elsewhere. */
+export interface GatewayResilienceConfig {
+	probe_attempts?: number;
+	probe_timeout_ms?: number;
+	probe_backoff_ms?: number;
+	probe_backoff_cap_ms?: number;
+	session_retries?: number;
+}
+
+export const RESEARCH_RESILIENCE_DEFAULTS: Required<GatewayResilienceConfig> = {
+	probe_attempts: 10,
+	probe_timeout_ms: 90_000,
+	probe_backoff_ms: 3_000,
+	probe_backoff_cap_ms: 20_000,
+	session_retries: 10,
+};
+
+/** One registered gateway route; research_model.gateway selects exactly one of these. */
+export interface ResearchGatewayConfig {
+	provider: string;
+	base_url: string;
+	model: string;
+	api: "openai-completions" | "openai-responses";
+	thinking_level: ConfigThinkingLevel;
+	/** Evidence level for thinking: competition runs require "provider-observed". */
+	thinking_evidence?: ThinkingEvidenceLevel;
+	credential_env: string;
+	max_tokens_field?: "max_tokens" | "max_completion_tokens";
+	context_window?: number;
+	max_output?: number;
+	supports_developer_role?: boolean;
+	supports_reasoning_effort?: boolean;
+	resilience?: GatewayResilienceConfig;
+}
+
 /** Single source of truth for the model used by the long-horizon research path. */
 export interface ResearchModelConfig {
 	provider: string;
@@ -120,6 +158,12 @@ export interface ResearchModelConfig {
 	supports_usage: boolean;
 	supports_tool_loop: boolean;
 	require_provider_observed_thinking: boolean;
+	/** Provenance: which registered gateway this policy was expanded from (when routed). */
+	gateway?: string;
+	/** Evidence level actually available on this route; competition requires provider-observed. */
+	thinking_evidence?: ThinkingEvidenceLevel;
+	/** Fully-resolved transient-failure resilience; defaults filled at parse time. */
+	resilience?: Required<GatewayResilienceConfig>;
 }
 
 /** Recursive sorted-key JSON so non-TS verifiers can reproduce fingerprints. */
@@ -152,34 +196,99 @@ export function validateResearchModelConfig(policy: ResearchModelConfig): string
 	if (!Number.isSafeInteger(policy.max_output) || policy.max_output <= 0) issues.push("research_model.max_output must be positive");
 	if (policy.supports_tool_loop !== true) issues.push("research_model.supports_tool_loop must be true");
 	if (policy.supports_usage !== true) issues.push("research_model.supports_usage must be true");
-	if (policy.require_provider_observed_thinking !== true) issues.push("research_model.require_provider_observed_thinking must be true");
+	if ((policy.thinking_evidence ?? "provider-observed") === "provider-observed" && policy.require_provider_observed_thinking !== true) issues.push("research_model.require_provider_observed_thinking must be true for provider-observed routes");
+	if (policy.thinking_evidence !== undefined && !["provider-observed", "requested-only", "unverified"].includes(policy.thinking_evidence)) issues.push("research_model.thinking_evidence is invalid");
+	if (policy.thinking_evidence !== undefined && policy.thinking_evidence !== "provider-observed" && policy.require_provider_observed_thinking !== false) issues.push("research_model: thinking_evidence below provider-observed requires require_provider_observed_thinking=false");
+	if (policy.resilience !== undefined) {
+		for (const [key, value] of Object.entries(policy.resilience)) if (!Number.isSafeInteger(value) || (value as number) <= 0) issues.push(`research_model.resilience.${key} must be a positive integer`);
+	}
 	return [...new Set(issues)];
 }
 
-function parseResearchModelConfig(raw: unknown): ResearchModelConfig | undefined {
+function parseResearchModelConfig(raw: unknown, gateways?: Record<string, ResearchGatewayConfig>): ResearchModelConfig | undefined {
 	if (raw === undefined || raw === null) return undefined;
 	if (!raw || typeof raw !== "object") throw new Error("config.json: research_model must be an object");
 	const value = raw as Record<string, unknown>;
+	// Unified gateway routing: research_model.gateway names one registered route; the entry is
+	// the source of truth and any explicit sibling fields act as per-run overrides.
+	const gatewayName = typeof value.gateway === "string" && value.gateway.trim() ? value.gateway.trim() : undefined;
+	let source: Record<string, unknown> = value;
+	if (gatewayName) {
+		const entry = gateways?.[gatewayName];
+		if (!entry) throw new Error(`config.json: research_model.gateway "${gatewayName}" is not registered in research_gateways`);
+		source = { ...(entry as unknown as Record<string, unknown>), gateway: gatewayName, ...pickDefined(value, ["gateway", "provider", "base_url", "model", "api", "thinking_level", "max_tokens_field", "credential_env", "context_window", "max_output", "supports_developer_role", "supports_reasoning_effort", "supports_usage", "supports_tool_loop"]) };
+	}
 	const policy: ResearchModelConfig = {
-		provider: String(value.provider ?? ""),
-		base_url: String(value.base_url ?? ""),
-		model: String(value.model ?? ""),
-		api: value.api === "openai-responses" ? "openai-responses" : "openai-completions",
-		thinking_level: optionalThinkingLevel(value.thinking_level, "config.json: research_model.thinking_level") ?? "xhigh",
-		max_tokens_field: value.max_tokens_field === "max_tokens" ? "max_tokens" : "max_completion_tokens",
-		credential_env: String(value.credential_env ?? ""),
+		provider: String(source.provider ?? ""),
+		base_url: String(source.base_url ?? ""),
+		model: String(source.model ?? ""),
+		api: source.api === "openai-responses" ? "openai-responses" : "openai-completions",
+		thinking_level: optionalThinkingLevel(source.thinking_level, "config.json: research_model.thinking_level") ?? "xhigh",
+		max_tokens_field: source.max_tokens_field === "max_tokens" ? "max_tokens" : "max_completion_tokens",
+		credential_env: String(source.credential_env ?? ""),
 		fallback: "none",
-		context_window: Number(value.context_window ?? 600_000),
-		max_output: Number(value.max_output ?? 128_000),
-		supports_developer_role: value.supports_developer_role === true,
-		supports_reasoning_effort: value.supports_reasoning_effort === true,
-		supports_usage: value.supports_usage !== false,
-		supports_tool_loop: value.supports_tool_loop !== false,
-		require_provider_observed_thinking: value.require_provider_observed_thinking !== false,
+		context_window: Number(source.context_window ?? 600_000),
+		max_output: Number(source.max_output ?? 128_000),
+		supports_developer_role: source.supports_developer_role === true,
+		supports_reasoning_effort: source.supports_reasoning_effort === true,
+		supports_usage: source.supports_usage !== false,
+		supports_tool_loop: source.supports_tool_loop !== false,
+		require_provider_observed_thinking: source.require_provider_observed_thinking !== false,
 	};
+	const thinkingEvidence = source.thinking_evidence === "provider-observed" || source.thinking_evidence === "requested-only" || source.thinking_evidence === "unverified"
+		? source.thinking_evidence
+		: (source.api === "openai-responses" ? "provider-observed" : "requested-only");
+	if (thinkingEvidence !== "provider-observed") policy.require_provider_observed_thinking = false;
+	policy.thinking_evidence = thinkingEvidence;
+	policy.resilience = {
+		probe_attempts: Number(source.probe_attempts ?? RESEARCH_RESILIENCE_DEFAULTS.probe_attempts),
+		probe_timeout_ms: Number(source.probe_timeout_ms ?? RESEARCH_RESILIENCE_DEFAULTS.probe_timeout_ms),
+		probe_backoff_ms: Number(source.probe_backoff_ms ?? RESEARCH_RESILIENCE_DEFAULTS.probe_backoff_ms),
+		probe_backoff_cap_ms: Number(source.probe_backoff_cap_ms ?? RESEARCH_RESILIENCE_DEFAULTS.probe_backoff_cap_ms),
+		session_retries: Number(source.session_retries ?? RESEARCH_RESILIENCE_DEFAULTS.session_retries),
+	};
+	const entryResilience = (source as { resilience?: GatewayResilienceConfig }).resilience;
+	if (entryResilience) policy.resilience = { ...policy.resilience, ...Object.fromEntries(Object.entries(entryResilience).filter(([, v]) => v !== undefined)) } as Required<GatewayResilienceConfig>;
+	if (gatewayName) policy.gateway = gatewayName;
 	const issues = validateResearchModelConfig(policy);
 	if (issues.length > 0) throw new Error(`config.json: invalid research_model: ${issues.join("; ")}`);
 	return policy;
+}
+
+function pickDefined(raw: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const key of keys) if (raw[key] !== undefined) out[key] = raw[key];
+	delete out.gateway;
+	return out;
+}
+
+function parseResearchGateways(raw: unknown): Record<string, ResearchGatewayConfig> | undefined {
+	if (raw === undefined || raw === null) return undefined;
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("config.json: research_gateways must be an object");
+	const out: Record<string, ResearchGatewayConfig> = {};
+	for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+		if (!value || typeof value !== "object") throw new Error(`config.json: research_gateways.${name} must be an object`);
+		const entry = value as Record<string, unknown>;
+		const required = ["provider", "base_url", "model", "api", "credential_env"];
+		const missing = required.filter((key) => entry[key] === undefined || entry[key] === "");
+		if (missing.length > 0) throw new Error(`config.json: research_gateways.${name} missing fields: ${missing.join(", ")}`);
+		out[name] = {
+			provider: String(entry.provider),
+			base_url: String(entry.base_url),
+			model: String(entry.model),
+			api: entry.api === "openai-responses" ? "openai-responses" : "openai-completions",
+			thinking_level: optionalThinkingLevel(entry.thinking_level, `config.json: research_gateways.${name}.thinking_level`) ?? "xhigh",
+			thinking_evidence: entry.thinking_evidence as ThinkingEvidenceLevel | undefined,
+			credential_env: String(entry.credential_env),
+			max_tokens_field: entry.max_tokens_field === "max_tokens" ? "max_tokens" : "max_completion_tokens",
+			context_window: entry.context_window === undefined ? undefined : Number(entry.context_window),
+			max_output: entry.max_output === undefined ? undefined : Number(entry.max_output),
+			supports_developer_role: entry.supports_developer_role === true,
+			supports_reasoning_effort: entry.supports_reasoning_effort === true,
+			resilience: entry.resilience && typeof entry.resilience === "object" ? entry.resilience as GatewayResilienceConfig : undefined,
+		};
+	}
+	return out;
 }
 
 const CONFIG_THINKING_LEVELS = new Set<ConfigThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -220,6 +329,8 @@ export interface Config {
 	geiliapi_base_url?: string;
 	/** One authoritative model/provider/API policy for research-live. */
 	research_model?: ResearchModelConfig;
+	/** Registered gateway routes; research_model.gateway selects one. Single place for endpoint+resilience. */
+	research_gateways?: Record<string, ResearchGatewayConfig>;
 	/** when set, every configured/routed model must equal this id */
 	single_model_id?: string;
 	/** optional fail-closed thinking level for inner and outer in single-model campaigns */
@@ -262,8 +373,9 @@ export interface Config {
 	episodes_per_problem: number;
 	python_cmd: string;
 	/**
-	 * Python execution backend. On Windows the default is Sandboxie-Plus;
-	 * `host-audit` is an explicit compatibility mode and is not isolation.
+	 * Python execution backend. Default (absent) is `host-audit` — NO sandbox isolation,
+	 * honest non-competition mode. Sandboxie-Plus app-level isolation requires the explicit
+	 * `"execution_backend": "sandboxie"` opt-in.
 	 */
 	execution_backend?: "sandboxie" | "host-audit";
 	/** direct episode network policy; blocked remains the safe/default legacy mode */
@@ -417,7 +529,8 @@ export function loadConfig(path?: string): Config {
 			throw new Error(`config.json: problem "${problem.id}" weight must be a positive finite number`);
 		}
 	}
-	const researchModel = parseResearchModelConfig(raw.research_model);
+	const researchGateways = parseResearchGateways(raw.research_gateways);
+	const researchModel = parseResearchModelConfig(raw.research_model, researchGateways);
 	const inner = String(raw.inner_model ?? researchModel?.model ?? "mimo-v2.5");
 	const outer = String(raw.outer_model ?? researchModel?.model ?? "hy3");
 	const quizInner = typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : researchModel?.model;
@@ -431,6 +544,7 @@ export function loadConfig(path?: string): Config {
 		emooo_base_url: String(raw.emooo_base_url ?? "https://api.emooo.cc/v1"),
 		geiliapi_base_url: String(raw.geiliapi_base_url ?? "https://sub.geiliapi.com/v1"),
 		research_model: researchModel,
+		research_gateways: researchGateways,
 		single_model_id: typeof raw.single_model_id === "string" && raw.single_model_id.trim() ? raw.single_model_id.trim() : researchModel?.model,
 		single_model_thinking_level: optionalThinkingLevel(raw.single_model_thinking_level, "config.json: single_model_thinking_level") ?? researchModel?.thinking_level,
 		inner_model: inner,
@@ -456,8 +570,7 @@ export function loadConfig(path?: string): Config {
 		stall_s: num(raw.stall_s, 240),
 		episodes_per_problem: num(raw.episodes_per_problem, 1),
 		python_cmd: String(raw.python_cmd ?? "python"),
-		execution_backend:
-			raw.execution_backend === "host-audit" ? "host-audit" : raw.execution_backend === "sandboxie" ? "sandboxie" : undefined,
+		execution_backend: raw.execution_backend === "sandboxie" ? "sandboxie" : "host-audit",
 		network_mode: raw.network_mode === "open" ? "open" : raw.network_mode === "blocked" ? "blocked" : undefined,
 		sandboxie_start_path: typeof raw.sandboxie_start_path === "string" ? raw.sandboxie_start_path : undefined,
 		sandboxie_ini_path: typeof raw.sandboxie_ini_path === "string" ? raw.sandboxie_ini_path : undefined,

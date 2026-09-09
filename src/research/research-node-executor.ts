@@ -168,7 +168,7 @@ const SUBMISSION_SCHEMA = Type.Object({
 	}), { maxItems: 8 }),
 	verifications: Type.Array(Type.Object({
 		profile: Type.Union(VERIFIER_PROFILES.map((profile) => Type.Literal(profile))),
-		input_artifact: Type.String({ minLength: 1, maxLength: 160 }),
+		input_artifact: Type.String({ minLength: 1, maxLength: 160, description: "Artifact id PRODUCED BY A SCIENTIFIC TOOL (copy resultArtifactId or an id from evidenceIds of the python-host/web-fetch tool output). Model-staged model-artifact handles are rejected as verifier input." }),
 		evidence_ids: Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { minItems: 1, maxItems: 64 }),
 	}), { maxItems: 3 }),
 	hypotheses: Type.Optional(Type.Array(HYPOTHESIS_SCHEMA, { maxItems: 16 })),
@@ -422,7 +422,7 @@ export class ResearchNodeExecutor {
 		const submitTool = defineTool({
 			name: "submit_research_node_output",
 			label: "Submit research node output",
-			description: "Submit the node result exactly once. Only scientific-tool evidence IDs and staged model-artifact handles are accepted.",
+			description: "Submit the node result exactly once. verifications[].input_artifact must be a tool-produced artifact id (resultArtifactId/evidenceIds from python-host or web-fetch output); provide exactly one verification entry per required verifier profile — duplicate profiles are rejected. model-artifact handles are accepted only for artifact_ids/decisions/narrative, never as verifier input.",
 			parameters: SUBMISSION_SCHEMA,
 			execute: async (_callId, params) => {
 				ensureActive();
@@ -462,7 +462,9 @@ export class ResearchNodeExecutor {
 			promptTimeoutMs: node.budget.wallMs,
 			stallMs: Math.min(this.deps.stallMs ?? 120_000, node.budget.wallMs),
 			maxOutputTokens: outputCap,
-			maxRetries: 0,
+			// Bounded transient-error resilience from the unified gateway routing layer
+			// (research_gateways.*.resilience.session_retries; luna-smoke-004 lesson).
+			maxRetries: this.deps.modelPolicy.resilience?.session_retries ?? 10,
 			builtinTools: [],
 			exchangeTools: false,
 		});
@@ -471,7 +473,7 @@ export class ResearchNodeExecutor {
 		let outcome: PromptOutcome;
 		try {
 			await harness.init();
-			outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once.`, remainingWallMs());
+			outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.`, remainingWallMs());
 		} finally {
 			signal.removeEventListener("abort", abortListener);
 			harness.dispose();
