@@ -8,6 +8,7 @@ import { capHarnessModelOutput, type HarnessOpts, type PromptOutcome } from "../
 import type { EvidenceRef, ResearchMission, ResearchWorkGraph, WorkNode } from "./contracts.js";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import { ResearchNodeExecutor, type ResearchHarness } from "./research-node-executor.js";
+import { ResearchContextMemory } from "./context-memory.js";
 import type { ModelCallReceipt } from "./runtime-attestation.js";
 import { createSandboxiePythonResearchTool, attestSandboxieComputeReplay, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
 import { SEED_STRATEGY_BUNDLE } from "./strategy-bundle.js";
@@ -147,6 +148,7 @@ async function main(): Promise<void> {
 		const store = new ContentAddressedEvidenceStore(join(root, "evidence"));
 		const references = new Map<string, EvidenceRef>();
 		const registry = new ScientificToolRegistry();
+		const contextMemory = new ResearchContextMemory({ evidenceStore: store, evidenceById: (id) => references.get(id) });
 		registry.register({
 			id: "quant-result",
 			version: "1",
@@ -191,6 +193,7 @@ async function main(): Promise<void> {
 			registerEvidence: (reference) => references.set(reference.id, reference),
 			toolRegistry: registry,
 			toolBindings: [{ toolId: "quant-result", description: "fixture verifier-input producer", parameters: Type.Object({ value: Type.Unknown() }) }],
+			contextMemory,
 			createHarness: fakeHarness(),
 		});
 		const node = makeNode();
@@ -203,6 +206,9 @@ async function main(): Promise<void> {
 		check("quantitative verification is deterministic and model-free", verification.passed && verification.usage.modelCalls === 0 && verification.usage.toolCalls === 0);
 		check("family attestation binds input and canonical evidence", executor.familyVerifications().length === 1 && executor.familyVerifications()[0]?.profile === "quantitative-v1" && executor.familyVerifications()[0]!.evidenceIds.every((id) => references.has(id)));
 		check("exact per-call research-model receipt is retained", executor.modelReceipts().length === 1 && executor.modelReceipts()[0]?.provider === "geiliapi");
+		const committed = contextMemory.catalog().find((entry) => entry.nodeId === node.id);
+		check("node submission commits read-only context memory with artifacts", committed !== undefined && committed.artifacts.length > 0 && contextMemory.fetch(committed.artifacts[0]!.evidenceId).excerpt.length > 0);
+		check("graph state is synced before node context assembly", contextMemory.progress()[node.id] === "running");
 
 		let wrongModelRejected = false;
 		try {

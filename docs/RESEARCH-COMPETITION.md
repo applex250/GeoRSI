@@ -70,6 +70,24 @@ capture tools. Context is node/dependency scoped and fingerprinted. Per-role
 output caps are applied to the session model, exact assistant/API calls in tool
 loops are receipted, and the scheduler enforces their combined usage.
 
+## Context memory
+
+Node context is split into a pushed static map and a pulled dynamic memory:
+
+every node's initial `ContextPack` carries a mandatory `graph` block listing
+the full work graph (id/kind/dependencies) with `YOU ARE HERE` and downstream
+markers. Dynamic state and upstream content are pulled through the read-only
+`context-recall` tool (`src/research/context-memory.ts`): `{list:true}` returns
+work-graph progress plus a catalog of committed node memory (submission
+summaries, decisions, verification profiles, artifacts with evidence ids);
+structured filters address `node`/`field`; deterministic lexical search ranks
+blocks (ascii words + CJK bigrams); and `{evidenceId}` fetches verified full
+content from the CAS store. Memory is written exclusively by the executor when
+a node submission is committed — the model cannot write memory — and the tool
+is capability-gated under `context-memory`, available in every research family.
+LLM-generated compaction is deliberately not used for memory: pi's compaction
+has no content mapping and would bypass receipted model calls.
+
 Model-declared artifact IDs are not trusted. Accepted artifacts must be created
 in the content-addressed evidence store or returned by a registered scientific
 tool with verifiable CAS metadata. Quantitative, GIS, and literature verifier

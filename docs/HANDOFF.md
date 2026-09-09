@@ -54,6 +54,9 @@ Mission
 - `src/research/deliverables.ts`：报告、8 页 presentation 和 12 问 defense。
 - `src/research/replay.ts`：verify-only package replay。
 - `src/research/runtime-attestation.ts`：模型收据、Sandboxie、清理、family verifier 和策略指纹门禁。
+- `src/research/context-memory.ts`：run 级只读上下文记忆：submit 驱动写入、图状态同步、
+  list（进度+目录）/filter/search/fetch 四层检索，全部确定性、收据化、可回溯原文；
+  每节点开局注入带 YOU ARE HERE 标注的 graph-map 块。
 - `src/research/live.ts`：真实 research-live composition root。
 
 ## 3. 统一模型配置
