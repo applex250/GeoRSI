@@ -1,6 +1,6 @@
 /** Pure, deterministic state machine for long-horizon research work. */
 import { createHash } from "node:crypto";
-import type { ResearchWorkGraph, WorkNode, WorkNodeState } from "./contracts.js";
+import type { ResearchMission, ResearchWorkGraph, WorkNode, WorkNodeState } from "./contracts.js";
 
 const ALLOWED_TRANSITIONS: Record<WorkNodeState, readonly WorkNodeState[]> = {
 	pending: ["ready", "cancelled"],
@@ -70,6 +70,25 @@ export function validateWorkGraph(graph: ResearchWorkGraph): string[] {
 		visited.add(id);
 	};
 	for (const node of graph.nodes) visit(node.id);
+	return [...new Set(issues)];
+}
+
+export function validateWorkGraphForMission(mission: ResearchMission, graph: ResearchWorkGraph): string[] {
+	const issues = [...validateWorkGraph(graph)];
+	if (graph.missionId !== mission.id) issues.push("work graph missionId does not match mission");
+	const criterionIds = new Set(mission.successCriteria.map((criterion) => criterion.id));
+	const coveredCriteria = new Set<string>();
+	const allowedCapabilities = new Set(mission.taskProfile.capabilities);
+	for (const node of graph.nodes) {
+		for (const criterionId of node.acceptanceCriteriaIds) {
+			if (!criterionIds.has(criterionId)) issues.push(`node ${node.id} references unknown acceptance criterion: ${criterionId}`);
+			else coveredCriteria.add(criterionId);
+		}
+		for (const capability of node.allowedCapabilities) if (!allowedCapabilities.has(capability)) issues.push(`node ${node.id} requests capability outside mission profile: ${capability}`);
+	}
+	for (const criterion of mission.successCriteria.filter((item) => item.required)) if (!coveredCriteria.has(criterion.id)) issues.push(`required acceptance criterion is not covered by the work graph: ${criterion.id}`);
+	const stages = new Set(graph.nodes.map((node) => node.kind));
+	for (const stage of mission.taskProfile.requiredStages) if (!stages.has(stage)) issues.push(`required research stage is not present in the work graph: ${stage}`);
 	return [...new Set(issues)];
 }
 

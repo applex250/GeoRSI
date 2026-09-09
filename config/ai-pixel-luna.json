@@ -1,5 +1,21 @@
 {
-  "ai_pixel_base_url": "https://api.ai-pixel.online/v1",
+  "research_model": {
+    "provider": "geiliapi",
+    "base_url": "https://sub.geiliapi.com/v1",
+    "model": "gpt-5.6-luna",
+    "api": "openai-completions",
+    "thinking_level": "xhigh",
+    "max_tokens_field": "max_completion_tokens",
+    "credential_env": "GEILIAPI_API_KEY",
+    "fallback": "none",
+    "context_window": 600000,
+    "max_output": 128000,
+    "supports_developer_role": true,
+    "supports_reasoning_effort": true,
+    "supports_usage": true,
+    "supports_tool_loop": true,
+    "require_provider_observed_thinking": true
+  },
   "inner_model": "gpt-5.6-luna",
   "inner_thinking_level": "xhigh",
   "outer_model": "gpt-5.6-luna",

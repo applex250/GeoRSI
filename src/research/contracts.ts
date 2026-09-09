@@ -182,5 +182,6 @@ export function validateResearchMission(mission: ResearchMission): string[] {
 		}
 	}
 	if (mission.taskProfile.requiredStages.length === 0) issues.push("task profile requires at least one stage");
+	if (mission.sourcePolicy.networkMode !== mission.taskProfile.networkMode) issues.push("source policy network mode must match task profile network mode");
 	return issues;
 }

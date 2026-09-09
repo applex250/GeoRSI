@@ -1,4 +1,5 @@
 import type { Model } from "@earendil-works/pi-ai";
+import type { ResearchModelConfig } from "../config.js";
 import { Type } from "typebox";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,7 +7,7 @@ import { join } from "node:path";
 import { capHarnessModelOutput, type HarnessOpts, type PromptOutcome } from "../piharness.js";
 import type { EvidenceRef, ResearchMission, ResearchWorkGraph, WorkNode } from "./contracts.js";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
-import { LunaResearchNodeExecutor, type ResearchHarness } from "./luna-node-executor.js";
+import { ResearchNodeExecutor, type ResearchHarness } from "./research-node-executor.js";
 import type { ModelCallReceipt } from "./runtime-attestation.js";
 import { createSandboxiePythonResearchTool, attestSandboxieComputeReplay, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
 import { SEED_STRATEGY_BUNDLE } from "./strategy-bundle.js";
@@ -19,12 +20,30 @@ function check(label: string, condition: unknown): void {
 	console.log(`  ok   ${label}`);
 }
 
+const researchModelPolicy: ResearchModelConfig = {
+	provider: "geiliapi",
+	base_url: "https://sub.geiliapi.com/v1",
+	model: "gpt-5.6-luna",
+	api: "openai-completions",
+	thinking_level: "xhigh",
+	max_tokens_field: "max_completion_tokens",
+	credential_env: "GEILIAPI_API_KEY",
+	fallback: "none",
+	context_window: 600_000,
+	max_output: 128_000,
+	supports_developer_role: true,
+	supports_reasoning_effort: true,
+	supports_usage: true,
+	supports_tool_loop: true,
+	require_provider_observed_thinking: true,
+};
+
 function lunaModel(overrides: Record<string, unknown> = {}): Model<any> {
 	return {
 		id: "gpt-5.6-luna",
 		name: "gpt-5.6-luna",
-		provider: "ai-pixel",
-		api: "openai-responses",
+		provider: "geiliapi",
+		api: "openai-completions",
 		baseUrl: "https://invalid.test/v1",
 		reasoning: true,
 		input: ["text"],
@@ -39,7 +58,7 @@ function lunaModel(overrides: Record<string, unknown> = {}): Model<any> {
 function receipt(overrides: Partial<ModelCallReceipt> = {}): ModelCallReceipt {
 	return {
 		id: "response-1",
-		provider: "ai-pixel",
+		provider: "geiliapi",
 		model: "gpt-5.6-luna",
 		requestedThinking: "xhigh",
 		effectiveThinking: "xhigh",
@@ -48,7 +67,7 @@ function receipt(overrides: Partial<ModelCallReceipt> = {}): ModelCallReceipt {
 		reasoningTokens: 50,
 		totalTokens: 300,
 		success: true,
-		api: "openai-responses",
+		api: "openai-completions",
 		stopReason: "stop",
 		...overrides,
 	};
@@ -71,7 +90,7 @@ const quantitativeInput = {
 
 const mission: ResearchMission = {
 	version: 1,
-	id: "luna-executor-selftest",
+	id: "research-executor-selftest",
 	question: "Estimate a test b value",
 	scope: "deterministic executor fixture",
 	estimands: ["b value"],
@@ -122,8 +141,8 @@ function successOutcome(call = receipt()): PromptOutcome {
 }
 
 async function main(): Promise<void> {
-	console.log("== Luna research node executor ==");
-	const root = mkdtempSync(join(tmpdir(), "georsi-luna-executor-"));
+	console.log("== Research node executor ==");
+	const root = mkdtempSync(join(tmpdir(), "georsi-research-executor-"));
 	try {
 		const store = new ContentAddressedEvidenceStore(join(root, "evidence"));
 		const references = new Map<string, EvidenceRef>();
@@ -149,9 +168,10 @@ async function main(): Promise<void> {
 				dispose: () => {},
 			};
 		};
-		const executor = new LunaResearchNodeExecutor({
+		const executor = new ResearchNodeExecutor({
 			mission,
 			strategy: SEED_STRATEGY_BUNDLE,
+			modelPolicy: researchModelPolicy,
 			model: lunaModel(),
 			cwdForNode: (id) => join(root, id),
 			evidenceStore: store,
@@ -170,22 +190,22 @@ async function main(): Promise<void> {
 		const verification = await executor.verifyNode(node, execution, makeGraph(node), new AbortController().signal);
 		check("quantitative verification is deterministic and model-free", verification.passed && verification.usage.modelCalls === 0 && verification.usage.toolCalls === 0);
 		check("family attestation binds input and canonical evidence", executor.familyVerifications().length === 1 && executor.familyVerifications()[0]?.profile === "quantitative-v1" && executor.familyVerifications()[0]!.evidenceIds.every((id) => references.has(id)));
-		check("exact per-call Luna receipt is retained", executor.modelReceipts().length === 1 && executor.modelReceipts()[0]?.provider === "ai-pixel");
+		check("exact per-call research-model receipt is retained", executor.modelReceipts().length === 1 && executor.modelReceipts()[0]?.provider === "geiliapi");
 
 		let wrongModelRejected = false;
 		try {
-			new LunaResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, model: lunaModel({ provider: "other" }), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [] });
+			new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel({ provider: "other" }), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [] });
 		} catch { wrongModelRejected = true; }
-		check("constructor rejects non-ai-pixel model identity", wrongModelRejected);
+		check("constructor rejects model identity outside research_model policy", wrongModelRejected);
 
 		const beforeFailed = references.size;
-		const failedExecutor = new LunaResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [], createHarness: fakeHarness(false, receipt({ effectiveThinking: "high" })) });
+		const failedExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [], createHarness: fakeHarness(false, receipt({ effectiveThinking: "high" })) });
 		let downgradeRejected = false;
 		try { await failedExecutor.executeNode(node, makeGraph(node), new AbortController().signal); }
 		catch { downgradeRejected = true; }
 		check("downgraded receipt fails before model artifacts persist", downgradeRejected && references.size === beforeFailed);
 
-		const invalidExecutor = new LunaResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [], createHarness: fakeHarness(true) });
+		const invalidExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [], createHarness: fakeHarness(true) });
 		const invalidExecution = await invalidExecutor.executeNode(node, makeGraph(node), new AbortController().signal);
 		const invalidResult = await invalidExecutor.verifyNode(node, invalidExecution, makeGraph(node), new AbortController().signal);
 		check("invalid quantitative fixture cannot pass deterministic verifier", !invalidResult.passed && invalidResult.issues.some((issue) => issue.includes("units")));
@@ -217,7 +237,7 @@ async function main(): Promise<void> {
 			};
 		};
 		const toolNode = makeNode("data-audit");
-		const toolExecutor = new LunaResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry, toolBindings: [{ toolId: "compute", description: "deterministic boxed compute fixture", parameters: Type.Object({ value: Type.Number() }) }], createHarness: toolHarness });
+		const toolExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry, toolBindings: [{ toolId: "compute", description: "deterministic boxed compute fixture", parameters: Type.Object({ value: Type.Number() }) }], createHarness: toolHarness });
 		const toolExecution = await toolExecutor.executeNode(toolNode, makeGraph(toolNode), new AbortController().signal);
 		check("capability-bound scientific tool produces registered CAS evidence", toolExecution.usage.toolCalls === 2 && toolExecutor.toolReceipts().length === 1 && toolExecution.artifactIds.every((id) => references.has(id)));
 		check("only capability-bound tools and capture tools are exposed", toolOpts?.customTools.map((item) => item.name).sort().join(",") === "record_research_artifact,research_compute,submit_research_node_output");
@@ -237,7 +257,7 @@ async function main(): Promise<void> {
 		check("Sandboxie compute replay attestation remains backend-bound", (await attestSandboxieComputeReplay(sandboxPort, computeReceipts)).passed);
 		check("host-like compute receipt cannot satisfy Sandboxie gate", validateSandboxieComputeReceipt({ ...computeReceipts[0]!, backend: "host-audit" as never }, "blocked").some((issue) => issue.includes("did not use Sandboxie")));
 
-		console.log(`LUNA_NODE_EXECUTOR_OK ${passed} passed`);
+		console.log(`RESEARCH_NODE_EXECUTOR_OK ${passed} passed`);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

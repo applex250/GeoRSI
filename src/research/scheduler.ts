@@ -45,16 +45,28 @@ export class ResearchScheduler {
 	private async withinDeadline<T>(wallMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
 		const controller = new AbortController();
 		let timer: ReturnType<typeof setTimeout> | undefined;
+		let timedOut = false;
+		const operationPromise = Promise.resolve().then(() => operation(controller.signal));
 		try {
 			return await Promise.race([
-				operation(controller.signal),
+				operationPromise,
 				new Promise<T>((_resolve, reject) => {
 					timer = setTimeout(() => {
+						timedOut = true;
 						controller.abort();
 						reject(new Error(`research node timed out after ${wallMs}ms`));
 					}, wallMs);
 				}),
 			]);
+		} catch (error) {
+			if (timedOut) {
+				// Do not return a retryable failure while the previous operation is
+				// still unwinding. Ports must honor AbortSignal and resolve only after
+				// their model/process cleanup is complete; awaiting here prevents an
+				// overlapping retry from emitting late artifacts or receipts.
+				try { await operationPromise; } catch { /* preserve timeout */ }
+			}
+			throw error;
 		} finally {
 			if (timer) clearTimeout(timer);
 		}

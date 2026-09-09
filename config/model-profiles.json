@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-30-ai-pixel-luna-unverified",
+  "version": "2026-08-30-geiliapi-luna-unverified",
   "probe_scripts": [
     "scripts/model_probe.py",
     "scripts/model_probe2.py"
@@ -11,9 +11,9 @@
   ],
   "models": {
     "gpt-5.6-luna": {
-      "endpoint": "ai-pixel",
-      "api_style": "responses",
-      "stability_class": "unverified-ai-pixel",
+      "endpoint": "geiliapi",
+      "api_style": "chat-completions",
+      "stability_class": "unverified-geiliapi",
       "latency_class": "unverified",
       "vision_raw_api": false,
       "reasoning": {
@@ -30,7 +30,7 @@
         "verified_real_levels": [],
         "mandatory": true,
         "quality_floor": "xhigh",
-        "status": "Configuration supplied 2026-08-30; live Responses, tool-loop, usage, and xhigh-effective probes are required before benchmark promotion"
+        "status": "Configuration supplied 2026-08-30; live OpenAI Completions, tool-loop, usage, and provider-observed xhigh probes are required before benchmark promotion"
       }
     },
     "hy3": {

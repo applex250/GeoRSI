@@ -22,11 +22,12 @@
  * additionally keep a global meter the loop consults for budget stops.
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
-import { SUPPORTED_MODELS, assertSupportedModel, modelSpec, configuredModelIds, type Config, type ModelSpec } from "./config.js";
+import { SUPPORTED_MODELS, assertSupportedModel, modelSpec, modelSpecForConfig, researchModelSpec, configuredModelIds, type Config, type ModelSpec, type ResearchModelConfig } from "./config.js";
 import { getProfile } from "./models.js";
 import { TOKENS } from "./budget.js";
 
@@ -78,7 +79,12 @@ export function loadEmoooApiKey(): string {
 	return (process.env.RSILAB_EMOOO_API_KEY ?? process.env.GEORSI_EMOOO_API_KEY ?? "").trim();
 }
 
-/** ai-pixel key; environment-only because repository credential files are forbidden. */
+/** Research provider credential; the env name is controlled by research_model. */
+export function loadResearchApiKey(policy: ResearchModelConfig): string {
+	return (process.env[policy.credential_env] ?? "").trim();
+}
+
+/** Backward-compatible alias for legacy tests; research config uses GEILIAPI_API_KEY. */
 export function loadAiPixelApiKey(): string {
 	return (process.env.AI_PIXEL_API_KEY ?? "").trim();
 }
@@ -178,29 +184,119 @@ export async function preflightEmooo(cfg: Config, modelId: string, apiKey: strin
 	throw new Error(`temporary emooo model "${modelId}" is unavailable at ${url}: ${lastError}`);
 }
 
-/** Authenticate and confirm the ai-pixel catalog when it exposes /models. */
-export async function preflightAiPixel(cfg: Config, modelId: string, apiKey: string): Promise<void> {
-	if (!apiKey) throw new Error(`ai-pixel model "${modelId}" selected but AI_PIXEL_API_KEY is not set`);
-	const url = (cfg.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1").replace(/\/+$/, "") + "/models";
+export interface ResearchCapabilityProbeResult {
+	version: 1;
+	provider: string;
+	model: string;
+	api: "openai-completions" | "openai-responses";
+	endpoint: string;
+	requestedThinking: "xhigh";
+	effectiveThinking: "xhigh";
+	toolCallObserved: boolean;
+	usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+	fingerprint: string;
+}
+
+/** @deprecated retained as a type alias while old package readers migrate. */
+export type AiPixelCapabilityProbeResult = ResearchCapabilityProbeResult;
+
+function aiPixelResponseThinking(payload: Record<string, unknown>): string | undefined {
+	const candidates: unknown[] = [
+		payload.effective_reasoning_effort,
+		payload.reasoning_effort,
+		(payload.reasoning as Record<string, unknown> | undefined)?.effort,
+		(payload.metadata as Record<string, unknown> | undefined)?.effective_reasoning_effort,
+		(payload.metadata as Record<string, unknown> | undefined)?.reasoning_effort,
+	];
+	return candidates.find((value): value is string => typeof value === "string")?.toLowerCase();
+}
+
+function aiPixelResponseUsage(payload: Record<string, unknown>): { inputTokens: number; outputTokens: number; totalTokens: number } | null {
+	const usage = payload.usage;
+	if (!usage || typeof usage !== "object") return null;
+	const u = usage as Record<string, unknown>;
+	const inputTokens = u.input_tokens;
+	const outputTokens = u.output_tokens;
+	const totalTokens = u.total_tokens;
+	if (![inputTokens, outputTokens, totalTokens].every((value) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0)) return null;
+	if ((outputTokens as number) <= 0 || (totalTokens as number) < (outputTokens as number)) return null;
+	return { inputTokens: inputTokens as number, outputTokens: outputTokens as number, totalTokens: totalTokens as number };
+}
+
+function researchProbeFingerprint(result: Omit<ResearchCapabilityProbeResult, "fingerprint">): string {
+	return createHash("sha256").update(JSON.stringify(result)).digest("hex");
+}
+
+/**
+ * Authenticate and require a bounded, provider-observed Responses capability
+ * probe. A missing /models endpoint is not evidence of capability: the probe
+ * must prove exact model identity, returned xhigh metadata, function calling,
+ * and usage before a runtime can be composed.
+ */
+export async function preflightResearchModel(policy: ResearchModelConfig, apiKey: string): Promise<ResearchCapabilityProbeResult> {
+	if (!apiKey) throw new Error(`research model "${policy.model}" selected but ${policy.credential_env} is not set`);
+	const modelId = policy.model;
+	const baseUrl = policy.base_url.replace(/\/+$/, "");
+	const modelsUrl = `${baseUrl}/models`;
+	let modelsResponse: Response;
+	try {
+		modelsResponse = await fetch(modelsUrl, { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(12_000) });
+	} catch (error) {
+		throw new Error(`research provider preflight failed at ${modelsUrl}: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	if (modelsResponse.ok) {
+		let payload: unknown;
+		try { payload = await modelsResponse.json(); } catch { throw new Error("research provider /models returned invalid JSON"); }
+		const ids = payload && typeof payload === "object" && Array.isArray((payload as { data?: unknown }).data)
+			? ((payload as { data: unknown[] }).data).map((item) => item && typeof item === "object" ? (item as { id?: unknown }).id : undefined).filter((id): id is string => typeof id === "string")
+			: [];
+		if (!ids.includes(modelId)) throw new Error(`research provider is reachable but does not list exact model "${modelId}"`);
+	} else {
+		throw new Error(`research provider preflight failed at ${modelsUrl}: HTTP ${modelsResponse.status}`);
+	}
+
+	if (policy.api !== "openai-completions") throw new Error("research capability probe currently requires openai-completions");
+	const probeUrl = `${baseUrl}/chat/completions`;
+	const probeBody: Record<string, unknown> = {
+		model: modelId,
+		messages: [{ role: "user", content: "Call georsi_capability_probe with answer=1." }],
+		reasoning_effort: "xhigh",
+		[policy.max_tokens_field]: 256,
+		stream: false,
+		tools: [{ type: "function", function: { name: "georsi_capability_probe", description: "Record the capability probe answer.", parameters: { type: "object", properties: { answer: { type: "integer" } }, required: ["answer"], additionalProperties: false }, strict: true } }],
+		tool_choice: { type: "function", function: { name: "georsi_capability_probe" } },
+	};
 	let response: Response;
 	try {
-		response = await fetch(url, {
-			headers: { Authorization: `Bearer ${apiKey}` },
-			signal: AbortSignal.timeout(12_000),
-		});
+		response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(20_000) });
 	} catch (error) {
-		throw new Error(`ai-pixel preflight failed at ${url}: ${error instanceof Error ? error.message : String(error)}`);
+		throw new Error(`research OpenAI Completions capability probe failed: ${error instanceof Error ? error.message : String(error)}`);
 	}
-	if (response.status === 404 || response.status === 405) {
-		bootNotifier("[provider] ai-pixel does not expose /models; Responses capability probe remains required");
-		return;
+	let payload: Record<string, unknown>;
+	try {
+		const text = (await response.text()).slice(0, 128_000);
+		payload = JSON.parse(text) as Record<string, unknown>;
+	} catch {
+		throw new Error(`research capability probe returned invalid JSON (HTTP ${response.status})`);
 	}
-	if (!response.ok) throw new Error(`ai-pixel preflight failed at ${url}: HTTP ${response.status}`);
-	const payload = (await response.json()) as { data?: { id?: string }[] };
-	const ids = (payload.data ?? []).map((model) => model.id).filter((id): id is string => !!id);
-	if (ids.length > 0 && !ids.includes(modelId)) {
-		throw new Error(`ai-pixel is reachable but does not list "${modelId}"`);
-	}
+	if (!response.ok) throw new Error(`research capability probe failed: HTTP ${response.status}`);
+	if (payload.model !== modelId) throw new Error(`research capability probe returned model ${String(payload.model)} instead of ${modelId}`);
+	const effectiveThinking = aiPixelResponseThinking(payload);
+	if (effectiveThinking !== "xhigh") throw new Error("research capability probe did not return provider-observed effective xhigh metadata");
+	const rawUsage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : {};
+	const usage = {
+		inputTokens: Number(rawUsage.prompt_tokens ?? rawUsage.input_tokens ?? 0),
+		outputTokens: Number(rawUsage.completion_tokens ?? rawUsage.output_tokens ?? 0),
+		totalTokens: Number(rawUsage.total_tokens ?? 0),
+	};
+	if (![usage.inputTokens, usage.outputTokens, usage.totalTokens].every((value) => Number.isSafeInteger(value) && value >= 0) || usage.outputTokens <= 0 || usage.totalTokens < usage.outputTokens) throw new Error("research capability probe did not return valid usage");
+	const choices = Array.isArray(payload.choices) ? payload.choices : [];
+	const message = choices[0] && typeof choices[0] === "object" ? (choices[0] as Record<string, unknown>).message : undefined;
+	const toolCalls = message && typeof message === "object" && Array.isArray((message as Record<string, unknown>).tool_calls) ? (message as Record<string, unknown>).tool_calls as unknown[] : [];
+	const toolCallObserved = toolCalls.some((item) => item && typeof item === "object" && ((item as Record<string, unknown>).function as Record<string, unknown> | undefined)?.name === "georsi_capability_probe");
+	if (!toolCallObserved) throw new Error("research capability probe did not produce the required function call");
+	const unsigned: Omit<ResearchCapabilityProbeResult, "fingerprint"> = { version: 1, provider: policy.provider, model: modelId, api: policy.api, endpoint: probeUrl, requestedThinking: "xhigh", effectiveThinking: "xhigh", toolCallObserved, usage };
+	return { ...unsigned, fingerprint: researchProbeFingerprint(unsigned) };
 }
 
 /**
@@ -232,11 +328,11 @@ function reasoningParamSupported(id: string): boolean {
 /** Build the provider/models description pi consumes (models.json schema). */
 export function buildModelsJson(
 	cfg: Config,
-	credentials: { zen: string; local: string; openrouter: string; emooo: string; aiPixel: string },
+	credentials: { zen: string; local: string; openrouter: string; emooo: string; research?: string; aiPixel?: string },
 	selectedModels: readonly string[],
 ): object {
 	const selected = new Set(selectedModels);
-	const mk = (m: (typeof SUPPORTED_MODELS)[number]) => ({
+	const mk = (m: ModelSpec) => ({
 		id: m.id,
 		name: m.id,
 		api: m.api,
@@ -289,24 +385,30 @@ export function buildModelsJson(
 			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "emooo" && !m.retired).map(mk),
 		};
 	}
-	if (credentials.aiPixel && SUPPORTED_MODELS.some((model) => selected.has(model.id) && model.endpoint === "ai-pixel")) {
-		providers["ai-pixel"] = {
-			name: "ai-pixel Responses gateway",
-			baseUrl: cfg.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1",
-			apiKey: credentials.aiPixel,
-			api: "openai-responses",
-			compat: { supportsReasoningEffort: true },
-			models: SUPPORTED_MODELS.filter((m) => selected.has(m.id) && m.endpoint === "ai-pixel" && !m.retired).map(mk),
+	const researchSpec = cfg.research_model ? researchModelSpec(cfg.research_model) : undefined;
+	const researchModels = [
+		...SUPPORTED_MODELS.filter((model) => selected.has(model.id) && model.endpoint === "geiliapi" && !model.retired),
+		...(researchSpec && selected.has(researchSpec.id) ? [researchSpec] : []),
+	];
+	if (credentials.research && researchModels.length > 0) {
+		const providerId = cfg.research_model?.provider ?? "geiliapi";
+		providers[providerId] = {
+			name: providerId,
+			baseUrl: cfg.research_model?.base_url ?? cfg.geiliapi_base_url ?? "https://sub.geiliapi.com/v1",
+			apiKey: credentials.research,
+			api: cfg.research_model?.api ?? "openai-completions",
+			models: researchModels.map(mk),
 		};
 	}
 	return { providers };
 }
 
-function providerIdForEndpoint(endpoint: ModelSpec["endpoint"]): string {
-	if (endpoint === "local") return "local";
-	if (endpoint === "openrouter") return "openrouter";
-	if (endpoint === "emooo") return "emooo";
-	if (endpoint === "ai-pixel") return "ai-pixel";
+function providerIdForModel(cfg: Config, id: string, spec: ModelSpec): string {
+	if (spec.endpoint === "research") return cfg.research_model?.provider ?? "research";
+	if (spec.endpoint === "local") return "local";
+	if (spec.endpoint === "openrouter") return "openrouter";
+	if (spec.endpoint === "emooo") return "emooo";
+	if (spec.endpoint === "geiliapi") return cfg.research_model?.provider ?? "geiliapi";
 	return "zen";
 }
 
@@ -314,10 +416,19 @@ export interface PiRuntime {
 	modelRuntime: ModelRuntime;
 	inner: Model<any>;
 	outer: Model<any>;
+	researchProvider?: string;
+	/** Provider capability evidence for the configured research model. */
+	researchProbe?: AiPixelCapabilityProbeResult;
+	/** @deprecated use researchProbe */
+	aiPixelProbe?: AiPixelCapabilityProbeResult;
 }
 
 let cached: PiRuntime | null = null;
+let cachedRuntimeKey: string | null = null;
 
+function runtimeCacheKey(cfg: Config, root: string, selected: readonly string[], credentials: readonly string[]): string {
+	return createHash("sha256").update(JSON.stringify({ cfg, root, selected })).update("\0").update(credentials.join("\0")).digest("hex");
+}
 /** The composed ModelRuntime; throws if getPiRuntime has not run yet. */
 export function currentModelRuntime(): ModelRuntime {
 	if (!cached) throw new Error("pi runtime not initialized: call getPiRuntime() first");
@@ -327,25 +438,33 @@ export function currentModelRuntime(): ModelRuntime {
 /** Resolve any whitelisted model on the cached runtime (task-to-model routing). */
 export function resolveModel(id: string): Model<any> {
 	if (!cached) throw new Error("pi runtime not initialized: call getPiRuntime() first");
-	if (!modelSpec(id)) throw new Error(`model "${id}" not in SUPPORTED_MODELS`);
-	const provider = providerIdForEndpoint(modelSpec(id)!.endpoint);
+	const spec = modelSpec(id);
+	if (!spec) throw new Error(`model "${id}" not in SUPPORTED_MODELS`);
+	const provider = cached.researchProvider ? cached.researchProvider : providerIdForModel({} as Config, id, spec);
 	const m = cached.modelRuntime.getModel(provider, id);
 	if (!m) throw new Error(`model "${id}" not found on provider "${provider}"`);
 	return m;
 }
 
 export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime> {
-	if (cached) return cached;
 	const selected = configuredModelIds(cfg, root);
-	const specOf = (id: string): ModelSpec => assertSupportedModel("selected model", id);
+	const specOf = (id: string): ModelSpec => {
+		const spec = modelSpecForConfig(cfg, id);
+		if (spec?.endpoint === "research") return spec;
+		return assertSupportedModel("selected model", id);
+	};
 	const endpoints = new Set(selected.map((id) => specOf(id).endpoint));
 	// Do not read unrelated credential files in a single-provider campaign.
 	const apiKey = endpoints.has("zen") ? loadOptionalApiKey(root) : "";
 	const localApiKey = endpoints.has("local") ? loadLocalApiKey(root) : "";
 	const orApiKey = endpoints.has("openrouter") ? loadOpenRouterApiKey(root) : "";
 	const emoooApiKey = endpoints.has("emooo") ? loadEmoooApiKey() : "";
-	const aiPixelApiKey = endpoints.has("ai-pixel") ? loadAiPixelApiKey() : "";
+	const researchPolicy = cfg.research_model;
+	const researchApiKey = researchPolicy ? loadResearchApiKey(researchPolicy) : "";
 
+	const cacheKey = runtimeCacheKey(cfg, root, selected, [apiKey, localApiKey, orApiKey, emoooApiKey, researchApiKey]);
+
+	let researchProbe: AiPixelCapabilityProbeResult | undefined;
 	for (const id of selected) {
 		const spec = specOf(id);
 		if (spec.endpoint === "zen" && !apiKey) {
@@ -361,8 +480,14 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 			await preflightLocal(cfg, id, localApiKey);
 		}
 		if (spec.endpoint === "emooo") await preflightEmooo(cfg, id, emoooApiKey);
-		if (spec.endpoint === "ai-pixel") await preflightAiPixel(cfg, id, aiPixelApiKey);
+		if (spec.endpoint === "research") {
+			if (!researchPolicy) throw new Error("research model route is missing research_model configuration");
+			if (!researchApiKey) throw new Error(`research model "${researchPolicy.model}" selected but ${researchPolicy.credential_env} is not set`);
+			researchProbe = await preflightResearchModel(researchPolicy, researchApiKey);
+		}
 	}
+
+	if (cached && cachedRuntimeKey === cacheKey) return cached;
 
 	// Any selected/routed model needing the proxy flips the whole process's LLM
 	// traffic onto it. The local campus server remains excluded via noProxy.
@@ -385,7 +510,8 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 			local: localApiKey,
 			openrouter: orApiKey,
 			emooo: emoooApiKey,
-			aiPixel: aiPixelApiKey,
+			research: researchApiKey,
+			aiPixel: "",
 		}, selected) as { providers?: Record<string, unknown> };
 		if (!modelsJson.providers || Object.keys(modelsJson.providers).length === 0) {
 			throw new Error("no provider credentials are configured for the selected GeoRSI models");
@@ -401,12 +527,12 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	}
 
 	const resolve = (id: string): Model<any> => {
-		const provider = providerIdForEndpoint(specOf(id).endpoint);
+		const provider = specOf(id).endpoint === "research" ? researchPolicy?.provider ?? "research" : providerIdForModel(cfg, id, specOf(id));
 		const m = modelRuntime.getModel(provider, id);
 		if (!m) {
 			throw new Error(
 				`model "${id}" not found on provider "${provider}" after composing pi-models.json` +
-					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : !emoooApiKey && specOf(id).endpoint === "emooo" ? " (emooo provider omitted: set RSILAB_EMOOO_API_KEY)" : !aiPixelApiKey && specOf(id).endpoint === "ai-pixel" ? " (ai-pixel provider omitted: set AI_PIXEL_API_KEY)" : ""),
+					(!localApiKey && specOf(id).endpoint === "local" ? " (local provider omitted: no key)" : !orApiKey && specOf(id).endpoint === "openrouter" ? " (openrouter provider omitted: no api_key_or.txt)" : !emoooApiKey && specOf(id).endpoint === "emooo" ? " (emooo provider omitted: set RSILAB_EMOOO_API_KEY)" : !researchApiKey && specOf(id).endpoint === "research" ? ` (research provider omitted: set ${researchPolicy?.credential_env ?? "research_model.credential_env"})` : ""),
 			);
 		}
 		return m;
@@ -414,6 +540,7 @@ export async function getPiRuntime(cfg: Config, root: string): Promise<PiRuntime
 	const inner = resolve(cfg.inner_model);
 	const outer = resolve(cfg.outer_model);
 
-	cached = { modelRuntime, inner, outer };
+	cached = { modelRuntime, inner, outer, researchProvider: researchPolicy?.provider, researchProbe, aiPixelProbe: researchProbe };
+	cachedRuntimeKey = cacheKey;
 	return cached;
 }

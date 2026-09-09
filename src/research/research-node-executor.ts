@@ -1,19 +1,22 @@
-/** Production adapter from WorkGraph nodes to one bounded Luna xhigh Pi session. */
+/** Production WorkGraph node adapter: one bounded, Luna-gated xhigh Pi session per node. */
 import { createHash } from "node:crypto";
 import type { Model } from "@earendil-works/pi-ai";
+import { validateResearchModelConfig, type ResearchModelConfig } from "../config.js";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type, type TSchema } from "typebox";
 import { PiHarness, toolOutput, type HarnessOpts, type PromptOutcome } from "../piharness.js";
-import type { EvidenceRef, ResearchMission, ResearchWorkGraph, WorkNode, WorkNodeKind } from "./contracts.js";
+import type { EvidenceRef, HypothesisRecord, ResearchClaim, ResearchMission, ResearchWorkGraph, WorkNode, WorkNodeKind } from "./contracts.js";
 import { buildContextPack, type ContextBlock, type ContextPack } from "./context-manager.js";
 import type { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import { sanitizeResearchEvidence, stableJson } from "./event-ledger.js";
-import { requiredFamilyVerifierProfiles, type FamilyVerificationAttestation, type ModelCallReceipt } from "./runtime-attestation.js";
+import { requiredFamilyVerifierProfiles, validateModelCallReceipt, type FamilyVerificationAttestation, type ModelCallReceipt } from "./runtime-attestation.js";
 import type { NodeExecutionResult, NodeVerificationResult } from "./scheduler.js";
 import type { StrategyBundle } from "./strategy-bundle.js";
 import { validateStrategyBundle } from "./strategy-bundle.js";
 import { roleOutputCap } from "./token-policy.js";
 import type { ScientificToolReceipt, ScientificToolRegistry } from "./tool-registry.js";
+import type { ResearchNarrative } from "./deliverables.js";
+import type { ScientificValueCard } from "./value-evaluator.js";
 import type { ScientificVerificationResult } from "./verifiers/base.js";
 import { verifyGisResearch, type GisVerificationInput } from "./verifiers/gis.js";
 import { verifyLiteratureResearch, type LiteratureVerificationInput } from "./verifiers/literature.js";
@@ -35,9 +38,10 @@ export interface ResearchHarness {
 	dispose(): void;
 }
 
-export interface LunaResearchNodeExecutorDeps {
+export interface ResearchNodeExecutorDeps {
 	mission: ResearchMission;
 	strategy: StrategyBundle;
+	modelPolicy: ResearchModelConfig;
 	model: Model<any>;
 	cwdForNode(nodeId: string, attempt: number): string;
 	evidenceStore: ContentAddressedEvidenceStore;
@@ -60,10 +64,23 @@ interface CapturedArtifact {
 	content: string;
 }
 
-interface CapturedVerification {
+export interface CapturedVerification {
 	profile: FamilyVerifierProfile;
 	input: unknown;
 	evidenceIds: string[];
+}
+
+export interface ResearchNodeSubmission {
+	version: 1;
+	summary: string;
+	artifactIds: string[];
+	decisions: { question: string; alternatives: string[]; selected: string; evidenceIds: string[]; uncertainty: string }[];
+	verifications: CapturedVerification[];
+	hypotheses?: HypothesisRecord[];
+	claims?: ResearchClaim[];
+	valueCard?: ScientificValueCard;
+	narrative?: ResearchNarrative;
+	contraryEvidenceLinks?: { sourceEvidenceId: string; claimId: string }[];
 }
 
 interface CapturedSubmission {
@@ -78,9 +95,61 @@ interface CapturedSubmission {
 		uncertainty: string;
 	}[];
 	verifications: CapturedVerification[];
+	hypotheses?: HypothesisRecord[];
+	claims?: ResearchClaim[];
+	valueCard?: ScientificValueCard;
+	narrative?: ResearchNarrative;
+	contraryEvidenceLinks?: { sourceEvidenceId: string; claimId: string }[];
 }
 
 const VERIFIER_PROFILES = ["quantitative-v1", "gis-v1", "literature-v1"] as const;
+
+const STATUS_SCHEMA = Type.Union([Type.Literal("proposed"), Type.Literal("supported"), Type.Literal("contradicted"), Type.Literal("inconclusive"), Type.Literal("retracted")]);
+const EVIDENCE_IDS_SCHEMA = Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { maxItems: 64 });
+const HYPOTHESIS_SCHEMA = Type.Object({
+	id: Type.String({ minLength: 1, maxLength: 160 }),
+	statement: Type.String({ minLength: 1, maxLength: 4000 }),
+	rationale_evidence_ids: EVIDENCE_IDS_SCHEMA,
+	expected_observation: Type.String({ minLength: 1, maxLength: 2000 }),
+	falsifier: Type.String({ minLength: 1, maxLength: 2000 }),
+	status: STATUS_SCHEMA,
+});
+const CLAIM_SCHEMA = Type.Object({
+	id: Type.String({ minLength: 1, maxLength: 160 }),
+	text: Type.String({ minLength: 1, maxLength: 4000 }),
+	status: STATUS_SCHEMA,
+	evidence_ids: EVIDENCE_IDS_SCHEMA,
+	uncertainty: Type.String({ maxLength: 2000 }),
+	limitations: Type.Array(Type.String({ minLength: 1, maxLength: 2000 }), { maxItems: 16 }),
+});
+const VALUE_DIMENSION_SCHEMA = Type.Object({
+	score: Type.Integer({ minimum: 0, maximum: 4 }),
+	rationale: Type.String({ minLength: 1, maxLength: 3000 }),
+	evidence_ids: EVIDENCE_IDS_SCHEMA,
+});
+const VALUE_CARD_SCHEMA = Type.Object({
+	significance: VALUE_DIMENSION_SCHEMA,
+	novelty: VALUE_DIMENSION_SCHEMA,
+	falsifiability: VALUE_DIMENSION_SCHEMA,
+	dataFeasibility: VALUE_DIMENSION_SCHEMA,
+	methodologicalValue: VALUE_DIMENSION_SCHEMA,
+	potentialImpact: VALUE_DIMENSION_SCHEMA,
+	limitations: Type.Array(Type.String({ minLength: 1, maxLength: 2000 }), { minItems: 1, maxItems: 16 }),
+	recommendation: Type.Union([Type.Literal("proceed"), Type.Literal("revise"), Type.Literal("reject")]),
+});
+const NARRATIVE_SECTION_SCHEMA = Type.Object({
+	text: Type.String({ minLength: 1, maxLength: 6000 }),
+	evidence_ids: EVIDENCE_IDS_SCHEMA,
+	claim_ids: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { maxItems: 64 })),
+});
+const NARRATIVE_SCHEMA = Type.Object({
+	dataSummary: NARRATIVE_SECTION_SCHEMA,
+	methodSummary: NARRATIVE_SECTION_SCHEMA,
+	resultSummary: NARRATIVE_SECTION_SCHEMA,
+	uncertaintySummary: NARRATIVE_SECTION_SCHEMA,
+	innovationSummary: NARRATIVE_SECTION_SCHEMA,
+	reproducibilitySummary: NARRATIVE_SECTION_SCHEMA,
+});
 
 const SUBMISSION_SCHEMA = Type.Object({
 	version: Type.Literal(1),
@@ -98,6 +167,11 @@ const SUBMISSION_SCHEMA = Type.Object({
 		input: Type.Unknown(),
 		evidence_ids: Type.Array(Type.String({ minLength: 1, maxLength: 160 }), { minItems: 1, maxItems: 64 }),
 	}), { maxItems: 3 }),
+	hypotheses: Type.Optional(Type.Array(HYPOTHESIS_SCHEMA, { maxItems: 16 })),
+	claims: Type.Optional(Type.Array(CLAIM_SCHEMA, { maxItems: 32 })),
+	value_card: Type.Optional(VALUE_CARD_SCHEMA),
+	narrative: Type.Optional(NARRATIVE_SCHEMA),
+	contrary_evidence_links: Type.Optional(Type.Array(Type.Object({ source_evidence_id: Type.String({ minLength: 1, maxLength: 160 }), claim_id: Type.String({ minLength: 1, maxLength: 160 }) }), { maxItems: 64 })),
 });
 
 export function researchNodeRole(kind: WorkNodeKind): ResearchNodeRole {
@@ -122,13 +196,9 @@ function profileForNode(kind: WorkNodeKind): FamilyVerifierProfile | null {
 	return null;
 }
 
-function exactLunaReceiptIssue(receipt: ModelCallReceipt): string | null {
-	if (receipt.provider !== "ai-pixel") return `model call ${receipt.id} used provider ${receipt.provider}`;
-	if (receipt.model !== "gpt-5.6-luna") return `model call ${receipt.id} used model ${receipt.model}`;
-	if (receipt.requestedThinking !== "xhigh" || receipt.effectiveThinking !== "xhigh") return `model call ${receipt.id} did not prove xhigh`;
-	if (!receipt.success) return `model call ${receipt.id} failed`;
-	if (receipt.outputTokens == null || !Number.isSafeInteger(receipt.outputTokens) || receipt.outputTokens <= 0) return `model call ${receipt.id} has no observable output-token usage`;
-	return null;
+function exactModelReceiptIssue(receipt: ModelCallReceipt, policy: ResearchModelConfig): string | null {
+	const issues = validateModelCallReceipt(receipt, policy);
+	return issues.length > 0 ? issues[0]! : null;
 }
 
 function safeToolName(toolId: string): string {
@@ -202,19 +272,22 @@ export function buildResearchNodeContext(input: {
 	return buildContextPack(blocks, budget!);
 }
 
-export class LunaResearchNodeExecutor {
+export class ResearchNodeExecutor {
 	private readonly now: () => Date;
 	private readonly createHarness: (opts: HarnessOpts) => ResearchHarness;
 	private readonly modelReceiptsValue: ModelCallReceipt[] = [];
 	private readonly toolReceiptsValue: ScientificToolReceipt[] = [];
 	private readonly familyAttestations = new Map<string, FamilyVerificationAttestation>();
+	private readonly submissions = new Map<string, ResearchNodeSubmission>();
 
-	constructor(private readonly deps: LunaResearchNodeExecutorDeps) {
+	constructor(private readonly deps: ResearchNodeExecutorDeps) {
 		const strategyIssues = validateStrategyBundle(deps.strategy);
-		if (strategyIssues.length > 0) throw new Error(`invalid Luna research strategy: ${strategyIssues.join("; ")}`);
+		if (strategyIssues.length > 0) throw new Error(`invalid research strategy: ${strategyIssues.join("; ")}`);
+		const policyIssues = validateResearchModelConfig(deps.modelPolicy);
+		if (policyIssues.length > 0) throw new Error(`invalid research model policy: ${policyIssues.join("; ")}`);
 		const model = deps.model as { id?: string; provider?: string; api?: string };
-		if (model.id !== "gpt-5.6-luna" || model.provider !== "ai-pixel" || model.api !== "openai-responses") {
-			throw new Error(`research executor requires ai-pixel/gpt-5.6-luna via openai-responses; got ${model.provider ?? "?"}/${model.id ?? "?"}/${model.api ?? "?"}`);
+		if (model.id !== deps.modelPolicy.model || model.provider !== deps.modelPolicy.provider || model.api !== deps.modelPolicy.api) {
+			throw new Error(`research executor model does not match research_model policy: expected ${deps.modelPolicy.provider}/${deps.modelPolicy.model}/${deps.modelPolicy.api}, got ${model.provider ?? "?"}/${model.id ?? "?"}/${model.api ?? "?"}`);
 		}
 		const knownTools = new Set(deps.toolRegistry.list().map((tool) => tool.id));
 		const names = new Set<string>();
@@ -238,6 +311,11 @@ export class LunaResearchNodeExecutor {
 
 	familyVerifications(): FamilyVerificationAttestation[] {
 		return [...this.familyAttestations.values()].map((item) => ({ ...item, result: { ...item.result, issues: [...item.result.issues], checks: { ...item.result.checks } }, evidenceIds: [...item.evidenceIds] })).sort((left, right) => left.profile.localeCompare(right.profile));
+	}
+
+	researchSubmission(nodeId: string): ResearchNodeSubmission | undefined {
+		const submission = this.submissions.get(nodeId);
+		return submission ? structuredClone(submission) : undefined;
 	}
 
 	async executeNode(node: WorkNode, graph: ResearchWorkGraph, signal: AbortSignal): Promise<NodeExecutionResult> {
@@ -343,6 +421,20 @@ export class LunaResearchNodeExecutor {
 					artifactIds: params.artifact_ids,
 					decisions: params.decisions.map((decision) => ({ question: decision.question, alternatives: decision.alternatives, selected: decision.selected, evidenceIds: decision.evidence_ids, uncertainty: decision.uncertainty })),
 					verifications: params.verifications.map((verification) => ({ profile: verification.profile, input: verification.input, evidenceIds: verification.evidence_ids })),
+					hypotheses: params.hypotheses?.map((hypothesis) => ({ id: hypothesis.id, statement: hypothesis.statement, rationaleEvidenceIds: hypothesis.rationale_evidence_ids, expectedObservation: hypothesis.expected_observation, falsifier: hypothesis.falsifier, status: hypothesis.status })),
+					claims: params.claims?.map((claim) => ({ id: claim.id, text: claim.text, status: claim.status, evidenceIds: claim.evidence_ids, uncertainty: claim.uncertainty, limitations: claim.limitations })),
+					valueCard: params.value_card ? {
+						significance: { score: params.value_card.significance.score, rationale: params.value_card.significance.rationale, evidenceIds: params.value_card.significance.evidence_ids },
+						novelty: { score: params.value_card.novelty.score, rationale: params.value_card.novelty.rationale, evidenceIds: params.value_card.novelty.evidence_ids },
+						falsifiability: { score: params.value_card.falsifiability.score, rationale: params.value_card.falsifiability.rationale, evidenceIds: params.value_card.falsifiability.evidence_ids },
+						dataFeasibility: { score: params.value_card.dataFeasibility.score, rationale: params.value_card.dataFeasibility.rationale, evidenceIds: params.value_card.dataFeasibility.evidence_ids },
+						methodologicalValue: { score: params.value_card.methodologicalValue.score, rationale: params.value_card.methodologicalValue.rationale, evidenceIds: params.value_card.methodologicalValue.evidence_ids },
+						potentialImpact: { score: params.value_card.potentialImpact.score, rationale: params.value_card.potentialImpact.rationale, evidenceIds: params.value_card.potentialImpact.evidence_ids },
+						limitations: params.value_card.limitations,
+						recommendation: params.value_card.recommendation,
+					} as ScientificValueCard : undefined,
+					narrative: params.narrative ? Object.fromEntries(Object.entries(params.narrative).map(([key, section]) => [key, { text: section.text, evidenceIds: section.evidence_ids, claimIds: section.claim_ids }])) as unknown as ResearchNarrative : undefined,
+					contraryEvidenceLinks: params.contrary_evidence_links?.map((link) => ({ sourceEvidenceId: link.source_evidence_id, claimId: link.claim_id })),
 				};
 				return toolOutput("research node output captured");
 			},
@@ -350,7 +442,7 @@ export class LunaResearchNodeExecutor {
 
 		const harness = this.createHarness({
 			model: this.deps.model,
-			thinkingLevel: "xhigh",
+			thinkingLevel: this.deps.modelPolicy.thinking_level as "xhigh",
 			cwd: this.deps.cwdForNode(node.id, node.attempts),
 			systemPrompt: `You are the ${role} worker for one GeoRSI WorkGraph node. Work only from the bounded context and exposed tools. Do not invent evidence or claim that an unexecuted computation occurred.`,
 			customTools: [...scientificTools, artifactTool, submitTool],
@@ -377,13 +469,14 @@ export class LunaResearchNodeExecutor {
 			this.deps.onModelReceipt?.(receipt);
 		}
 		if (signal.aborted) throw new Error(`research node ${node.id} was aborted`);
-		if (outcome.error || outcome.aborted || outcome.timedOut || outcome.stalled) throw new Error(`Luna research node prompt failed: ${outcome.error ?? "aborted"}`);
-		if (!observedReceipts.length) throw new Error("Luna research node produced no exact model-call receipts");
-		const receiptIssue = observedReceipts.map(exactLunaReceiptIssue).find((issue) => issue !== null);
+		if (outcome.error || outcome.aborted || outcome.timedOut || outcome.stalled) throw new Error(`research node prompt failed: ${outcome.error ?? "aborted"}`);
+		if (!observedReceipts.length) throw new Error("research node produced no exact model-call receipts");
+		if (new Set(observedReceipts.map((receipt) => receipt.id)).size !== observedReceipts.length) throw new Error("research node produced duplicate model-call receipt IDs");
+		const receiptIssue = observedReceipts.map((receipt) => exactModelReceiptIssue(receipt, this.deps.modelPolicy)).find((issue) => issue !== null);
 		if (receiptIssue) throw new Error(receiptIssue);
 		const outputTokens = observedReceipts.reduce((sum, receipt) => sum + receipt.outputTokens!, 0);
-		if (outputTokens > aggregateOutputCap) throw new Error(`Luna research node exceeded aggregate output cap: ${outputTokens}/${aggregateOutputCap}`);
-		if (!submission) throw new Error("Luna research node did not call submit_research_node_output");
+		if (outputTokens > aggregateOutputCap) throw new Error(`research node exceeded aggregate output cap: ${outputTokens}/${aggregateOutputCap}`);
+		if (!submission) throw new Error("research node did not call submit_research_node_output");
 		const captured = submission as CapturedSubmission;
 		if (stableJson(captured).length > aggregateOutputCap * 8) throw new Error("captured research node output exceeds bounded aggregate size");
 		if (new Set(captured.artifactIds).size !== captured.artifactIds.length) throw new Error("research node submission contains duplicate artifact IDs");
@@ -396,6 +489,30 @@ export class LunaResearchNodeExecutor {
 		const expectedProfile = profileForNode(node.kind);
 		if (expectedProfile && !verificationProfiles.includes(expectedProfile)) throw new Error(`node ${node.id} requires ${expectedProfile} verification input`);
 		for (const verification of captured.verifications) for (const id of verification.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`verifier input cites unknown evidence: ${id}`);
+		const claimIds = new Set<string>();
+		for (const claim of captured.claims ?? []) {
+			if (claimIds.has(claim.id)) throw new Error(`duplicate research claim ID: ${claim.id}`);
+			claimIds.add(claim.id);
+			for (const id of claim.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`claim cites unknown evidence: ${id}`);
+		}
+		for (const hypothesis of captured.hypotheses ?? []) {
+			for (const id of hypothesis.rationaleEvidenceIds) if (!knownForLinks.has(id)) throw new Error(`hypothesis cites unknown evidence: ${id}`);
+		}
+		if (captured.valueCard) {
+			for (const dimension of [captured.valueCard.significance, captured.valueCard.novelty, captured.valueCard.falsifiability, captured.valueCard.dataFeasibility, captured.valueCard.methodologicalValue, captured.valueCard.potentialImpact]) for (const id of dimension.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`value card cites unknown evidence: ${id}`);
+		}
+		if (captured.narrative) {
+			for (const section of Object.values(captured.narrative)) {
+				if (!section.text.trim() || section.evidenceIds.length === 0) throw new Error("narrative sections require text and evidence");
+				for (const id of section.evidenceIds) if (!knownForLinks.has(id)) throw new Error(`narrative cites unknown evidence: ${id}`);
+				for (const id of section.claimIds ?? []) if (!claimIds.has(id)) throw new Error(`narrative cites unknown claim: ${id}`);
+			}
+		}
+		for (const link of captured.contraryEvidenceLinks ?? []) {
+			const reference = this.deps.evidenceById(link.sourceEvidenceId);
+			if (!reference || reference.kind !== "source" || !claimIds.has(link.claimId)) throw new Error("contrary evidence must bind a known source and claim");
+		}
+		if (node.kind === "synthesis" && (!captured.claims?.length || !captured.valueCard || !captured.narrative)) throw new Error("synthesis node must submit claims, value card, and grounded narrative");
 
 		ensureActive();
 		const handleMap = new Map<string, string>();
@@ -414,6 +531,32 @@ export class LunaResearchNodeExecutor {
 			verificationInputEvidenceIds[verification.profile] = reference.id;
 		}
 		const canonicalArtifacts = unique(captured.artifactIds.map(canonicalize));
+		const canonicalHypotheses = captured.hypotheses?.map((hypothesis) => ({ ...hypothesis, rationaleEvidenceIds: hypothesis.rationaleEvidenceIds.map(canonicalize) }));
+		const canonicalClaims = captured.claims?.map((claim) => ({ ...claim, evidenceIds: claim.evidenceIds.map(canonicalize) }));
+		const canonicalValueCard = captured.valueCard ? {
+			...captured.valueCard,
+			significance: { ...captured.valueCard.significance, evidenceIds: captured.valueCard.significance.evidenceIds.map(canonicalize) },
+			novelty: { ...captured.valueCard.novelty, evidenceIds: captured.valueCard.novelty.evidenceIds.map(canonicalize) },
+			falsifiability: { ...captured.valueCard.falsifiability, evidenceIds: captured.valueCard.falsifiability.evidenceIds.map(canonicalize) },
+			dataFeasibility: { ...captured.valueCard.dataFeasibility, evidenceIds: captured.valueCard.dataFeasibility.evidenceIds.map(canonicalize) },
+			methodologicalValue: { ...captured.valueCard.methodologicalValue, evidenceIds: captured.valueCard.methodologicalValue.evidenceIds.map(canonicalize) },
+			potentialImpact: { ...captured.valueCard.potentialImpact, evidenceIds: captured.valueCard.potentialImpact.evidenceIds.map(canonicalize) },
+		} : undefined;
+		const canonicalNarrative = captured.narrative ? Object.fromEntries(Object.entries(captured.narrative).map(([key, section]) => [key, { ...section, evidenceIds: section.evidenceIds.map(canonicalize) }])) as ResearchNarrative : undefined;
+		const canonicalContraryLinks = captured.contraryEvidenceLinks?.map((link) => ({ sourceEvidenceId: canonicalize(link.sourceEvidenceId), claimId: link.claimId }));
+		const persistedSubmission: ResearchNodeSubmission = {
+			version: 1,
+			summary: sanitizeResearchEvidence(captured.summary) as string,
+			artifactIds: canonicalArtifacts,
+			decisions: captured.decisions.map((decision) => ({ ...decision, evidenceIds: decision.evidenceIds.map(canonicalize) })),
+			verifications: captured.verifications.map((verification) => ({ ...verification, evidenceIds: verification.evidenceIds.map(canonicalize) })),
+			hypotheses: canonicalHypotheses,
+			claims: canonicalClaims,
+			valueCard: canonicalValueCard,
+			narrative: canonicalNarrative,
+			contraryEvidenceLinks: canonicalContraryLinks,
+		};
+		this.submissions.set(node.id, persistedSubmission);
 		const submissionReference = this.deps.evidenceStore.putJson({
 			version: 1,
 			nodeId: node.id,
@@ -425,6 +568,11 @@ export class LunaResearchNodeExecutor {
 			verificationInputEvidenceIds,
 			modelReceiptIds: observedReceipts.map((receipt) => receipt.id),
 			toolReceiptIds: nodeToolReceiptIds,
+			claims: canonicalClaims,
+			hypotheses: canonicalHypotheses,
+			valueCard: canonicalValueCard,
+			narrative: canonicalNarrative,
+			contraryEvidenceLinks: canonicalContraryLinks,
 		}, { kind: "tool-output", logicalName: `${node.id}-submission.json`, producerNodeId: node.id });
 		this.deps.registerEvidence(submissionReference);
 		return {

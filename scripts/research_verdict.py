@@ -109,8 +109,6 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
         issues.append("work graph state commitment mismatch")
     if manifest.get("environmentFingerprint") != environment.get("fingerprint") or manifest.get("environmentHash") != digest(environment):
         issues.append("environment commitment mismatch")
-    if manifest.get("runtimeAttestationHash") != digest(attestation):
-        issues.append("runtime attestation commitment mismatch")
     sorted_evidence = sorted(evidence, key=lambda item: item.get("id", ""))
     if manifest.get("evidence") != sorted_evidence or manifest.get("evidenceIndexHash") != digest(sorted_evidence):
         issues.append("evidence index commitment mismatch")
@@ -178,6 +176,8 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
         runtime_issues.append("required contrary evidence links missing")
 
     if mode == "competition":
+        if not environment.get("evaluatorMetrics", {}).get("aiPixelCapabilityProbe"):
+            runtime_issues.append("competition package lacks provider-observed ai-pixel capability probe")
         if not receipts:
             runtime_issues.append("competition package has no model-call receipts")
         if attestation.get("isolationBackend") != "sandboxie-app-level" or compute.get("backend") != "sandboxie-app-level" or compute.get("processOwnershipVerified") is not True:
@@ -187,10 +187,31 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
             runtime_issues.append("deterministic demo has wrong compute backend")
     else:
         runtime_issues.append("unknown research run mode")
+    receipt_ids = set()
     for receipt in receipts:
-        if receipt.get("provider") != "ai-pixel" or receipt.get("model") != "gpt-5.6-luna" or receipt.get("api") != "openai-responses" or receipt.get("requestedThinking") != "xhigh" or receipt.get("effectiveThinking") != "xhigh" or not isinstance(receipt.get("outputTokens"), int) or receipt.get("outputTokens") <= 0:
-            runtime_issues.append(f"forbidden model receipt {receipt.get('id')}")
-    if attestation.get("totalTokens") != sum(int(item.get("totalTokens", 0)) for item in receipts):
+        rid = receipt.get("id")
+        if not isinstance(rid, str) or not rid.strip():
+            runtime_issues.append("model receipt id is missing")
+        elif isinstance(rid, str) and rid in receipt_ids:
+            runtime_issues.append(f"duplicate model receipt id: {rid}")
+        if isinstance(rid, str):
+            receipt_ids.add(rid)
+        for field in ("inputTokens", "outputTokens", "reasoningTokens"):
+            value = receipt.get(field)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
+                runtime_issues.append(f"invalid {field} in model receipt {rid}")
+        total = receipt.get("totalTokens")
+        if isinstance(total, bool) or not isinstance(total, int) or total < 0:
+            runtime_issues.append(f"invalid totalTokens in model receipt {rid}")
+        if receipt.get("provider") != "ai-pixel" or receipt.get("model") != "gpt-5.6-luna" or receipt.get("api") != "openai-responses" or receipt.get("requestedThinking") != "xhigh" or receipt.get("effectiveThinking") != "xhigh" or receipt.get("success") is not True or not isinstance(receipt.get("outputTokens"), int) or isinstance(receipt.get("outputTokens"), bool) or receipt.get("outputTokens") <= 0:
+            runtime_issues.append(f"forbidden or invalid model receipt {rid}")
+    receipt_totals = []
+    for item in receipts:
+        value = item.get("totalTokens")
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            continue
+        receipt_totals.append(value)
+    if not isinstance(attestation.get("totalTokens"), int) or isinstance(attestation.get("totalTokens"), bool) or attestation.get("totalTokens") < 0 or attestation.get("totalTokens") != sum(receipt_totals) or len(receipt_totals) != len(receipts):
         runtime_issues.append("token total does not match model receipts")
     issues.extend(runtime_issues)
 

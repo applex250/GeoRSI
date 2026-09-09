@@ -41,8 +41,7 @@ export interface ContextPolicy {
 }
 
 export interface RoutingPolicy {
-	model: string;
-	thinkingLevel: "xhigh";
+	/** Model identity is owned by Config.research_model, never by StrategyBundle. */
 	allowFallbackModels: false;
 }
 
@@ -93,7 +92,7 @@ export const SEED_STRATEGY_BUNDLE: StrategyBundle = {
 	},
 	context: { roleBudgets: { planner: 48_000, literature: 64_000, quantitative: 96_000, gis: 96_000, verifier: 48_000, synthesis: 96_000, defense: 64_000 }, includeOnlyDirectDependencies: true, artifactSummaryChars: 2000 },
 	recovery: { maxNodeAttempts: 2, retryableFailureClasses: ["network", "timeout", "data-schema", "verification", "citation", "numerical-instability"], checkpointAfterEveryTransition: true },
-	routing: { model: "gpt-5.6-luna", thinkingLevel: "xhigh", allowFallbackModels: false },
+	routing: { allowFallbackModels: false },
 	communication: { reportTemplate: "research-report-v1", presentationSlides: 8, minimumDefenseQuestions: 12, requireEvidenceCitations: true },
 	budget: { roleOutputCaps: { goal: 4096, proposal: 4096, critic: 4096, planner: 6144, literature: 8192, quantitative: 16384, gis: 24576, verifier: 6144, report: 12288, defense: 8192, judge: 8192 }, maxEscalationsPerCall: 1, escalationFactor: 2, hardRequestMaxTokens: 32768 },
 	lineage: { parentFingerprint: null, generation: 0, changedComponent: null },
@@ -107,7 +106,7 @@ export function strategyBundleFingerprint(bundle: StrategyBundle): string {
 export function validateStrategyBundle(bundle: StrategyBundle): string[] {
 	const issues: string[] = [];
 	if (bundle.version !== 1) issues.push("strategy version must be 1");
-	if (bundle.routing.model !== "gpt-5.6-luna" || bundle.routing.thinkingLevel !== "xhigh" || bundle.routing.allowFallbackModels !== false) issues.push("research strategy must route only gpt-5.6-luna at xhigh without fallback");
+	if (bundle.routing.allowFallbackModels !== false) issues.push("research strategy must not allow fallback models; model identity comes from research_model config");
 	if (bundle.planner.maxNodes < 1 || bundle.planner.maxNodes > 64) issues.push("planner maxNodes must be 1..64");
 	if (bundle.planner.maxReplans < 0 || bundle.planner.maxReplans > 5) issues.push("planner maxReplans must be 0..5");
 	if (bundle.recovery.maxNodeAttempts < 1 || bundle.recovery.maxNodeAttempts > 4) issues.push("recovery maxNodeAttempts must be 1..4");

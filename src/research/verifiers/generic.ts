@@ -2,7 +2,7 @@
 import type { EvidenceRef, ResearchClaim, ResearchMission, ResearchWorkGraph } from "../contracts.js";
 import { validateResearchClaim } from "../decision-policy.js";
 import { validateResearchMission } from "../contracts.js";
-import { validateWorkGraph } from "../work-graph.js";
+import { validateWorkGraphForMission } from "../work-graph.js";
 import type { FamilyVerificationAttestation, ContraryEvidenceLink } from "../runtime-attestation.js";
 import { errorIssue, verificationResult, type ScientificVerificationResult } from "./base.js";
 
@@ -24,12 +24,16 @@ export function verifyGenericResearch(input: GenericResearchVerificationInput): 
 	const issues = [];
 	const missionIssues = validateResearchMission(input.mission);
 	for (const issue of missionIssues) issues.push(errorIssue("mission-contract", issue));
-	const graphIssues = validateWorkGraph(input.graph);
+	const graphIssues = validateWorkGraphForMission(input.mission, input.graph);
 	for (const issue of graphIssues) issues.push(errorIssue("work-graph", issue));
+	const requiredCriteria = input.mission.successCriteria.filter((criterion) => criterion.required).map((criterion) => criterion.id);
+	const coveredCriteria = new Set(input.graph.nodes.flatMap((node) => node.acceptanceCriteriaIds));
+	const criteriaCoverage = requiredCriteria.every((id) => coveredCriteria.has(id));
 	const requiredStages = new Set(input.mission.taskProfile.requiredStages);
 	const completedStages = new Set(input.graph.nodes.filter((node) => node.state === "completed").map((node) => node.kind));
 	const missingStages = [...requiredStages].filter((stage) => !completedStages.has(stage));
 	for (const stage of missingStages) issues.push(errorIssue("missing-stage", `required research stage not completed: ${stage}`));
+	if (!criteriaCoverage) issues.push(errorIssue("missing-criterion", "not every required mission acceptance criterion is covered by the work graph"));
 	const evidenceIds = new Set(input.evidence.map((item) => item.id));
 	for (const claim of input.claims) for (const issue of validateResearchClaim(claim, input.evidence)) issues.push(errorIssue("claim-evidence", `${claim.id}: ${issue}`));
 	for (const node of input.graph.nodes) {
@@ -64,6 +68,7 @@ export function verifyGenericResearch(input: GenericResearchVerificationInput): 
 		mission: missionIssues.length === 0,
 		graph: graphIssues.length === 0,
 		requiredStages: missingStages.length === 0,
+		criterionCoverage: criteriaCoverage,
 		ledger: input.ledgerValid,
 		replay: input.replayPassed,
 		cleanup: input.cleanupPassed,

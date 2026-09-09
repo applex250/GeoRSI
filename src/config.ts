@@ -4,6 +4,7 @@
  * config.json is the single place for models, budgets, and the problem suite.
  * Everything has a default so a minimal file works.
  */
+import { createHash } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Scaffold } from "./scaffold.js";
@@ -72,7 +73,7 @@ export interface ModelSpec {
 	/** how requests to this model must leave the machine */
 	route: "direct" | "proxy";
 	/** which endpoint serves this model */
-	endpoint: "zen" | "local" | "openrouter" | "emooo" | "ai-pixel";
+	endpoint: "zen" | "local" | "openrouter" | "emooo" | "geiliapi" | "research";
 	/** true context window, tokens (drives pi compaction decisions) */
 	contextWindow: number;
 	/** provider-advertised max output, tokens (informational; we cap lower) */
@@ -88,7 +89,7 @@ export const SUPPORTED_MODELS: ModelSpec[] = [
 	{ id: "ox-alpha-free", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: gateway removed the model (401 ModelError on every call)" },
 	{ id: "mimo-v2.5", api: "openai-completions", route: "direct", endpoint: "zen", contextWindow: 1048576, maxOutput: 131072, note: "heavy reasoner (inner, default); slow but thorough" },
 	{ id: "mimo-v2.5-pro", api: "openai-completions", route: "direct", endpoint: "emooo", contextWindow: 1048576, maxOutput: 131072, thinkingLevelMap: { xhigh: "xhigh", max: null }, compat: { thinkingFormat: "zai", supportsReasoningEffort: true, supportsDeveloperRole: false, supportsUsageInStreaming: true, supportsFinishReason: true, supportsStrictMode: false, maxTokensField: "max_tokens" }, note: "temporary emooo.cc route; chat/completions selected over Responses after live probe; thinking enabled/disabled with minimal/low/medium/high/xhigh" },
-	{ id: "gpt-5.6-luna", api: "openai-responses", route: "direct", endpoint: "ai-pixel", contextWindow: 600000, maxOutput: 128000, thinkingLevelMap: { off: "none", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" }, compat: { supportsReasoningEffort: true }, note: "ai-pixel Responses candidate; Luna-only campaigns require xhigh and environment-only AI_PIXEL_API_KEY; live profile remains unverified until probes pass" },
+	{ id: "gpt-5.6-luna", api: "openai-completions", route: "direct", endpoint: "geiliapi", contextWindow: 600000, maxOutput: 128000, thinkingLevelMap: { off: "none", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" }, compat: { supportsDeveloperRole: true, supportsReasoningEffort: true, supportsUsageInStreaming: true, supportsFinishReason: true, maxTokensField: "max_completion_tokens" }, note: "geiliapi OpenAI Completions Luna; production campaigns require xhigh and environment-only GEILIAPI_API_KEY; live profile remains unverified until probes pass" },
 	{ id: "muse-spark-1.2-contributor", api: "openai-responses", route: "proxy", endpoint: "zen", contextWindow: 131072, maxOutput: 131072, note: "region-locked; proxy + Responses API only" },
 	{ id: "dsv4f", api: "openai-completions", route: "direct", endpoint: "local", contextWindow: 262144, maxOutput: 65536, note: "campus-local deepseek; server downtime is normal" },
 	{ id: "stealth/ox-alpha", api: "openai-completions", route: "direct", endpoint: "openrouter", contextWindow: 1048576, maxOutput: 131072, retired: true, note: "DEPRECATED 2026-08-27: OpenRouter testing alias returned 404 and points to z-ai/glm-5.3-flash" },
@@ -101,6 +102,73 @@ export function modelSpec(id: string): ModelSpec | undefined {
 }
 
 export type ConfigThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+/** Single source of truth for the model used by the long-horizon research path. */
+export interface ResearchModelConfig {
+	provider: string;
+	base_url: string;
+	model: string;
+	api: "openai-completions" | "openai-responses";
+	thinking_level: ConfigThinkingLevel;
+	max_tokens_field: "max_tokens" | "max_completion_tokens";
+	credential_env: string;
+	fallback: "none";
+	context_window: number;
+	max_output: number;
+	supports_developer_role: boolean;
+	supports_reasoning_effort: boolean;
+	supports_usage: boolean;
+	supports_tool_loop: boolean;
+	require_provider_observed_thinking: boolean;
+}
+
+export function researchModelConfigFingerprint(policy: ResearchModelConfig): string {
+	return createHash("sha256").update(JSON.stringify(policy)).digest("hex").slice(0, 24);
+}
+
+export function validateResearchModelConfig(policy: ResearchModelConfig): string[] {
+	const issues: string[] = [];
+	if (!policy.provider.trim()) issues.push("research_model.provider is required");
+	if (!policy.base_url.trim() || !/^https?:\/\//i.test(policy.base_url)) issues.push("research_model.base_url must be an http(s) URL");
+	if (!policy.model.trim()) issues.push("research_model.model is required");
+	if (policy.api !== "openai-completions" && policy.api !== "openai-responses") issues.push("research_model.api is invalid");
+	if (policy.thinking_level !== "xhigh") issues.push("research_model.thinking_level must be xhigh for competition research");
+	if (policy.max_tokens_field !== "max_tokens" && policy.max_tokens_field !== "max_completion_tokens") issues.push("research_model.max_tokens_field is invalid");
+	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(policy.credential_env)) issues.push("research_model.credential_env must be an environment variable name");
+	if (policy.fallback !== "none") issues.push("research_model.fallback must be none");
+	if (!Number.isSafeInteger(policy.context_window) || policy.context_window <= 0) issues.push("research_model.context_window must be positive");
+	if (!Number.isSafeInteger(policy.max_output) || policy.max_output <= 0) issues.push("research_model.max_output must be positive");
+	if (policy.supports_tool_loop !== true) issues.push("research_model.supports_tool_loop must be true");
+	if (policy.supports_usage !== true) issues.push("research_model.supports_usage must be true");
+	if (policy.require_provider_observed_thinking !== true) issues.push("research_model.require_provider_observed_thinking must be true");
+	return [...new Set(issues)];
+}
+
+function parseResearchModelConfig(raw: unknown): ResearchModelConfig | undefined {
+	if (raw === undefined || raw === null) return undefined;
+	if (!raw || typeof raw !== "object") throw new Error("config.json: research_model must be an object");
+	const value = raw as Record<string, unknown>;
+	const policy: ResearchModelConfig = {
+		provider: String(value.provider ?? ""),
+		base_url: String(value.base_url ?? ""),
+		model: String(value.model ?? ""),
+		api: value.api === "openai-responses" ? "openai-responses" : "openai-completions",
+		thinking_level: optionalThinkingLevel(value.thinking_level, "config.json: research_model.thinking_level") ?? "xhigh",
+		max_tokens_field: value.max_tokens_field === "max_tokens" ? "max_tokens" : "max_completion_tokens",
+		credential_env: String(value.credential_env ?? ""),
+		fallback: "none",
+		context_window: Number(value.context_window ?? 600_000),
+		max_output: Number(value.max_output ?? 128_000),
+		supports_developer_role: value.supports_developer_role === true,
+		supports_reasoning_effort: value.supports_reasoning_effort === true,
+		supports_usage: value.supports_usage !== false,
+		supports_tool_loop: value.supports_tool_loop !== false,
+		require_provider_observed_thinking: value.require_provider_observed_thinking !== false,
+	};
+	const issues = validateResearchModelConfig(policy);
+	if (issues.length > 0) throw new Error(`config.json: invalid research_model: ${issues.join("; ")}`);
+	return policy;
+}
 
 const CONFIG_THINKING_LEVELS = new Set<ConfigThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
@@ -136,8 +204,10 @@ export interface Config {
 	openrouter_base_url?: string;
 	/** optional OpenAI-compatible temporary emooo.cc endpoint */
 	emooo_base_url?: string;
-	/** ai-pixel Responses endpoint; credential is environment-only AI_PIXEL_API_KEY */
-	ai_pixel_base_url?: string;
+	/** GeiliAPI OpenAI-compatible endpoint; credential is environment-only GEILIAPI_API_KEY */
+	geiliapi_base_url?: string;
+	/** One authoritative model/provider/API policy for research-live. */
+	research_model?: ResearchModelConfig;
 	/** when set, every configured/routed model must equal this id */
 	single_model_id?: string;
 	/** optional fail-closed thinking level for inner and outer in single-model campaigns */
@@ -244,6 +314,31 @@ export function applyProblemRuntimeOverride(base: Config, override: ProblemRunti
 	};
 }
 
+export function researchModelSpec(policy: ResearchModelConfig): ModelSpec {
+	return {
+		id: policy.model,
+		api: policy.api,
+		route: "direct",
+		endpoint: "research",
+		contextWindow: policy.context_window,
+		maxOutput: policy.max_output,
+		thinkingLevelMap: { xhigh: "xhigh" },
+		compat: {
+			supportsDeveloperRole: policy.supports_developer_role,
+			supportsReasoningEffort: policy.supports_reasoning_effort,
+			supportsUsageInStreaming: policy.supports_usage,
+			supportsFinishReason: true,
+			maxTokensField: policy.max_tokens_field,
+		},
+		note: `research config route: ${policy.provider}`,
+	};
+}
+
+export function modelSpecForConfig(cfg: Config, id: string): ModelSpec | undefined {
+	if (cfg.research_model?.model === id) return researchModelSpec(cfg.research_model);
+	return modelSpec(id);
+}
+
 export function configuredModelIds(cfg: Config, root = ROOT): string[] {
 	const ids = [cfg.inner_model, cfg.outer_model, cfg.quiz_inner_model].filter((id): id is string => !!id);
 	for (const problem of cfg.problems) {
@@ -259,7 +354,7 @@ export function configuredModelIds(cfg: Config, root = ROOT): string[] {
 	}
 	const unique = [...new Set(ids)];
 	if (cfg.single_model_id) {
-		assertSupportedModel("single_model_id", cfg.single_model_id);
+		if (!cfg.research_model || cfg.single_model_id !== cfg.research_model.model) assertSupportedModel("single_model_id", cfg.single_model_id);
 		const routedOther = unique.find((id) => id !== cfg.single_model_id);
 		if (routedOther) {
 			throw new Error(`single-model policy requires every route to use "${cfg.single_model_id}", but found "${routedOther}"`);
@@ -310,27 +405,29 @@ export function loadConfig(path?: string): Config {
 			throw new Error(`config.json: problem "${problem.id}" weight must be a positive finite number`);
 		}
 	}
-	const inner = String(raw.inner_model ?? "mimo-v2.5");
-	const outer = String(raw.outer_model ?? "hy3");
-	const quizInner = typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : undefined;
-	assertSupportedModel("inner_model", inner);
-	assertSupportedModel("outer_model", outer);
-	if (quizInner) assertSupportedModel("quiz_inner_model", quizInner);
+	const researchModel = parseResearchModelConfig(raw.research_model);
+	const inner = String(raw.inner_model ?? researchModel?.model ?? "mimo-v2.5");
+	const outer = String(raw.outer_model ?? researchModel?.model ?? "hy3");
+	const quizInner = typeof raw.quiz_inner_model === "string" ? String(raw.quiz_inner_model) : researchModel?.model;
+	if (!researchModel || inner !== researchModel.model) assertSupportedModel("inner_model", inner);
+	if (!researchModel || outer !== researchModel.model) assertSupportedModel("outer_model", outer);
+	if (quizInner && (!researchModel || quizInner !== researchModel.model)) assertSupportedModel("quiz_inner_model", quizInner);
 	return {
 		base_url: String(raw.base_url ?? "https://opencode.ai/zen/go/v1"),
 		local_base_url: String(raw.local_base_url ?? "http://172.27.116.56:8080/v1"),
 		openrouter_base_url: String(raw.openrouter_base_url ?? "https://openrouter.ai/api/v1"),
 		emooo_base_url: String(raw.emooo_base_url ?? "https://api.emooo.cc/v1"),
-		ai_pixel_base_url: String(raw.ai_pixel_base_url ?? "https://api.ai-pixel.online/v1"),
-		single_model_id: typeof raw.single_model_id === "string" && raw.single_model_id.trim() ? raw.single_model_id.trim() : undefined,
-		single_model_thinking_level: optionalThinkingLevel(raw.single_model_thinking_level, "config.json: single_model_thinking_level"),
+		geiliapi_base_url: String(raw.geiliapi_base_url ?? "https://sub.geiliapi.com/v1"),
+		research_model: researchModel,
+		single_model_id: typeof raw.single_model_id === "string" && raw.single_model_id.trim() ? raw.single_model_id.trim() : researchModel?.model,
+		single_model_thinking_level: optionalThinkingLevel(raw.single_model_thinking_level, "config.json: single_model_thinking_level") ?? researchModel?.thinking_level,
 		inner_model: inner,
-		inner_thinking_level: optionalThinkingLevel(raw.inner_thinking_level, "config.json: inner_thinking_level"),
+		inner_thinking_level: optionalThinkingLevel(raw.inner_thinking_level, "config.json: inner_thinking_level") ?? researchModel?.thinking_level,
 		quiz_inner_model: quizInner,
 		rag_enabled: raw.rag_enabled === true,
 		rag_budget_chars: num(raw.rag_budget_chars, 2400),
 		outer_model: outer,
-		outer_thinking_level: optionalThinkingLevel(raw.outer_thinking_level, "config.json: outer_thinking_level"),
+		outer_thinking_level: optionalThinkingLevel(raw.outer_thinking_level, "config.json: outer_thinking_level") ?? researchModel?.thinking_level,
 		generations: num(raw.generations, 4),
 		proposals: num(raw.proposals, 3),
 		critics: num(raw.critics, 1),

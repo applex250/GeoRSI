@@ -50,9 +50,9 @@ runner must reject an unfrozen or changed manifest. The two repetitions are
 paired by repetition key, and a candidate can only be promoted under the
 quality-first `0.01` score-band/token policy.
 
-## Luna node executor
+## Research node executor
 
-`src/research/luna-node-executor.ts` is the production WorkGraph adapter. It
+`src/research/research-node-executor.ts` is the production WorkGraph adapter. It
 creates one bounded Pi session per node and fails closed unless the runtime is
 exactly `ai-pixel/gpt-5.6-luna` via Responses with requested/effective `xhigh`.
 It disables Pi built-in and exchange file tools; the model sees only explicit,
@@ -86,10 +86,27 @@ confidentiality boundary: an unlisted host file can remain readable. Claims
 requiring stronger host confidentiality need a dedicated low-privilege Windows
 identity or VM; Sandboxie remains app-level isolation.
 
+## Live competition entry point
+
+After rotating the credential and exporting it only in the process environment,
+run:
+
+```bash
+npm run research:live -- --config config/research-competition-luna.json \
+  --mission path/to/mission.json [--plan path/to/plan.json] \
+  --run-name luna-run-001
+```
+
+The command first runs the deterministic `npm run check` preflight, then
+resolves and authenticates the Luna provider. If the build, key, model identity,
+xhigh setting, Sandboxie backend, network mode, mission, or plan is invalid, it
+exits before scheduling a research node. `--plan` is optional; a validated linear graph is generated from
+the mission's required stages when omitted. A non-eligible or failed package
+returns a nonzero exit code and must be inspected with `scripts/research_verdict.py`.
+
 ## Free end-to-end demonstration
 
 ```bash
-npm run research:selftest
 npm run research:demo -- --run-name research-demo-001
 python scripts/research_verdict.py research-demo-001
 ```

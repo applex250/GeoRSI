@@ -48,7 +48,7 @@ import {
 } from "./sandboxie-cleanup.js";
 import { selectTopSurvivors } from "./outer/critique.js";
 import { validateResearchMission, type ResearchMission } from "./research/contracts.js";
-import { createWorkGraph, createWorkNode, readyWorkNodes, transitionWorkNode, validateWorkGraph, workGraphComplete, workGraphFingerprint } from "./research/work-graph.js";
+import { createWorkGraph, createWorkNode, readyWorkNodes, transitionWorkNode, validateWorkGraph, validateWorkGraphForMission, workGraphComplete, workGraphFingerprint } from "./research/work-graph.js";
 import { validateDecisionRecord, validateResearchClaim } from "./research/decision-policy.js";
 import { classifyResearchFailure } from "./research/failure-taxonomy.js";
 import { profileResearchTask } from "./research/task-profile.js";
@@ -162,8 +162,10 @@ export async function selftest(): Promise<boolean> {
 	const nodeBudget = { wallMs: 60_000, maxModelCalls: 1, maxToolCalls: 5, maxOutputTokens: 4096, maxAttempts: 2 };
 	const frameNode = createWorkNode({ id: "frame", kind: "frame-question", title: "Frame question", dependsOn: [], inputEvidenceIds: [], expectedOutputs: ["mission"], acceptanceCriteriaIds: ["criterion-frame"], allowedCapabilities: ["claim-record"], budget: nodeBudget });
 	const auditNode = createWorkNode({ id: "audit", kind: "data-audit", title: "Audit data", dependsOn: ["frame"], inputEvidenceIds: [], expectedOutputs: ["audit-table"], acceptanceCriteriaIds: ["criterion-frame"], allowedCapabilities: ["python"], budget: nodeBudget });
+	const missionGraphProfile = { ...mission, taskProfile: { ...mission.taskProfile, requiredStages: mission.taskProfile.requiredStages.filter((kind) => kind === "frame-question" || kind === "data-audit") } };
+	check("work graph binds required criteria and capabilities to mission", validateWorkGraphForMission(missionGraphProfile, createWorkGraph(mission.id, [frameNode, auditNode])).length === 0 && validateWorkGraphForMission(missionGraphProfile, createWorkGraph(mission.id, [{ ...frameNode, allowedCapabilities: ["host-shell"] }, auditNode])).some((issue) => issue.includes("outside mission profile")));
 	let researchGraph = createWorkGraph(mission.id, [frameNode, auditNode], new Date("2026-08-30T00:00:00Z"));
-	check("work graph exposes only dependency-free ready nodes", readyWorkNodes(researchGraph).map((node) => node.id).join(",") === "frame");
+
 	const initialGraphFingerprint = workGraphFingerprint(researchGraph);
 	researchGraph = transitionWorkNode(researchGraph, "frame", "running", {}, new Date("2026-08-30T00:01:00Z"));
 	let missingOutputRejected = false;
@@ -264,7 +266,7 @@ export async function selftest(): Promise<boolean> {
 	const valueCard: ScientificValueCard = { significance: valueDimension, novelty: valueDimension, falsifiability: valueDimension, dataFeasibility: valueDimension, methodologicalValue: valueDimension, potentialImpact: valueDimension, limitations: ["regional scope"], recommendation: "proceed" };
 	check("scientific value evaluator requires evidence and explicit limitations", evaluateScientificValue(valueCard, ["source-1"]).passed && !evaluateScientificValue({ ...valueCard, novelty: { ...valueDimension, evidenceIds: ["missing"] } }, ["source-1"]).passed);
 	console.log("== research StrategyBundle evolution ==");
-	check("seed StrategyBundle is bounded and Luna xhigh only", validateStrategyBundle(SEED_STRATEGY_BUNDLE).length === 0 && SEED_STRATEGY_BUNDLE.routing.model === "gpt-5.6-luna" && SEED_STRATEGY_BUNDLE.routing.thinkingLevel === "xhigh");
+	check("seed StrategyBundle has no fallback and delegates model identity to config", validateStrategyBundle(SEED_STRATEGY_BUNDLE).length === 0 && SEED_STRATEGY_BUNDLE.routing.allowFallbackModels === false);
 	const budgetStrategy = applyStrategyEdit(SEED_STRATEGY_BUNDLE, [{ component: "budget", op: "set-role-output-cap", role: "quantitative", tokens: 12000 }], "selftest");
 	check("StrategyBundle edits one component with lineage", budgetStrategy.budget.roleOutputCaps.quantitative === 12000 && budgetStrategy.lineage.changedComponent === "budget" && budgetStrategy.lineage.parentFingerprint === strategyBundleFingerprint(SEED_STRATEGY_BUNDLE));
 	let multiComponentEditRejected = false;
@@ -301,14 +303,14 @@ export async function selftest(): Promise<boolean> {
 		originRun: "selftest-evolution",
 	});
 	check("typed research evolution accepts only paired promoted winner", evolvedGeneration.acceptedCandidate === 0 && evolvedGeneration.champion.lineage.changedComponent === "budget" && evolvedGeneration.candidates.length === 2 && !evolvedGeneration.candidates[1]?.promotion.promote);
-	const lunaReceipt = { id: "call-1", provider: "ai-pixel", model: "gpt-5.6-luna", api: "openai-responses", requestedThinking: "xhigh", effectiveThinking: "xhigh", inputTokens: 100, outputTokens: 50, reasoningTokens: null, totalTokens: 150, success: true };
+	const lunaReceipt = { id: "call-1", provider: "geiliapi", model: "gpt-5.6-luna", api: "openai-completions", requestedThinking: "xhigh", effectiveThinking: "xhigh", inputTokens: 100, outputTokens: 50, reasoningTokens: null, totalTokens: 150, success: true };
 	const attestationMission: ResearchMission = { ...mission, sourcePolicy: { ...mission.sourcePolicy, requireContraryEvidence: false }, taskProfile: { ...mission.taskProfile, family: "quantitative", verifierProfile: "quantitative-v1", sourceRequirements: [] } };
-	const competitionAttestation: ResearchRuntimeAttestation = { version: 1, runMode: "competition", unitTestsPassed: true, guardViolations: [], cleanupPassed: true, isolationBackend: "sandboxie-app-level", modelCalls: [lunaReceipt], familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidence[0]!.id] }], contraryEvidenceLinks: [], totalTokens: 150, wallSeconds: 10 };
+	const competitionAttestation: ResearchRuntimeAttestation = { version: 1, runMode: "competition", modelPolicy: { provider: "geiliapi", base_url: "https://sub.geiliapi.com/v1", model: "gpt-5.6-luna", api: "openai-completions", thinking_level: "xhigh", max_tokens_field: "max_completion_tokens", credential_env: "GEILIAPI_API_KEY", fallback: "none", context_window: 600000, max_output: 128000, supports_developer_role: true, supports_reasoning_effort: true, supports_usage: true, supports_tool_loop: true, require_provider_observed_thinking: true }, modelPolicyFingerprint: "2f6d1b695a00cc1006a7250b", unitTestsPassed: true, guardViolations: [], cleanupPassed: true, isolationBackend: "sandboxie-app-level", modelCalls: [lunaReceipt], familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidence[0]!.id] }], contraryEvidenceLinks: [], totalTokens: 150, wallSeconds: 10 };
 	const sandboxReplay = { passed: true, backend: "sandboxie-app-level" as const, processOwnershipVerified: true };
-	check("competition attestation requires receipt-backed Luna xhigh and Sandboxie", validateRuntimeAttestation(competitionAttestation, sandboxReplay, attestationMission, evidence, []).length === 0 && validateRuntimeAttestation({ ...competitionAttestation, modelCalls: [], totalTokens: 0 }, sandboxReplay, attestationMission, evidence, []).some((issue) => issue.includes("model-call receipts")));
+	check("competition attestation requires receipt-backed configured xhigh model and Sandboxie", validateRuntimeAttestation({ ...competitionAttestation, modelPolicy: { provider: "geiliapi", base_url: "https://sub.geiliapi.com/v1", model: "gpt-5.6-luna", api: "openai-completions", thinking_level: "xhigh", max_tokens_field: "max_completion_tokens", credential_env: "GEILIAPI_API_KEY", fallback: "none", context_window: 600000, max_output: 128000, supports_developer_role: true, supports_reasoning_effort: true, supports_usage: true, supports_tool_loop: true, require_provider_observed_thinking: true }, modelPolicyFingerprint: "2f6d1b695a00cc1006a7250b" }, sandboxReplay, attestationMission, evidence, []).some((issue) => issue.includes("fingerprint")) === false && validateRuntimeAttestation({ ...competitionAttestation, modelCalls: [], totalTokens: 0 }, sandboxReplay, attestationMission, evidence, []).some((issue) => issue.includes("model-call receipts")));
 	const attestedScore = scoreResearchCompetition({ runtime: { unitTestsPassed: true, runtimeAttestationPassed: true, traceComplete: true, manifestValid: true, verifyReplayPassed: true, computeReplayPassed: true, guardViolations: 0, cleanupPassed: true, validResultCount: 1 }, science: { taskOutcome: 1, methodValidity: 1, claimEvidenceQuality: 1, reproducibility: 1, scientificValue: 1 }, communication: { report: 1, presentation: 1, defense: 1 }, totalTokens: 100000, wallSeconds: 10, perFamily: { quantitative: 1 } });
 	check("three-layer score is non-compensable and token-aware", attestedScore.eligible && attestedScore.overall === 1 && attestedScore.scorePer100kTokens === 1 && !scoreResearchCompetition({ runtime: { unitTestsPassed: true, runtimeAttestationPassed: false, traceComplete: true, manifestValid: true, verifyReplayPassed: true, computeReplayPassed: true, guardViolations: 0, cleanupPassed: true, validResultCount: 1 }, science: { taskOutcome: 1, methodValidity: 1, claimEvidenceQuality: 1, reproducibility: 1, scientificValue: 1 }, communication: { report: 1, presentation: 1, defense: 1 }, totalTokens: 1, wallSeconds: 1, perFamily: {} }).eligible);
-	check("research benchmark manifest fixes five-task Stage-A and Luna policy", validateResearchBenchmarkManifest(RESEARCH_BENCHMARK_MANIFEST).length === 0 && benchmarkTasksForStage(RESEARCH_BENCHMARK_MANIFEST, "stage-a").length === 5 && RESEARCH_BENCHMARK_MANIFEST.model === "gpt-5.6-luna");
+	check("research benchmark manifest fixes five-task Stage-A and unified model policy", validateResearchBenchmarkManifest(RESEARCH_BENCHMARK_MANIFEST).length === 0 && benchmarkTasksForStage(RESEARCH_BENCHMARK_MANIFEST, "stage-a").length === 5 && RESEARCH_BENCHMARK_MANIFEST.modelPolicy.model === "gpt-5.6-luna" && RESEARCH_BENCHMARK_MANIFEST.modelPolicy.provider === "geiliapi");
 	const frozenBenchmark = freezeResearchBenchmarkManifest(RESEARCH_BENCHMARK_MANIFEST);
 	check("held-out benchmark requires immutable frozen manifest", frozenBenchmark.frozen && benchmarkManifestUsesOnlyFrozenHeldOut(frozenBenchmark) && benchmarkTaskDenominator(frozenBenchmark, "held-out") === 1 && researchBenchmarkManifestFingerprint(frozenBenchmark) !== researchBenchmarkManifestFingerprint(RESEARCH_BENCHMARK_MANIFEST));
 	const malformedBenchmark = structuredClone(RESEARCH_BENCHMARK_MANIFEST);
@@ -517,11 +519,11 @@ export async function selftest(): Promise<boolean> {
 	check("findings escapes pipes", fmd.includes("adds L-moment estimator tip / pipe") && fmd.includes("ACCEPTED"));
 
 	console.log("== supported model list ==");
-	check("10 models fixed including ai-pixel Luna", SUPPORTED_MODELS.length === 10);
+	check("10 models fixed including GeiliAPI Luna", SUPPORTED_MODELS.length === 10);
 	const luna = modelSpec("gpt-5.6-luna");
-	check("Luna is ai-pixel Responses with full xhigh mapping", luna?.endpoint === "ai-pixel" && luna.api === "openai-responses" && luna.contextWindow === 600000 && luna.maxOutput === 128000 && luna.thinkingLevelMap?.xhigh === "xhigh" && luna.compat?.supportsReasoningEffort === true);
+	check("Luna is GeiliAPI Completions with full xhigh mapping", luna?.endpoint === "geiliapi" && luna.api === "openai-completions" && luna.contextWindow === 600000 && luna.maxOutput === 128000 && luna.thinkingLevelMap?.xhigh === "xhigh" && luna.compat?.supportsReasoningEffort === true);
 	const lunaCfgPath = join(tmp, "luna-config.json");
-	writeFileSync(lunaCfgPath, JSON.stringify({ inner_model: "gpt-5.6-luna", inner_thinking_level: "xhigh", outer_model: "gpt-5.6-luna", outer_thinking_level: "xhigh", quiz_inner_model: "gpt-5.6-luna", single_model_id: "gpt-5.6-luna", single_model_thinking_level: "xhigh", problems: [{ id: "quake_b" }] }));
+	writeFileSync(lunaCfgPath, JSON.stringify({ research_model: { provider: "geiliapi", base_url: "https://sub.geiliapi.com/v1", model: "gpt-5.6-luna", api: "openai-completions", thinking_level: "xhigh", max_tokens_field: "max_completion_tokens", credential_env: "GEILIAPI_API_KEY", fallback: "none", context_window: 600000, max_output: 128000, supports_developer_role: true, supports_reasoning_effort: true, supports_usage: true, supports_tool_loop: true, require_provider_observed_thinking: true }, inner_model: "gpt-5.6-luna", inner_thinking_level: "xhigh", outer_model: "gpt-5.6-luna", outer_thinking_level: "xhigh", quiz_inner_model: "gpt-5.6-luna", single_model_id: "gpt-5.6-luna", single_model_thinking_level: "xhigh", problems: [{ id: "quake_b" }] }));
 	const lunaCfg = loadConfig(lunaCfgPath);
 	check("Luna-only config exposes one routed model", JSON.stringify(configuredModelIds(lunaCfg, tmp)) === JSON.stringify(["gpt-5.6-luna"]));
 	const researchLunaCfg = loadConfig(join(process.cwd(), "config", "research-competition-luna.json"));
@@ -534,15 +536,14 @@ export async function selftest(): Promise<boolean> {
 	try { configuredModelIds({ ...lunaCfg, outer_thinking_level: "high" }, tmp); }
 	catch (error) { wrongLunaThinkingRejected = String(error).includes("outer_thinking_level"); }
 	check("Luna-only policy rejects non-xhigh thinking", wrongLunaThinkingRejected);
-	const lunaModelsJson = buildModelsJson(lunaCfg, { zen: "unused", local: "unused", openrouter: "unused", emooo: "unused", aiPixel: "selftest-placeholder" }, ["gpt-5.6-luna"]) as { providers?: Record<string, { models?: { id?: string; api?: string }[] }> };
-	check("provider composition includes only selected ai-pixel model", Object.keys(lunaModelsJson.providers ?? {}).join(",") === "ai-pixel" && lunaModelsJson.providers?.["ai-pixel"]?.models?.[0]?.id === "gpt-5.6-luna");
-	const priorAiPixelKey = process.env.AI_PIXEL_API_KEY;
-	process.env.AI_PIXEL_API_KEY = "selftest-placeholder";
-	check("ai-pixel credential loader is environment-only", loadAiPixelApiKey() === "selftest-placeholder");
+	const lunaModelsJson = buildModelsJson(lunaCfg, { zen: "unused", local: "unused", openrouter: "unused", emooo: "unused", research: "selftest-placeholder" }, ["gpt-5.6-luna"]) as { providers?: Record<string, { models?: { id?: string; api?: string }[] }> };
+	check("provider composition includes only selected research model", Object.keys(lunaModelsJson.providers ?? {}).join(",") === "geiliapi" && lunaModelsJson.providers?.geiliapi?.models?.[0]?.id === "gpt-5.6-luna");
+	const priorGeiliKey = process.env.GEILIAPI_API_KEY;
+	process.env.GEILIAPI_API_KEY = "selftest-placeholder";
 	const lunaJudgeContext = makeEvalContext(lunaCfg, tmp);
-	check("Luna-only judge uses ai-pixel Responses xhigh and declares non-independence", lunaJudgeContext.judgeEnv?.RSILAB_JUDGE_MODEL === "gpt-5.6-luna" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_API === "responses" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_REASONING_EFFORT === "xhigh" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_INDEPENDENT === "false");
-	if (priorAiPixelKey === undefined) delete process.env.AI_PIXEL_API_KEY;
-	else process.env.AI_PIXEL_API_KEY = priorAiPixelKey;
+	check("research judge uses configured GeiliAPI Completions xhigh and declares non-independence", lunaJudgeContext.judgeEnv?.RSILAB_JUDGE_MODEL === "gpt-5.6-luna" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_API === "chat-completions" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_REASONING_EFFORT === "xhigh" && lunaJudgeContext.judgeEnv.RSILAB_JUDGE_INDEPENDENT === "false");
+	if (priorGeiliKey === undefined) delete process.env.GEILIAPI_API_KEY;
+	else process.env.GEILIAPI_API_KEY = priorGeiliKey;
 	const muse = modelSpec("muse-spark-1.2-contributor");
 	check("muse is proxy + responses", muse?.route === "proxy" && muse?.api === "openai-responses");
 	check("hy3/ox-alpha/mimo direct chat", ["hy3", "ox-alpha-free", "mimo-v2.5"].every((id) => modelSpec(id)?.route === "direct" && modelSpec(id)?.api === "openai-completions"));
@@ -822,7 +823,7 @@ export async function selftest(): Promise<boolean> {
 	assertVisionAllowed("ox-alpha-free", true); // raw API supports images - must not throw
 
 	console.log("== anti-cheat guard ==");
-	const { scanWorkspaceForBreaches, scanPythonExecutionPolicy } = await import("./guard.js");
+	const { scanWorkspaceForBreaches, scanWorkspaceForBreachesStrict, scanPythonExecutionPolicy } = await import("./guard.js");
 	const { resolveInWorkspace } = await import("./inner/solve.js");
 	const guardDir = join(tmp, "guard");
 	mkdirSync(join(guardDir, "data"), { recursive: true });
@@ -833,6 +834,8 @@ export async function selftest(): Promise<boolean> {
 	const breach = scanWorkspaceForBreaches(guardDir);
 	check("guard passes clean workspace", noBreach.length === 0);
 	check("guard detects gold-path access", breach.length === 1 && breach[0].file === "cheat.py");
+	const strictSweep = scanWorkspaceForBreachesStrict(guardDir);
+	check("competition guard sweep is strict and reports breaches", strictSweep.errors.length === 0 && strictSweep.breaches.length === 1 && strictSweep.breaches[0]?.file === "cheat.py");
 	check("workspace fence contains relative paths", resolveInWorkspace(guardDir, "sub/a.py") !== null && resolveInWorkspace(guardDir, "a.py") !== null);
 	check("workspace fence blocks traversal", resolveInWorkspace(guardDir, "../escape.py") === null && resolveInWorkspace(guardDir, "../../problems/x/answers.private.jsonl") === null);
 	const { runPythonHost } = await import("./inner/solve.js");

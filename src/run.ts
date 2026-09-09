@@ -5,6 +5,7 @@
  *   npx tsx src/run.ts smoke               # 1 tiny live episode (quake_b, 2 turns)
  *   npx tsx src/run.ts exam [--scaffold path]  # full suite exam incl. held-out
  *   npx tsx src/run.ts research-demo [--run-name NAME] # deterministic full research package
+ *   npx tsx src/run.ts research-live --config config/research-competition-luna.json --mission path/to/mission.json [--plan path/to/plan.json] --run-name NAME
  *   npx tsx src/run.ts rsi [--gens N] [--resume] [--run-name NAME]
  */
 import { readFileSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
@@ -53,6 +54,26 @@ async function main() {
 		const result = await runDeterministicResearchDemo(runDir);
 		console.log(`RESEARCH_DEMO_OK competitionEligible=${result.competitionScore.eligible} evidence=${result.evidence.length} claims=${result.claims.length} replay=${result.replay.passed ? "PASS" : "FAIL"} artifacts=${runDir}`);
 		process.exit(result.replay.passed && result.computeReplay.passed ? 0 : 2);
+	}
+
+	if (cmd === "research-live") {
+		const missionPath = args.mission ? String(args.mission) : "";
+		if (!missionPath) {
+			console.error("research-live requires --mission <mission.json>");
+			process.exit(1);
+		}
+		const { runLunaResearchMissionFromFiles } = await import("./research/live.js");
+		const runName = args["run-name"] ? String(args["run-name"]) : `research-live-${Date.now()}`;
+		const runDir = join(ROOT, "runs", runName);
+		const result = await runLunaResearchMissionFromFiles({
+			cfg,
+			missionPath,
+			planPath: args.plan ? String(args.plan) : undefined,
+			runDir,
+			log: (message) => console.log(message),
+		});
+		console.log(`RESEARCH_LIVE_DONE eligible=${result.competitionScore.eligible} overall=${result.competitionScore.overall ?? "null"} replay=${result.replay.passed ? "PASS" : "FAIL"} computeReplay=${result.computeReplay.passed ? "PASS" : "FAIL"} artifacts=${runDir}`);
+		process.exit(result.competitionScore.eligible ? 0 : 2);
 	}
 
 	if (cmd === "smoke") {

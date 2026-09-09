@@ -7,7 +7,7 @@
  * references and protect against configuration regressions.
  */
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 
 const PROTECTED_PATTERNS = [
@@ -118,6 +118,40 @@ export function scanWorkspaceForBreaches(workspace: string): GuardBreach[] {
 	};
 	walk(workspace, "");
 	return breaches;
+}
+
+export interface GuardSweepResult {
+	breaches: GuardBreach[];
+	errors: string[];
+}
+
+/** Strict variant for competition finalization: every traversed entry/read must succeed. */
+export function scanWorkspaceForBreachesStrict(workspace: string): GuardSweepResult {
+	const breaches: GuardBreach[] = [];
+	const errors: string[] = [];
+	const walk = (dir: string, rel: string): void => {
+		let entries: string[];
+		try { entries = readdirSync(dir); }
+		catch (error) { errors.push(`${rel || dir}: cannot enumerate (${error instanceof Error ? error.message : String(error)})`); return; }
+		for (const entry of entries) {
+			if (entry === "data" || entry === "node_modules") continue;
+			const abs = join(dir, entry);
+			const relPath = rel ? `${rel}/${entry}` : entry;
+			let stat;
+			try { stat = lstatSync(abs); }
+			catch (error) { errors.push(`${relPath}: cannot inspect (${error instanceof Error ? error.message : String(error)})`); continue; }
+			if (stat.isSymbolicLink()) { errors.push(`${relPath}: symbolic links are not scannable`); continue; }
+			if (stat.isDirectory()) { walk(abs, relPath); continue; }
+			if (!stat.isFile() || !SCAN_EXTS.has(entry.slice(entry.lastIndexOf(".")).toLowerCase())) continue;
+			if (stat.size > MAX_FILE_BYTES) { errors.push(`${relPath}: file exceeds scan limit`); continue; }
+			let text: string;
+			try { text = readFileSync(abs, "utf8"); }
+			catch (error) { errors.push(`${relPath}: cannot read (${error instanceof Error ? error.message : String(error)})`); continue; }
+			for (const pat of PROTECTED_PATTERNS) if (text.includes(pat)) { breaches.push({ file: relPath, pattern: pat }); break; }
+		}
+	};
+	walk(workspace, "");
+	return { breaches, errors };
 }
 
 /** Scan free text (e.g. the tool-call arg log) with the same patterns. */

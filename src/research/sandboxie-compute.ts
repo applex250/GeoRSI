@@ -1,5 +1,5 @@
 /** Fail-closed scientific-compute tool contract; concrete ports must use Sandboxie and never host fallback. */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { assertExchangeWorkspace } from "../workspace-tools.js";
@@ -10,12 +10,15 @@ import type { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import type { EvidenceRef } from "./contracts.js";
 import type { ScientificTool } from "./tool-registry.js";
 import { sanitizeResearchEvidence } from "./event-ledger.js";
+import type { NetworkFetchPort, NetworkFetchRequest, NetworkFetchResponse } from "./network-tools.js";
 
 export interface SandboxieComputeRequest {
 	missionId: string;
 	nodeId: string;
 	purpose: string;
 	script: string;
+	/** Optional fixed relative result file written in the exchange workspace. */
+	resultFile?: string;
 	timeoutMs: number;
 	networkMode: "blocked" | "open";
 }
@@ -35,6 +38,9 @@ export interface SandboxieComputeRunReceipt {
 	generatedEvidence: EvidenceRef[];
 	cleanup: SandboxieCleanupResult;
 	error?: string;
+	/** Bounded exchange-file output for structured/binary-safe tool results. */
+	result?: string;
+	resultFile?: string;
 	scriptSha256: string;
 }
 
@@ -54,6 +60,11 @@ export interface SandboxiePythonComputePortOptions {
 	log?: (message: string) => void;
 }
 
+function safeResultFile(value: string): string {
+	if (!value || value.includes("..") || value.includes("/") || value.includes("\\") || value.startsWith(".")) throw new Error(`Sandboxie compute resultFile must be one safe basename: ${value}`);
+	return value;
+}
+
 function incompleteCleanup(error: unknown): SandboxieCleanupResult {
 	return { terminated: false, deletedData: false, removedConfig: false, reloaded: false, boxStillEnabled: true, globalWfpRestored: false, leaseReleased: false, errors: [error instanceof Error ? error.message : String(error)] };
 }
@@ -69,6 +80,7 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 	}
 
 	async run(request: SandboxieComputeRequest): Promise<SandboxieComputeRunReceipt> {
+		if (request.networkMode !== this.options.networkMode) throw new Error(`Sandboxie compute request network mode ${request.networkMode} does not match configured mode ${this.options.networkMode}`);
 		const id = `${request.nodeId}-${++this.counter}-${randomUUID().slice(0, 8)}`;
 		this.requests.set(id, { ...request });
 		const cwd = join(this.options.workspace, "compute", id);
@@ -81,11 +93,19 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 		let record: SandboxieBoxRecord | undefined;
 		let run: Awaited<ReturnType<SandboxieAdapter["runPython"]>> | undefined;
 		let runError: unknown;
+		let resultText: string | undefined;
 		let cleanup: SandboxieCleanupResult;
 		try {
 			record = await this.options.adapter.prepareBox({ name: generatedBoxName, exchangeWorkspace: cwd, repoRoot: this.options.repoRoot, privateRoot: this.options.privateRoot, additionalProtectedRoots: this.options.additionalProtectedRoots, networkMode: request.networkMode });
 			try { run = await this.options.adapter.runPython({ boxName: record.name, pythonCmd: this.options.pythonCmd, scriptPath, cwd, stdoutPath, stderrPath, timeoutMs: request.timeoutMs }); }
 			catch (error) { runError = error; }
+			if (!runError && request.resultFile) {
+				try {
+					const content = readFileSync(join(cwd, safeResultFile(request.resultFile)));
+					if (content.byteLength > 50_000_000) throw new Error("Sandboxie compute result file exceeded 50MB");
+					resultText = content.toString("utf8");
+				} catch (error) { runError = error; }
+			}
 			cleanup = await this.options.adapter.cleanupBox(record);
 		} catch (error) {
 			runError = runError ?? error;
@@ -95,6 +115,8 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 			version: 1, id, backend: "sandboxie-app-level", boxName: record?.name ?? generatedBoxName, networkMode: request.networkMode,
 			processOwnershipVerified: !!run && run.targetPids.length > 0, targetPids: run?.targetPids ?? [], exitCode: run?.exitCode ?? null, timedOut: run?.timedOut ?? false,
 			stdout: run?.stdout ?? "", stderr: run?.stderr ?? (runError ? String(runError) : ""), generatedEvidence: [], cleanup, error: runError ? String(runError).slice(0, 500) : undefined,
+			result: resultText,
+			resultFile: request.resultFile,
 			scriptSha256: createHash("sha256").update(request.script).digest("hex"),
 		};
 		this.options.log?.(`[research] Sandboxie compute ${id}: exit=${receipt.exitCode} cleanup=${cleanup.errors.length === 0 ? "ok" : "failed"}`);
@@ -102,14 +124,42 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 	}
 
 	async replay(receipts: readonly SandboxieComputeRunReceipt[]): Promise<ComputeReplayAttestation> {
-		if (receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, receipt.networkMode).length > 0)) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+		if (receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, this.options.networkMode).length > 0)) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 		for (const original of receipts) {
 			const request = this.requests.get(original.id);
 			if (!request || createHash("sha256").update(request.script).digest("hex") !== original.scriptSha256) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 			const replayed = await this.run(request);
-			if (validateSandboxieComputeReceipt(replayed, request.networkMode).length > 0 || replayed.exitCode !== original.exitCode || replayed.timedOut !== original.timedOut || replayed.stdout !== original.stdout || replayed.stderr !== original.stderr) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+			if (validateSandboxieComputeReceipt(replayed, request.networkMode).length > 0 || replayed.exitCode !== original.exitCode || replayed.timedOut !== original.timedOut || replayed.stdout !== original.stdout || replayed.stderr !== original.stderr || replayed.result !== original.result) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 		}
 		return { passed: true, backend: "sandboxie-app-level", processOwnershipVerified: receipts.every((receipt) => receipt.processOwnershipVerified) };
+	}
+}
+
+/** Network adapter that performs the HTTP request inside a fresh Sandboxie box. */
+export class SandboxieNetworkFetchPort implements NetworkFetchPort {
+	constructor(private readonly compute: SandboxieResearchComputePort, private readonly missionId: string, private readonly networkMode: "blocked" | "open", private readonly onReceipt?: (receipt: SandboxieComputeRunReceipt) => void) {}
+
+	async fetch(request: NetworkFetchRequest): Promise<NetworkFetchResponse> {
+		if (!/^https?:$/i.test(new URL(request.url).protocol)) throw new Error("Sandboxie network fetch only permits HTTP(S)");
+		const script = [
+			"import base64, json, urllib.request",
+			`url = ${JSON.stringify(request.url)}`,
+			`method = ${JSON.stringify(request.method)}`,
+			`limit = ${Math.floor(request.maxBytes)}`,
+			`req = urllib.request.Request(url, method=method, headers={"User-Agent": "GeoRSI/1.0"})`,
+			`with urllib.request.urlopen(req, timeout=${Math.max(1, request.timeoutMs) / 1000}) as response:`,
+			"    body = response.read(limit + 1)",
+			"    payload = {\"status\": response.status, \"final_url\": response.geturl(), \"headers\": {str(k).lower(): str(v) for k, v in response.headers.items()}, \"too_large\": len(body) > limit, \"body_b64\": base64.b64encode(body[:limit]).decode(\"ascii\")}",
+			"    open(\"result.json\", \"w\", encoding=\"utf-8\").write(json.dumps(payload, separators=(\",\", \":\")))",
+		].join("\n");
+		const receipt = await this.compute.run({ missionId: this.missionId, nodeId: "network-fetch", purpose: `HTTP ${request.method} ${request.url}`, script, resultFile: "result.json", timeoutMs: request.timeoutMs, networkMode: this.networkMode });
+		this.onReceipt?.(receipt);
+		const line = receipt.result;
+		if (!line) throw new Error(`Sandboxie network fetch produced no response payload (exit=${receipt.exitCode})`);
+		const payload = JSON.parse(line) as { status: number; final_url: string; headers: Record<string, string>; too_large: boolean; body_b64: string };
+		if (payload.too_large) throw new Error(`Sandboxie network fetch exceeded maxBytes=${request.maxBytes}`);
+		const body = request.method === "HEAD" ? Buffer.alloc(0) : Buffer.from(payload.body_b64, "base64");
+		return { finalUrl: payload.final_url, status: payload.status, headers: payload.headers, body, retrievedAt: new Date().toISOString() };
 	}
 }
 
@@ -125,6 +175,8 @@ export function validateSandboxieComputeReceipt(receipt: SandboxieComputeRunRece
 	if (!receipt.processOwnershipVerified || receipt.targetPids.length === 0 || receipt.targetPids.some((pid) => !Number.isSafeInteger(pid) || pid <= 0)) issues.push("Sandboxie compute process ownership was not verified");
 	if (receipt.exitCode !== 0 || receipt.timedOut) issues.push(`Sandboxie compute failed: exit=${receipt.exitCode} timeout=${receipt.timedOut}`);
 	if (!sandboxieCleanupComplete(receipt.cleanup)) issues.push("Sandboxie compute cleanup is incomplete");
+	if (receipt.error) issues.push(`Sandboxie compute reported an error: ${receipt.error}`);
+	if (receipt.resultFile && typeof receipt.result !== "string") issues.push("Sandboxie compute result file is missing");
 	if (!receipt.id.trim() || !receipt.boxName.trim()) issues.push("Sandboxie compute receipt identity is missing");
 	if (!/^[a-f0-9]{64}$/i.test(receipt.scriptSha256)) issues.push("Sandboxie compute script hash is invalid");
 	return issues;
@@ -134,12 +186,13 @@ export function createSandboxiePythonResearchTool(input: {
 	port: SandboxieResearchComputePort;
 	evidenceStore: ContentAddressedEvidenceStore;
 	networkMode: "blocked" | "open";
+	capability?: string;
 	onRunReceipt?: (receipt: SandboxieComputeRunReceipt) => void;
 }): ScientificTool<{ purpose: string; script: string; timeoutMs?: number }, { receiptId: string; backend: string; boxName: string; exitCode: number; stdoutTail: string; stderrTail: string; evidenceIds: string[] }> {
 	return {
 		id: "sandboxie-python",
 		version: "1",
-		capability: "sandboxie-python",
+		capability: input.capability ?? "sandboxie-python",
 		validate: (value) => {
 			const request = value as { purpose?: unknown; script?: unknown; timeoutMs?: unknown };
 			const issues: string[] = [];
@@ -177,8 +230,9 @@ export function createSandboxiePythonResearchTool(input: {
 	};
 }
 
-export async function attestSandboxieComputeReplay(port: SandboxieResearchComputePort, receipts: readonly SandboxieComputeRunReceipt[]): Promise<ComputeReplayAttestation> {
-	if (receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, receipt.networkMode).length > 0)) {
+export async function attestSandboxieComputeReplay(port: SandboxieResearchComputePort, receipts: readonly SandboxieComputeRunReceipt[], expectedNetworkMode?: "blocked" | "open"): Promise<ComputeReplayAttestation> {
+	const expected = expectedNetworkMode ?? receipts[0]?.networkMode;
+	if (!expected || receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, expected).length > 0)) {
 		return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 	}
 	const attestation = await port.replay(receipts);

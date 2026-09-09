@@ -359,20 +359,21 @@ export class PiHarness {
 		try {
 			const stats = this.session.getSessionStats();
 			const tokenStats = stats?.tokens as { total?: number; input?: number; output?: number; cacheRead?: number; cacheWrite?: number } | undefined;
-			const total = tokenStats?.total ?? 0;
+			const total = typeof tokenStats?.total === "number" && Number.isSafeInteger(tokenStats.total) && tokenStats.total >= 0 ? tokenStats.total : 0;
+			const count = (value: number | undefined): number | undefined => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
 			tokens = Math.max(0, total - this.lastSessionTokens);
 			this.lastSessionTokens = total;
 			tokenDetail = {
-				input: typeof tokenStats?.input === "number" ? Math.max(0, tokenStats.input - this.lastTokenDetail.input) : undefined,
-				output: typeof tokenStats?.output === "number" ? Math.max(0, tokenStats.output - this.lastTokenDetail.output) : undefined,
-				cacheRead: typeof tokenStats?.cacheRead === "number" ? Math.max(0, tokenStats.cacheRead - this.lastTokenDetail.cacheRead) : undefined,
-				cacheWrite: typeof tokenStats?.cacheWrite === "number" ? Math.max(0, tokenStats.cacheWrite - this.lastTokenDetail.cacheWrite) : undefined,
+				input: count(tokenStats?.input) !== undefined ? Math.max(0, count(tokenStats?.input)! - this.lastTokenDetail.input) : undefined,
+				output: count(tokenStats?.output) !== undefined ? Math.max(0, count(tokenStats?.output)! - this.lastTokenDetail.output) : undefined,
+				cacheRead: count(tokenStats?.cacheRead) !== undefined ? Math.max(0, count(tokenStats?.cacheRead)! - this.lastTokenDetail.cacheRead) : undefined,
+				cacheWrite: count(tokenStats?.cacheWrite) !== undefined ? Math.max(0, count(tokenStats?.cacheWrite)! - this.lastTokenDetail.cacheWrite) : undefined,
 			};
 			this.lastTokenDetail = {
-				input: tokenStats?.input ?? this.lastTokenDetail.input,
-				output: tokenStats?.output ?? this.lastTokenDetail.output,
-				cacheRead: tokenStats?.cacheRead ?? this.lastTokenDetail.cacheRead,
-				cacheWrite: tokenStats?.cacheWrite ?? this.lastTokenDetail.cacheWrite,
+				input: count(tokenStats?.input) ?? this.lastTokenDetail.input,
+				output: count(tokenStats?.output) ?? this.lastTokenDetail.output,
+				cacheRead: count(tokenStats?.cacheRead) ?? this.lastTokenDetail.cacheRead,
+				cacheWrite: count(tokenStats?.cacheWrite) ?? this.lastTokenDetail.cacheWrite,
 			};
 		} catch {
 			/* stats are best-effort */
@@ -391,7 +392,7 @@ export class PiHarness {
 				const stopReason = typeof message.stopReason === "string" ? message.stopReason : undefined;
 				return {
 					id: typeof message.responseId === "string" && message.responseId ? message.responseId : `prompt-${t0}-call-${index + 1}`,
-					provider: typeof message.provider === "string" ? message.provider : modelMeta.id === "gpt-5.6-luna" ? "ai-pixel" : modelMeta.provider ?? "unknown",
+					provider: typeof message.provider === "string" ? message.provider : modelMeta.provider ?? "unknown",
 					model: typeof message.model === "string" ? message.model : modelMeta.id ?? "unknown",
 					requestedThinking: this.opts.thinkingLevel,
 					effectiveThinking: this.effectiveThinkingLevel,
@@ -415,7 +416,7 @@ export class PiHarness {
 			modelCalls: exactCalls,
 			modelCall: {
 				id: `prompt-${t0}-${this.lastSessionTokens}`,
-				provider: modelMeta.id === "gpt-5.6-luna" ? "ai-pixel" : modelMeta.provider ?? "unknown",
+				provider: modelMeta.provider ?? "unknown",
 				model: modelMeta.id ?? "unknown",
 				requestedThinking: this.opts.thinkingLevel,
 				effectiveThinking: this.effectiveThinkingLevel,
