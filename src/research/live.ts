@@ -69,7 +69,7 @@ export function createLinearResearchGraph(mission: ResearchMission, now = new Da
 	const criterion = mission.successCriteria.find((item) => item.required)?.id ?? mission.successCriteria[0]?.id ?? "research-evidence";
 	// Tool-loop nodes legitimately make many model calls within one node: the
 	// per-node budget must bound the AGGREGATE loop, not force a single call.
-	const budget = { wallMs: 20 * 60 * 1000, maxModelCalls: 32, maxToolCalls: 32, maxOutputTokens: 131_072, maxAttempts: 2 };
+	const budget = { wallMs: 30 * 60 * 1000, maxModelCalls: 40, maxToolCalls: 32, maxOutputTokens: 131_072, maxAttempts: 2 };
 	const nodes = mission.taskProfile.requiredStages.map((kind, index) => createWorkNode({
 		id: `${String(index + 1).padStart(2, "0")}-${kind}`,
 		kind,
