@@ -21,10 +21,10 @@ const STAGES: Record<ResearchTaskFamily, WorkNodeKind[]> = {
 };
 
 const CAPABILITIES: Record<ResearchTaskFamily, string[]> = {
-	quantitative: ["filesystem", "python", "statistics", "artifact-register", "claim-record"],
-	"gis-remote-sensing": ["filesystem", "python", "gis", "artifact-register", "claim-record"],
-	"literature-hypothesis": ["filesystem", "network", "literature", "citation", "claim-record"],
-	capstone: ["filesystem", "network", "literature", "python", "statistics", "gis", "citation", "artifact-register", "claim-record"],
+	quantitative: ["filesystem", "python", "statistics", "artifact-register", "claim-record", "context-memory"],
+	"gis-remote-sensing": ["filesystem", "python", "gis", "artifact-register", "claim-record", "context-memory"],
+	"literature-hypothesis": ["filesystem", "network", "literature", "citation", "claim-record", "context-memory"],
+	capstone: ["filesystem", "network", "literature", "python", "statistics", "gis", "citation", "artifact-register", "claim-record", "context-memory"],
 };
 
 function inferFamily(input: ResearchTaskProfileInput): ResearchTaskFamily {

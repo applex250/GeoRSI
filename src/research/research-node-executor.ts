@@ -12,6 +12,7 @@ import { sanitizeResearchEvidence, stableJson } from "./event-ledger.js";
 import { requiredFamilyVerifierProfiles, validateModelCallReceipt, type FamilyVerificationAttestation, type ModelCallReceipt } from "./runtime-attestation.js";
 import type { NodeExecutionResult, NodeVerificationResult } from "./scheduler.js";
 import type { StrategyBundle } from "./strategy-bundle.js";
+import type { ResearchContextMemory } from "./context-memory.js";
 import { validateStrategyBundle } from "./strategy-bundle.js";
 import { roleOutputCap } from "./token-policy.js";
 import type { ScientificToolReceipt, ScientificToolRegistry } from "./tool-registry.js";
@@ -52,6 +53,8 @@ export interface ResearchNodeExecutorDeps {
 	createHarness?: (opts: HarnessOpts) => ResearchHarness;
 	onModelReceipt?: (receipt: ModelCallReceipt) => void;
 	onToolReceipt?: (receipt: ScientificToolReceipt) => void;
+	/** Optional run-scoped read-only context memory fed by node submissions. */
+	contextMemory?: ResearchContextMemory;
 	now?: () => Date;
 	stallMs?: number;
 }
@@ -265,6 +268,14 @@ export function buildResearchNodeContext(input: {
 		{ id: "research-policy", kind: "policy", mandatory: true, priority: 100, content: "Use only the exposed scientific tools. Never invent evidence IDs. Record concise externally reviewable decisions, uncertainty, and falsifiers; do not provide hidden chain-of-thought. Finish by calling submit_research_node_output exactly once." },
 		{ id: `mission-${mission.id}`, kind: "mission", mandatory: true, priority: 100, content: stableJson(mission) },
 		{ id: `node-${node.id}`, kind: "node", mandatory: true, priority: 100, content: stableJson({ id: node.id, kind: node.kind, title: node.title, expectedOutputs: node.expectedOutputs, acceptanceCriteriaIds: node.acceptanceCriteriaIds, allowedCapabilities: node.allowedCapabilities }) },
+		{ id: `graph-${graph.missionId}`, kind: "graph", mandatory: true, priority: 95, content: (() => {
+			const downstream = graph.nodes.filter((candidate) => candidate.dependsOn.includes(node.id)).map((candidate) => candidate.id);
+			const lines = [...graph.nodes].sort((left, right) => left.id.localeCompare(right.id)).map((candidate) => {
+				const marker = candidate.id === node.id ? "  <-- YOU ARE HERE" : downstream.includes(candidate.id) ? "  <-- your downstream" : "";
+				return `${candidate.id} [${candidate.kind}] depends:[${candidate.dependsOn.join(",")}]${marker}`;
+			});
+			return `mission work graph (${graph.nodes.length} nodes; call context-recall {list:true} for current progress and committed memory):\n${lines.join("\n")}`.slice(0, 8000);
+		})() },
 		{ id: `budget-${node.id}`, kind: "budget", mandatory: true, priority: 100, content: stableJson(node.budget) },
 		...directDependencies.map((dependency) => ({ id: `dependency-${dependency.id}`, kind: "dependency" as const, mandatory: true, priority: 90, content: stableJson({ id: dependency.id, kind: dependency.kind, state: dependency.state, outputArtifactIds: dependency.outputArtifactIds, acceptanceEvidenceIds: dependency.acceptanceEvidenceIds }) })),
 		...relevantEvidence.map((reference) => ({ id: `evidence-${reference.id}`, kind: "evidence" as const, mandatory: false, priority: 80, sourceHash: reference.sha256, content: stableJson(reference).slice(0, strategy.context.artifactSummaryChars) })),
@@ -333,6 +344,7 @@ export class ResearchNodeExecutor {
 		]);
 		const evidence = evidenceIds.map((id) => this.deps.evidenceById(id)).filter((reference): reference is EvidenceRef => !!reference);
 		if (evidence.length !== evidenceIds.length) throw new Error(`node ${node.id} context references unknown evidence`);
+		this.deps.contextMemory?.syncGraphState(graph.nodes.map((candidate) => ({ id: candidate.id, state: candidate.state, attempts: candidate.attempts })));
 		const context = buildResearchNodeContext({ mission: this.deps.mission, strategy: this.deps.strategy, node, graph, evidence });
 		const startedAt = Date.now();
 		const remainingWallMs = (): number => Math.max(0, node.budget.wallMs - (Date.now() - startedAt));
@@ -580,6 +592,7 @@ export class ResearchNodeExecutor {
 			contraryEvidenceLinks: canonicalContraryLinks,
 		}, { kind: "tool-output", logicalName: `${node.id}-submission.json`, producerNodeId: node.id });
 		this.deps.registerEvidence(submissionReference);
+		this.deps.contextMemory?.commit(node.id, { id: submissionReference.id, sha256: submissionReference.sha256 }, persistedSubmission);
 		return {
 			artifactIds: unique([...canonicalArtifacts, ...Object.values(verificationInputEvidenceIds), submissionReference.id]),
 			metadata: { nodeSubmissionEvidenceId: submissionReference.id, verificationInputEvidenceIds, verificationEvidenceIds, contextFingerprint: context.fingerprint, role },

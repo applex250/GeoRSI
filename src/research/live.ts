@@ -22,6 +22,7 @@ import { persistResearchDeliverables } from "./deliverable-store.js";
 import { runResearchOrchestrator, type ResearchRunResult } from "./orchestrator.js";
 import { ResearchNodeExecutor, type ResearchNodeSubmission } from "./research-node-executor.js";
 import { ScientificToolRegistry } from "./tool-registry.js";
+import { createContextRecallTool, ResearchContextMemory } from "./context-memory.js";
 import { createWebFetchTool } from "./network-tools.js";
 import { attestSandboxieComputeReplay, createSandboxiePythonResearchTool, SandboxieNetworkFetchPort, SandboxiePythonComputePort, sandboxieCleanupComplete, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt } from "./sandboxie-compute.js";
 import { SEED_STRATEGY_BUNDLE, strategyBundleFingerprint, validateStrategyBundle, type StrategyBundle } from "./strategy-bundle.js";
@@ -204,15 +205,18 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		toolReceipts.push(receipt.id);
 		ledger.append({ missionId: options.mission.id, episodeId: options.mission.id, nodeId: receipt.nodeId, actor: "tool", type: "scientific-tool-receipt", status: receipt.status === "success" ? "success" : "failure", inputHash: receipt.inputHash, outputHash: receipt.outputHash, artifactIds: receipt.artifactIds, payload: { toolId: receipt.toolId, wallMs: receipt.wallMs, exitCode: receipt.exitCode, error: receipt.error } });
 	});
+	const contextMemory = new ResearchContextMemory({ evidenceStore, evidenceById: (id) => evidenceById.get(id) });
 	const sandboxAdapter = SandboxieAdapter.fromConfig(options.cfg, log);
 	const computePort = new SandboxiePythonComputePort({ adapter: sandboxAdapter, pythonCmd, workspace: exchangeRoot, repoRoot, privateRoot, networkMode, log });
 	const networkPort = new SandboxieNetworkFetchPort(computePort, options.mission.id, networkMode, (receipt) => computeReceipts.push(receipt));
 	registry.register(createWebFetchTool(networkPort, evidenceStore, now));
+	registry.register(createContextRecallTool({ memory: contextMemory }));
 	registry.register(createSandboxiePythonResearchTool({ port: computePort, evidenceStore, networkMode, capability: "python", onRunReceipt: (receipt) => computeReceipts.push(receipt) }));
 	const executor = new ResearchNodeExecutor({
 		mission: options.mission,
 		strategy,
 		modelPolicy: researchPolicy,
+		contextMemory,
 		model: runtime.inner,
 		cwdForNode: (nodeId, attempt) => {
 			const nodeToken = createHash("sha256").update(nodeId).digest("hex").slice(0, 16);
@@ -225,6 +229,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		registerEvidence: (reference) => evidenceById.set(reference.id, reference),
 		toolRegistry: registry,
 		toolBindings: [
+			{ toolId: "context-recall", description: "Inspect and recall committed run context memory. Call {list:true} first to see which nodes have committed memory and what artifacts/decisions/verifications exist; then filter by node/field, search by query, or fetch a listed evidenceId for verified content.", parameters: Type.Object({ list: Type.Optional(Type.Union([Type.Literal(true), Type.Literal("nodes"), Type.Literal("artifacts")])), node: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })), field: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("decisions"), Type.Literal("artifacts"), Type.Literal("verifications"), Type.Literal("all")])), query: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })), evidenceId: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })), topK: Type.Optional(Type.Integer({ minimum: 1, maximum: 10 })), maxChars: Type.Optional(Type.Integer({ minimum: 200, maximum: 20_000 })) }) },
 			{ toolId: "web-fetch", description: "Fetch one bounded HTTP(S) scholarly/data source inside the configured Sandboxie network policy.", parameters: Type.Object({ url: Type.String({ minLength: 1, maxLength: 2000 }), method: Type.Optional(Type.Union([Type.Literal("GET"), Type.Literal("HEAD")])), timeoutMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 120_000 })), maxBytes: Type.Optional(Type.Integer({ minimum: 1, maximum: 5_000_000 })) }) },
 			{ toolId: "sandboxie-python", description: "Run a bounded Python/GIS computation in a newly prepared Sandboxie box with verified PID ownership and cleanup.", parameters: Type.Object({ purpose: Type.String({ minLength: 1, maxLength: 500 }), script: Type.String({ minLength: 1, maxLength: 250_000 }), timeoutMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 900_000 })) }) },
 		],

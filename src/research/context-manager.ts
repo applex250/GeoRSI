@@ -1,7 +1,7 @@
 /** Bounded context assembly for node-scoped long-horizon workers. */
 import { createHash } from "node:crypto";
 
-export type ContextBlockKind = "policy" | "mission" | "node" | "dependency" | "evidence" | "claim" | "recipe" | "budget";
+export type ContextBlockKind = "policy" | "mission" | "node" | "graph" | "dependency" | "evidence" | "claim" | "recipe" | "budget";
 
 export interface ContextBlock {
 	id: string;
@@ -61,7 +61,7 @@ export function buildContextPack(blocks: readonly ContextBlock[], budgetTokens: 
 		} else skipped.push(block.id);
 	}
 	selected.sort((left, right) => {
-		const order: ContextBlockKind[] = ["policy", "mission", "node", "dependency", "evidence", "claim", "recipe", "budget"];
+		const order: ContextBlockKind[] = ["policy", "mission", "node", "graph", "dependency", "evidence", "claim", "recipe", "budget"];
 		return order.indexOf(left.kind) - order.indexOf(right.kind) || right.priority - left.priority || left.id.localeCompare(right.id);
 	});
 	const entries = selected.map((block) => ({ id: block.id, kind: block.kind, chars: block.content.length, estimatedTokens: estimateContextTokens(block.content), mandatory: block.mandatory, priority: block.priority, sourceHash: blockHash(block) }));
