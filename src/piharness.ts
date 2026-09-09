@@ -17,7 +17,7 @@
 import { AgentSession, createAgentSession, DefaultResourceLoader, SessionManager, SettingsManager } from "@earendil-works/pi-coding-agent";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
 import { getProfile, resolveThinking, type ThinkingLevel } from "./models.js";
@@ -210,7 +210,10 @@ export class PiHarness {
 
 	async init(): Promise<void> {
 		mkdirSync(this.opts.cwd, { recursive: true });
-		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(this.opts.cwd, "prompt_diag.jsonl") : null;
+		// RSILAB_PROMPT_DIAG enables per-node session diagnostics; RSILAB_PROMPT_DIAG_DIR
+		// redirects them out of the exchange workspace so failed-run evidence survives cleanup.
+		const diagDir = process.env.RSILAB_PROMPT_DIAG_DIR || this.opts.cwd;
+		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(diagDir, `prompt_diag-${basename(this.opts.cwd)}.jsonl`) : null;
 		const thinkingLevel = resolveHarnessThinking(this.opts.model, this.opts.thinkingLevel);
 		this.effectiveThinkingLevel = thinkingLevel;
 		// Fully isolated resource loading: our system prompt only, no ambient
