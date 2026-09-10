@@ -531,7 +531,8 @@ export class ResearchNodeExecutor {
 					continue;
 				}
 				// The input artifact must be the JSON result file itself — not the script/stdout — and
-				// must carry the verifier's required fields (luna-smoke-007 lesson).
+				// must carry the verifier's required fields for ITS OWN profile (smoke-018: report node
+				// volunteered a quantitative verification with a non-audit artifact).
 				const inputReference = this.deps.evidenceById(verification.inputArtifactId);
 				if (!inputReference || !this.deps.evidenceStore.verify(inputReference)) {
 					issues.push(`verifier input artifact is not readable canonical evidence: ${verification.inputArtifactId}`);
@@ -543,8 +544,7 @@ export class ResearchNodeExecutor {
 					issues.push(`verifier input artifact ${verification.inputArtifactId.slice(0, 24)}… is not JSON — reference the resultFile artifact (resultArtifactId in the tool output), not the script/stdout artifacts`);
 					continue;
 				}
-				const expectedProfile = profileForNode(node.kind);
-				if (expectedProfile) issues.push(...validateFamilyVerifierInputStructure(expectedProfile, payload));
+				issues.push(...validateFamilyVerifierInputStructure(verification.profile, payload));
 			}
 			const claimIds = new Set<string>();
 			for (const claim of captured.claims ?? []) {
@@ -636,8 +636,9 @@ export class ResearchNodeExecutor {
 			await harness.init();
 		const verifierProfile = expectedProfilesForNode(node.kind, this.deps.mission);
 		const synthesisHint = node.kind === "synthesis" ? "\n\nSYNTHESIS NOTE: your verifications[0].input_artifact must be a complete quantitative audit JSON. Either (a) reference the audit JSON artifact already produced by the verification/analysis node (see your dependency evidence artifact ids), or (b) recompute independently via the compute tool's resultFile. Do NOT submit a narrative summary as the verifier input." : "";
+		const optionalVerificationHint = verifierProfile.length === 0 ? "\n\nNOTE: this node performs no family audit of its own — you may submit an EMPTY verifications array ([]). Only include a verification if its input artifact is a complete audit JSON of that profile's shape." : "";
 		const verifierContract = verifierProfile.length > 0 ? `\n\nVERIFIER INPUT CONTRACT: this node must submit ${verifierProfile.length} verification entr${verifierProfile.length === 1 ? "y" : "ies"} with profile ${verifierProfile.join(", ")}. Each verification input artifact must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile[0]!]}${node.kind === "verification" ? " — this is an INDEPENDENT re-derivation: recompute from the raw data yourself and emit your own complete audit JSON, not a copy of the analysis node's summary." : ""}` : "";
-		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}${synthesisHint}`, remainingWallMs());
+		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}${synthesisHint}${optionalVerificationHint}`, remainingWallMs());
 			for (const receipt of outcome.modelCalls ?? (outcome.modelCall ? [outcome.modelCall] : [])) observedReceipts.push(receipt);
 			// Submission nudge (luna-smoke-012/013 sensitivity pattern): the model sometimes ends its
 			// turn with plain text after finishing the computations, never calling submit. One bounded
