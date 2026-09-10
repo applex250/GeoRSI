@@ -11,7 +11,7 @@ import { sanitizeExecutionEnvironment } from "../process-env.js";
 import { assertExchangeWorkspace, readWorkspaceFileStrict } from "../workspace-tools.js";
 import type { SandboxieCleanupResult } from "../sandboxie-cleanup.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
-import { validateHostComputeReceipt, type SandboxieComputeRequest, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
+import { scanFigureFiles, validateHostComputeReceipt, type SandboxieComputeRequest, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
 
 const MAX_CAPTURE_BYTES = 2_000_000;
 
@@ -114,6 +114,10 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 		}
 		if (request.signal?.aborted) runError = runError ?? new Error("host-audit compute aborted by signal");
 		let resultText: string | undefined;
+		let figureFiles: { filename: string; sha256: string; base64: string }[] | undefined;
+		if (!runError) {
+			try { figureFiles = scanFigureFiles(cwd, this.options.log); } catch { /* figures are best-effort */ }
+		}
 		if (!runError && request.resultFile) {
 			try {
 				resultText = readWorkspaceFileStrict(cwd, join(cwd, safeResultFile(request.resultFile)), 50_000_000).toString("utf8");
@@ -138,6 +142,7 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 			result: resultText,
 			resultFile: request.resultFile,
 			scriptSha256: createHash("sha256").update(request.script).digest("hex"),
+			figureFiles,
 		};
 		this.options.log?.(`[research] host-audit compute ${id}: exit=${receipt.exitCode} wall=${Date.now() - started}ms`);
 		return receipt;

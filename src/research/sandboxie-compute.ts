@@ -1,5 +1,5 @@
 /** Fail-closed scientific-compute tool contract; concrete ports must use Sandboxie and never host fallback. */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { assertExchangeWorkspace, readWorkspaceFileStrict } from "../workspace-tools.js";
@@ -47,6 +47,8 @@ export interface SandboxieComputeRunReceipt {
 	result?: string;
 	resultFile?: string;
 	scriptSha256: string;
+	/** Figures written by the script into its working directory (bounded, base64). */
+	figureFiles?: { filename: string; sha256: string; base64: string }[];
 }
 
 export interface SandboxieResearchComputePort {
@@ -63,6 +65,27 @@ export interface SandboxiePythonComputePortOptions {
 	additionalProtectedRoots?: readonly string[];
 	networkMode: "blocked" | "open";
 	log?: (message: string) => void;
+}
+
+/** Bounded scan for PNG figures the script wrote into its working directory. */
+export function scanFigureFiles(cwd: string, log?: (message: string) => void): { filename: string; sha256: string; base64: string }[] {
+	const figures: { filename: string; sha256: string; base64: string }[] = [];
+	let totalBytes = 0;
+	try {
+		for (const name of readdirSync(cwd).filter((file) => file.toLowerCase().endsWith(".png")).sort()) {
+			if (figures.length >= 4) break;
+			const full = join(cwd, name);
+			const size = statSync(full).size;
+			if (size <= 0 || size > 2_000_000 || totalBytes + size > 4_000_000) continue;
+			const content = readFileSync(full);
+			const sha256 = createHash("sha256").update(content).digest("hex");
+			figures.push({ filename: name, sha256, base64: content.toString("base64") });
+			totalBytes += size;
+		}
+	} catch (error) {
+		log?.(`[research] figure scan skipped: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	return figures;
 }
 
 function safeResultFile(value: string): string {
@@ -100,6 +123,7 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 		let run: Awaited<ReturnType<SandboxieAdapter["runPython"]>> | undefined;
 		let runError: unknown;
 		let resultText: string | undefined;
+		let receiptFigureFiles: { filename: string; sha256: string; base64: string }[] | undefined;
 		let cleanup: SandboxieCleanupResult;
 		const abortBox = (): void => {
 			if (record) {
@@ -113,6 +137,9 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 			try { run = await this.options.adapter.runPython({ boxName: record.name, pythonCmd: this.options.pythonCmd, scriptPath, cwd, stdoutPath, stderrPath, timeoutMs: request.timeoutMs }); }
 			catch (error) { runError = error; }
 			if (request.signal?.aborted) runError = runError ?? new Error("Sandboxie compute aborted by signal");
+			if (!runError) {
+				try { receiptFigureFiles = scanFigureFiles(cwd, this.options.log); } catch { /* figures are best-effort */ }
+			}
 			if (!runError && request.resultFile) {
 				try {
 					const content = readWorkspaceFileStrict(cwd, join(cwd, safeResultFile(request.resultFile)), 50_000_000);
@@ -133,6 +160,7 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 			result: resultText,
 			resultFile: request.resultFile,
 			scriptSha256: createHash("sha256").update(request.script).digest("hex"),
+			figureFiles: receiptFigureFiles,
 		};
 		this.options.log?.(`[research] Sandboxie compute ${id}: exit=${receipt.exitCode} cleanup=${cleanup.errors.length === 0 ? "ok" : "failed"}`);
 		return receipt;
@@ -257,6 +285,11 @@ export function createSandboxiePythonResearchTool(input: {
 			const scriptEvidence = input.evidenceStore.putText(request.script, { kind: "script", logicalName: `${context.nodeId}-sandboxie.py`, producerNodeId: context.nodeId, mediaType: "text/x-python" });
 			const stdoutEvidence = input.evidenceStore.putText(String(sanitizeResearchEvidence(receipt.stdout)), { kind: "tool-output", logicalName: `${context.nodeId}-stdout.txt`, producerNodeId: context.nodeId, mediaType: "text/plain" });
 			const evidenceRefs = [scriptEvidence, stdoutEvidence, ...receipt.generatedEvidence];
+			for (const figure of receipt.figureFiles ?? []) {
+				const figureEvidence = input.evidenceStore.putBuffer(Buffer.from(figure.base64, "base64"), { kind: "figure", logicalName: `${context.nodeId}-${figure.filename}`, producerNodeId: context.nodeId, mediaType: "image/png" });
+				if (!input.evidenceStore.verify(figureEvidence)) throw new Error(`figure evidence failed integrity: ${figureEvidence.id}`);
+				evidenceRefs.push(figureEvidence);
+			}
 			if (receipt.stderr) evidenceRefs.push(input.evidenceStore.putText(String(sanitizeResearchEvidence(receipt.stderr)), { kind: "tool-output", logicalName: `${context.nodeId}-stderr.txt`, producerNodeId: context.nodeId, mediaType: "text/plain" }));
 			let resultArtifactId: string | undefined;
 			if (typeof receipt.result === "string" && request.resultFile) {
