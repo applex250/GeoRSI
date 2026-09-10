@@ -150,16 +150,22 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 
 	async replay(receipts: readonly SandboxieComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation> {
 		if (receipts.length === 0 || receipts.some((receipt) => validateHostComputeReceipt(receipt, receipt.networkMode).length > 0)) {
-			return { passed: false, backend: "host-audit", processOwnershipVerified: false };
+			return { passed: false, backend: "host-audit", processOwnershipVerified: false, detail: "recorded receipts failed host validation" };
 		}
 		for (const original of receipts) {
 			if (signal?.aborted) return { passed: false, backend: "host-audit", processOwnershipVerified: false };
 			const request = this.requests.get(original.id);
-			if (!request || createHash("sha256").update(request.script).digest("hex") !== original.scriptSha256) return { passed: false, backend: "host-audit", processOwnershipVerified: false };
+			if (!request || createHash("sha256").update(request.script).digest("hex") !== original.scriptSha256) return { passed: false, backend: "host-audit", processOwnershipVerified: false, detail: `${original.id}: recorded script hash not found` };
 			const replayed = await this.run({ ...request, signal });
-			if (validateHostComputeReceipt(replayed, request.networkMode).length > 0 || replayed.exitCode !== original.exitCode || replayed.timedOut !== original.timedOut || replayed.stdout !== original.stdout || replayed.stderr !== original.stderr || replayed.result !== original.result) {
-				return { passed: false, backend: "host-audit", processOwnershipVerified: false };
-			}
+			const invalid = validateHostComputeReceipt(replayed, request.networkMode);
+			if (invalid.length > 0) return { passed: false, backend: "host-audit", processOwnershipVerified: false, detail: `${original.id}: replayed receipt invalid (${invalid[0]})` };
+			const mismatches: string[] = [];
+			if (replayed.exitCode !== original.exitCode) mismatches.push(`exit ${original.exitCode} -> ${replayed.exitCode}`);
+			if (replayed.timedOut !== original.timedOut) mismatches.push("timeout flag");
+			if (replayed.stdout !== original.stdout) mismatches.push("stdout");
+			if (replayed.stderr !== original.stderr) mismatches.push("stderr");
+			if (replayed.result !== original.result) mismatches.push("result file");
+			if (mismatches.length > 0) return { passed: false, backend: "host-audit", processOwnershipVerified: false, detail: `${original.id} mismatched: ${mismatches.join(", ")}` };
 		}
 		return { passed: true, backend: "host-audit", processOwnershipVerified: receipts.every((receipt) => receipt.processOwnershipVerified) };
 	}

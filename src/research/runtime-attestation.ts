@@ -26,6 +26,8 @@ export interface ModelCallReceipt {
 
 export interface ComputeReplayAttestation {
 	passed: boolean;
+	/** When passed=false: which receipt/field mismatched (observability for determinism gaps). */
+	detail?: string;
 	backend: "sandboxie-app-level" | "host-audit" | "deterministic-test-double";
 	processOwnershipVerified: boolean;
 }

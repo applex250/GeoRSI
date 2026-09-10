@@ -185,19 +185,19 @@ export interface CommunicationDrafts {
 
 const REPORT_SECTIONS = ["Scientific Question and Value", "Hypotheses and Falsification", "Data Provenance and Quality", "Methods and Tool Chain", "Uncertainty and Sensitivity", "Reproducibility", "Evidence Index"];
 
-function reportDraftIssues(content: string): string[] {
+export function reportDraftIssues(content: string): string[] {
 	const issues: string[] = [];
 	for (const section of REPORT_SECTIONS) if (!content.includes(section)) issues.push(`missing section: ${section}`);
 	if ((content.match(/\[evidence:/g) ?? []).length < 3) issues.push("fewer than 3 evidence citations");
 	return issues;
 }
 
-function presentationDraftIssues(content: string): string[] {
+export function presentationDraftIssues(content: string): string[] {
 	const slides = (content.match(/^# Slide /gm) ?? []).length;
 	return slides === 8 ? [] : [`must contain exactly 8 slides, found ${slides}`];
 }
 
-function defenseDraftIssues(items: unknown, evidence: readonly EvidenceRef[]): { issues: string[]; normalized: { version: 1; items: DefenseItem[] } | undefined } {
+export function defenseDraftIssues(items: unknown, evidence: readonly EvidenceRef[]): { issues: string[]; normalized: { version: 1; items: DefenseItem[] } | undefined } {
 	if (!Array.isArray(items) || items.length < 12) return { issues: [`defense draft requires at least 12 items, found ${Array.isArray(items) ? items.length : 0}`], normalized: undefined };
 	const known = new Map(evidence.map((item) => [item.id, item]));
 	const normalizedItems: DefenseItem[] = [];

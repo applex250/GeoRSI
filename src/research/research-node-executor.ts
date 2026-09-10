@@ -8,6 +8,7 @@ import { PiHarness, toolOutput, type HarnessOpts, type PromptOutcome } from "../
 import type { EvidenceRef, HypothesisRecord, ResearchClaim, ResearchMission, ResearchWorkGraph, WorkNode, WorkNodeKind } from "./contracts.js";
 import { buildContextPack, type ContextBlock, type ContextPack } from "./context-manager.js";
 import type { ContentAddressedEvidenceStore } from "./evidence-store.js";
+import { defenseDraftIssues, presentationDraftIssues, reportDraftIssues } from "./deliverables.js";
 import { sanitizeResearchEvidence, stableJson } from "./event-ledger.js";
 import { requiredFamilyVerifierProfiles, validateModelCallReceipt, type FamilyVerificationAttestation, type ModelCallReceipt } from "./runtime-attestation.js";
 import type { NodeExecutionResult, NodeVerificationResult } from "./scheduler.js";
@@ -459,6 +460,7 @@ export class ResearchNodeExecutor {
 	private readonly now: () => Date;
 	private readonly createHarness: (opts: HarnessOpts) => ResearchHarness;
 	private readonly modelReceiptsValue: ModelCallReceipt[] = [];
+	private readonly failedModelReceiptsValue: ModelCallReceipt[] = [];
 	private readonly toolReceiptsValue: ScientificToolReceipt[] = [];
 	private readonly familyAttestations = new Map<string, FamilyVerificationAttestation>();
 	private readonly submissions = new Map<string, ResearchNodeSubmission>();
@@ -512,6 +514,10 @@ export class ResearchNodeExecutor {
 		for (const verification of snapshot.familyVerifications ?? []) this.familyAttestations.set(verification.profile, verification);
 		for (const receipt of snapshot.modelReceipts ?? []) this.modelReceiptsValue.push(receipt);
 		for (const receipt of snapshot.toolReceipts ?? []) this.toolReceiptsValue.push(receipt);
+	}
+
+	failedModelReceiptCount(): number {
+		return this.failedModelReceiptsValue.length;
 	}
 
 	researchSubmission(nodeId: string): ResearchNodeSubmission | undefined {
@@ -680,6 +686,35 @@ export class ResearchNodeExecutor {
 				if (!reference || reference.kind !== "source" || !claimIds.has(link.claimId)) issues.push("contrary evidence must bind a known source and claim");
 			}
 			if (node.kind === "synthesis" && (!captured.claims?.length || !captured.valueCard || !captured.narrative)) issues.push("synthesis node must submit claims, value card, and grounded narrative");
+			// Communication-node draft gates (F3): reject at submit time with actionable issues so
+			// the model fixes its deliverable in-session instead of silently falling back to templates.
+			const draftProbe = (suffix: string): { ref: EvidenceRef; content: string } | undefined => {
+				for (const id of captured.artifactIds) {
+					const reference = evidence.find((candidate) => candidate.id === id) ?? this.deps.evidenceById(id);
+					if (!reference || !reference.logicalName.endsWith(suffix)) continue;
+					try { return { ref: reference, content: this.deps.evidenceStore.read(reference).toString("utf8") }; } catch { return undefined; }
+				}
+				return undefined;
+			};
+			if (node.kind === "report") {
+				const draft = draftProbe("report.md");
+				if (!draft) issues.push("report node must produce report.md via the compute tool's resultFile (or record_research_artifact)");
+				else issues.push(...reportDraftIssues(draft.content).map((issue) => `report.md draft: ${issue}`));
+			}
+			if (node.kind === "presentation") {
+				const draft = draftProbe("presentation.md");
+				if (!draft) issues.push("presentation node must produce presentation.md via the compute tool's resultFile (or record_research_artifact)");
+				else issues.push(...presentationDraftIssues(draft.content).map((issue) => `presentation.md draft: ${issue}`));
+			}
+			if (node.kind === "defense") {
+				const draft = draftProbe("defense.json");
+				if (!draft) issues.push("defense node must produce defense.json via the compute tool's resultFile (or record_research_artifact)");
+				else {
+					const draftEvidence = [...evidence, ...captured.artifactIds.map((id) => this.deps.evidenceById(id)).filter((ref): ref is EvidenceRef => !!ref)];
+					try { issues.push(...defenseDraftIssues(JSON.parse(draft.content), draftEvidence).issues.map((issue) => `defense.json draft: ${issue}`)); }
+					catch { issues.push("defense.json draft: not valid JSON"); }
+				}
+			}
 			return issues;
 		};
 		const submitTool = defineTool({
@@ -770,7 +805,10 @@ export class ResearchNodeExecutor {
 		if (signal.aborted) throw new Error(`research node ${node.id} was aborted`);
 		for (const receipt of observedReceipts) {
 			receipt.nodeId = node.id;
-			this.modelReceiptsValue.push(receipt);
+			// Failed receipts (transient gateway blips) stay out of the attestation's modelCalls —
+			// they live in the ledger for honesty — but the node still fails closed on them.
+			if (receipt.success) this.modelReceiptsValue.push(receipt);
+			else this.failedModelReceiptsValue.push(receipt);
 			this.deps.onModelReceipt?.(receipt);
 		}
 		if (outcome.error || outcome.aborted || outcome.timedOut || outcome.stalled) throw new Error(`research node prompt failed: ${outcome.error ?? "aborted"}`);

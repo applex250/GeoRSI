@@ -167,13 +167,20 @@ export class SandboxiePythonComputePort implements SandboxieResearchComputePort 
 	}
 
 	async replay(receipts: readonly SandboxieComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation> {
-		if (receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, this.options.networkMode).length > 0)) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+		if (receipts.length === 0 || receipts.some((receipt) => validateSandboxieComputeReceipt(receipt, this.options.networkMode).length > 0)) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false, detail: "recorded receipts failed validation" };
 		for (const original of receipts) {
 			if (signal?.aborted) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 			const request = this.requests.get(original.id);
 			if (!request || createHash("sha256").update(request.script).digest("hex") !== original.scriptSha256) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
 			const replayed = await this.run({ ...request, signal });
-			if (validateSandboxieComputeReceipt(replayed, request.networkMode).length > 0 || replayed.exitCode !== original.exitCode || replayed.timedOut !== original.timedOut || replayed.stdout !== original.stdout || replayed.stderr !== original.stderr || replayed.result !== original.result) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false };
+			if (validateSandboxieComputeReceipt(replayed, request.networkMode).length > 0) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false, detail: `${original.id}: replayed receipt invalid` };
+			const mismatches: string[] = [];
+			if (replayed.exitCode !== original.exitCode) mismatches.push(`exit ${original.exitCode} -> ${replayed.exitCode}`);
+			if (replayed.timedOut !== original.timedOut) mismatches.push("timeout flag");
+			if (replayed.stdout !== original.stdout) mismatches.push("stdout");
+			if (replayed.stderr !== original.stderr) mismatches.push("stderr");
+			if (replayed.result !== original.result) mismatches.push("result file");
+			if (mismatches.length > 0) return { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false, detail: `${original.id} mismatched: ${mismatches.join(", ")}` };
 		}
 		return { passed: true, backend: "sandboxie-app-level", processOwnershipVerified: receipts.every((receipt) => receipt.processOwnershipVerified) };
 	}
