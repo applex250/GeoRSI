@@ -17,7 +17,7 @@
     "extcheck": "tsx src/tui/ext-check.ts",
     "emitcheck": "tsx src/tui/emit-check.ts",
     "sandboxie:selftest": "tsx src/sandboxie_selftest.ts",
-    "research:selftest": "tsx src/research/demo_selftest.ts && tsx src/research/research_node_executor_selftest.ts && tsx src/research/orchestrator_selftest.ts && tsx src/research/context_memory_selftest.ts && tsx src/research/direct_compute_selftest.ts",
+    "research:selftest": "tsx src/research/demo_selftest.ts && tsx src/research/research_node_executor_selftest.ts && tsx src/research/orchestrator_selftest.ts && tsx src/research/context_memory_selftest.ts && tsx src/research/direct_compute_selftest.ts && tsx src/research/graph_spec_selftest.ts",
     "research:demo": "tsx src/run.ts research-demo",
     "research:live": "tsx src/run.ts research-live",
     "check": "npm run typecheck && npm run selftest && npm run research:selftest && npm run tuitest && python scripts/struct_selftest.py && python scripts/run_verdict_selftest.py && python scripts/architecture_selftest.py && python -m compileall -q scripts problems/_shared",
