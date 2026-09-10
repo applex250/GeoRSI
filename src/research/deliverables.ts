@@ -108,12 +108,29 @@ export function buildResearchPresentation(input: { mission: ResearchMission; cla
 	return slides.map(([title, body], index) => `# Slide ${index + 1} — ${title}\n\n${body}`).join("\n\n---\n\n") + "\n";
 }
 
+const DEFENSE_CATEGORY_KINDS: Partial<Record<DefenseItem["category"], Set<EvidenceRef["kind"]>>> = {
+	method: new Set(["script", "tool-output", "table", "verifier", "geodata"]),
+	data: new Set(["dataset", "table", "tool-output", "source"]),
+	uncertainty: new Set(["table", "figure", "verifier", "tool-output"]),
+	gis: new Set(["geodata", "figure", "verifier"]),
+	literature: new Set(["source"]),
+	reproducibility: new Set(["script", "verifier", "tool-output"]),
+};
+
 export function buildDefensePackage(input: { mission: ResearchMission; claims: ResearchClaim[]; evidence: EvidenceRef[]; narrative: ResearchNarrative }): { version: 1; items: DefenseItem[] } {
 	const claims = supportedClaims(input.claims, input.evidence);
 	validateNarrative(input.narrative, input.claims, input.evidence);
 	const primaryClaim = claims[0];
 	const claimIds = primaryClaim ? [primaryClaim.id] : [];
-	const specs: [DefenseItem["category"], string, GroundedNarrativeSection, string?][] = [
+	// Category-applicable filter (smoke-018): single-family missions have no geodata/source
+	// evidence, so gis/literature questions would be structurally unanswerable. Skip specs whose
+	// category cannot be supported by the evidence kinds actually present.
+	const availableKinds = new Set(input.evidence.map((reference) => reference.kind));
+	const applicable = (category: DefenseItem["category"]): boolean => {
+		const allowed = DEFENSE_CATEGORY_KINDS[category];
+		return !allowed || [...allowed].some((kind) => availableKinds.has(kind));
+	};
+	const allSpecs: [DefenseItem["category"], string, GroundedNarrativeSection, string?][] = [
 		["method", "Why was this method selected?", input.narrative.methodSummary],
 		["method", "Which alternative method was considered?", input.narrative.methodSummary, "The package supports only the recorded method choice; alternatives require their own decision and comparison evidence."],
 		["data", "How was data quality assessed?", input.narrative.dataSummary],
@@ -126,7 +143,12 @@ export function buildDefensePackage(input: { mission: ResearchMission; claims: R
 		["limitation", "What is the strongest limitation?", input.narrative.resultSummary, primaryClaim?.limitations[0] ?? "The package records no stronger limitation claim."],
 		["alternative", "Could an alternative explanation fit the evidence?", input.narrative.resultSummary, "Yes. The current evidence supports only the bounded claim and does not eliminate every alternative explanation."],
 		["data", "What evidence shows the reported result came from the declared data?", input.narrative.dataSummary],
+		["uncertainty", "Which intervals or distributions back the reported numbers?", input.narrative.uncertaintySummary],
+		["method", "What preprocessing could have biased the estimate?", input.narrative.methodSummary],
+		["data", "How were outliers and duplicates handled?", input.narrative.dataSummary],
+		["reproducibility", "What would a replication need to match?", input.narrative.reproducibilitySummary],
 	];
+	const specs = allSpecs.filter(([category]) => applicable(category));
 	return {
 		version: 1,
 		items: specs.map(([category, question, section, override], index) => {
@@ -164,14 +186,7 @@ export function validateResearchDeliverables(bundle: ResearchDeliverableBundle, 
 	if (slideCount !== 8) issues.push(`presentation must contain exactly 8 slides, found ${slideCount}`);
 	if (bundle.defense.items.length < 12) issues.push("defense package requires at least 12 questions");
 	const known = new Map(evidence.map((item) => [item.id, item]));
-	const relevantKinds: Partial<Record<DefenseItem["category"], Set<EvidenceRef["kind"]>>> = {
-		method: new Set(["script", "tool-output", "table", "verifier", "geodata"]),
-		data: new Set(["dataset", "table", "tool-output", "source"]),
-		uncertainty: new Set(["table", "figure", "verifier", "tool-output"]),
-		gis: new Set(["geodata", "figure", "verifier"]),
-		literature: new Set(["source"]),
-		reproducibility: new Set(["script", "verifier", "tool-output"]),
-	};
+	const relevantKinds = DEFENSE_CATEGORY_KINDS;
 	for (const item of bundle.defense.items) {
 		if (item.evidenceIds.length === 0) issues.push(`${item.id} has no evidence`);
 		for (const id of item.evidenceIds) if (!known.has(id)) issues.push(`${item.id} references unknown evidence ${id}`);

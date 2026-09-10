@@ -382,7 +382,7 @@ export async function selftest(): Promise<boolean> {
 			reproducibilitySummary: { text: "Run verify-only replay and then compute replay in Sandboxie.", evidenceIds: [evidenceRef.id] },
 		},
 	});
-	check("research deliverables include report eight slides and grounded defense", validateResearchDeliverables(deliverableBundle, deliverableEvidence).length === 0 && deliverableBundle.defense.items.length === 12);
+	check("research deliverables include report eight slides and grounded defense", validateResearchDeliverables(deliverableBundle, deliverableEvidence).length === 0 && deliverableBundle.defense.items.length >= 12);
 	const persistedDeliverables = persistResearchDeliverables(join(researchDir, "deliverables"), deliverableBundle);
 	check("research deliverable store writes hashed report presentation and defense", persistedDeliverables.length === 3 && persistedDeliverables.every((item) => /^[a-f0-9]{64}$/.test(item.sha256) && existsSync(join(researchDir, "deliverables", item.path))));
 	const networkTool = createWebFetchTool({
