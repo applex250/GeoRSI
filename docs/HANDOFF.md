@@ -18,12 +18,34 @@ GitHub：`origin/master`
    `npm run research:gateway -- alsl|geili|--list` 原子切换（先校验后写入，输出策略指纹）。
    `thinking_evidence=requested-only` 的路由（geili completions 无回显）如实记录为不可竞赛。
    TS/Python 展开逐字节一致，当前 alsl 指纹 `eccdf947cc216870b293280a`。
-4. **真机验证结论**：alsl(responses) 通道 Luna xhigh 真机全链路已通；host-audit 计算
-   `python-host` 连续 20+ 次成功（`DirectHostComputePort`，exchange 协议与 receipt 结构与
-   Sandboxie 端口一致）。真实冒烟发现的模型行为缺口以提示词修复（验证输入必须引用工具产出
-   artifact、每个 profile 仅一条验证），并以 `maxRetries` 吸收网关 429/5xx/超时抖动。
-5. **密钥纪律**：对话中出现过的 key 均视为泄露；冒烟结束后必须轮换 alsl key；
-   注册表 `HKCU\Environment` 的 `GEILIAPI_API_KEY` 残留待清理。
+4. **真机验证结论**：smoke-018 系列经 5 次断点续跑首次**全链路完成**（7/7 节点 + 完整
+   科研包 + verify-only replay PASS）。verdict 如实记录 host-development / eligible=false。
+5. **两层记忆架构**（smoke-018 上下文分析驱动的核心重构）：
+   - L1 push：直接依赖产物**原文注入**（submission JSON/result JSON 全文；脚本 1KB、
+     stdout/stderr 排除；12KB/产物、32KB/依赖、96KB 总量封顶）+ claim 伴随传递
+     （依赖提交里 claims/narrative 引用的上游证据随行）+ 压缩上下文（mission/图/配方）
+   - L2 pull：context-recall（list 带 240 字符产物预览；`evidenceIds[]` 批量取件 ≤8）
+   - L3 教训：失败账本注入重试提示词（node-failed/验证 issues/失败工具回执，跨进程有效）
+   - L0 跨运行：StrategyBundle 进化（未动）
+   - 实测前 baseline：synthesis/report 各 52 次 recall 轮询——根因是静态包只有元数据
+6. **角色方法论契约**：8 角色（quantitative/verifier/synthesis/report/defense/literature/
+   gis/planner）各有注入 systemPrompt 的方法论契约（估计量声明、独立重推导、六段叙事、
+   7 节报告、8 slides、≥12 答辩题……），交付物契约前送到对应节点 prompt。
+7. **可进化 WorkGraph（GraphSpec）**：`strategy.workGraph`（stages: kind+deps+budgetScale
+   1..4）进 StrategyBundle；graph-spec.ts 提供校验（唯一 ID/未知 kind/Kahn 环检测）、
+   任务覆盖检查（requiredStages）、实例化（NN-kind ID + 预算缩放）与四个变异算子
+   （add/remove-保护必需/merge-规范ID还原/split-并行）；`npm run research:live` 时
+   strategy.workGraph 优先于线性默认。种子包刻意不带 workGraph（线性默认）。
+8. **数据契约**：mission.dataset（type/seed/params/path）校验后作为 DATA CONTRACT 强制块
+   注入所有节点上下文；种子与 datasetFingerprint 进运行环境捕获——跨运行可比（Stage-A 前提）。
+9. **韧性参数**：探针/会话重试从 `research_gateways.*.resilience` 读取（当前 10 次）；
+   节点预算 48 模型调用 / 48 工具调用 / 40 分钟墙钟（工作包络，非质量门）。
+10. **断点续跑**：`--resume <runDir>`；checkpointGraph 落盘 plan.json + executor_state.json
+   （提交/家族验证/成功模型回执/工具回执/证据索引）+ compute_receipts.json；失败节点
+   重置 attempts 重来；无状态文件的旧运行会从 CAS 扫描重建证据索引。
+11. **密钥纪律**：对话中出现过的 key 均视为泄露；冒烟结束后必须轮换 alsl key；
+   注册表 `HKCU\Environment` 的 `GEILIAPI_API_KEY`（现值 sk-1c69...，疑似重新添加）
+   需确认归属后清理。
 
 ## 1. 项目定位
 
