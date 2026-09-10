@@ -127,6 +127,11 @@ export function buildDefensePackage(input: { mission: ResearchMission; claims: R
 	// category cannot be supported by the evidence kinds actually present.
 	const availableKinds = new Set(input.evidence.map((reference) => reference.kind));
 	const applicable = (category: DefenseItem["category"]): boolean => {
+		// gis/literature questions are only answerable when their signature evidence actually
+		// exists in the package (geodata artifacts / scholarly sources) — otherwise they are
+		// structurally ungrounded for single-family missions.
+		if (category === "gis") return availableKinds.has("geodata");
+		if (category === "literature") return availableKinds.has("source");
 		const allowed = DEFENSE_CATEGORY_KINDS[category];
 		return !allowed || [...allowed].some((kind) => availableKinds.has(kind));
 	};
