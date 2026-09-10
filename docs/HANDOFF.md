@@ -43,6 +43,20 @@ GitHub：`origin/master`
 10. **断点续跑**：`--resume <runDir>`；checkpointGraph 落盘 plan.json + executor_state.json
    （提交/家族验证/成功模型回执/工具回执/证据索引）+ compute_receipts.json；失败节点
    重置 attempts 重来；无状态文件的旧运行会从 CAS 扫描重建证据索引。
+12. **交付物消费节点产物（决策 #5a）**：orchestrator 经 `communicationDrafts` 端口读取
+   report/presentation/defense 节点的同名产物，过与打包同规则的校验（7 节段+引用 /
+   恰好 8 slides / ≥12 题带类别证据）后优先入包；不过则回退确定性模板；账本
+   `deliverable-sources` 事件记录 node|template 来源。
+13. **节点级 thinkingOverride**：GraphStageSpec 可覆盖思考档（medium|high|xhigh，仅
+   host-development；竞赛强制统一并拒绝覆盖）；回执带 nodeId，attestation.thinkingOverrides
+   与 verdict 双侧按覆盖校验。用途：沟通节点降档提速。
+14. **图表产物**：计算脚本在工作目录写 *.png 即被自动捕获（≤4 张/2MB/总量 4MB）→
+   kind=figure 证据入 CAS 与证据索引；replay 比对有意排除 figure 字节。
+15. **提交期结构校验 + 答辩类别过滤**：verifications[].input_artifact 在提交时即做
+   JSON/结构校验（拒绝脚本/stdout 顶替）；答辩包按任务实际可用证据类别过滤题目
+   （无 geodata/source 则不出现 gis/literature 题），题库 16 题过滤后仍 ≥12。
+16. **lean 迭代模式**：`config/research-mission-quant-lean.json`（4 阶段无沟通节点，
+   同数据契约）供开发迭代；正式出包用完整 7 阶段任务书。
 11. **密钥纪律**：对话中出现过的 key 均视为泄露；冒烟结束后必须轮换 alsl key；
    注册表 `HKCU\Environment` 的 `GEILIAPI_API_KEY`（现值 sk-1c69...，疑似重新添加）
    需确认归属后清理。
