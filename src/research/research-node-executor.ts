@@ -320,6 +320,20 @@ export function validateFamilyVerifierInputStructure(profile: FamilyVerifierProf
 	return issues;
 }
 
+/** Role methodology contracts — the per-role "job description" injected into the system prompt.
+ * Each contract states the role's methodological obligations, its artifact duties, and the
+ * anti-hallucination red line. Kept terse: these ride along in EVERY prompt of the node. */
+const ROLE_CONTRACTS: Record<ResearchNodeRole, string> = {
+	quantitative: "QUANTITATIVE CONTRACT: declare the estimand and the chosen estimator before computing; state units for every quantity; quantify uncertainty (bootstrap or analytic CI, recorded seed); run at least two sensitivity settings; cross-check with a second, independent formula and report the relative difference; emit the complete audit JSON via the compute tool's resultFile.",
+	verifier: "VERIFIER CONTRACT: re-derive independently - write your own script, never reuse upstream code paths; emit the complete audit JSON (rowCount, missingCount, duplicateCount, columnsAudited, units, estimand, method, uncertainty, sensitivityRuns>=2, independentCheck with relativeDifference<=tolerance) via resultFile; compare against the upstream estimate and report the relative difference; a mismatch you cannot resolve is a finding, not a failure to hide.",
+	synthesis: "SYNTHESIS CONTRACT: aggregate only verified results; every claim cites its evidenceIds and carries uncertainty and limitations; fill every value-card dimension with a scored rationale; write all six narrative sections (dataSummary, methodSummary, resultSummary, uncertaintySummary, innovationSummary, reproducibilitySummary), each grounded in evidenceIds.",
+	report: "COMMUNICATION CONTRACT: report nodes produce report.md with the seven mandated sections - Scientific Question and Value / Hypotheses and Falsification / Data Provenance and Quality / Methods and Tool Chain / Uncertainty and Sensitivity / Reproducibility / Evidence Index; presentation nodes produce exactly 8 slides matching the mandated titles. Every paragraph/slide cites evidenceIds; every number must come from an upstream artifact, never from memory.",
+	defense: "DEFENSE CONTRACT: produce at least 12 Q&A items spanning method, data, uncertainty, and reproducibility categories; every answer embeds an explicit evidence citation; include at least one falsifier item and one strongest-limitation item; do not fabricate questions about evidence categories that do not exist in this mission (e.g. gis/literature without such artifacts).",
+	literature: "LITERATURE CONTRACT: record every search query; each source carries URL, year, and a relevance note; actively search for contrary evidence and link it; never cite a source that was not fetched through the web tool.",
+	gis: "GIS CONTRACT: declare the input CRS of every layer; verify axis order explicitly; use a projected CRS for all metric (distance/area) operations; record topology and null-geometry checks; emit geodata artifacts for every spatial output.",
+	planner: "PLANNER CONTRACT: keep the graph minimal - every node must earn its place; budgets are envelopes, not targets.",
+};
+
 function isSubmissionArtifact(reference: { logicalName: string }): boolean {
 	return /-submission\.json$/i.test(reference.logicalName) || /submission/i.test(reference.logicalName);
 }
@@ -712,7 +726,7 @@ export class ResearchNodeExecutor {
 			model: this.deps.model,
 			thinkingLevel: this.deps.modelPolicy.thinking_level,
 			cwd: this.deps.cwdForNode(node.id, node.attempts),
-			systemPrompt: `You are the ${role} worker for one GeoRSI WorkGraph node. Work only from the bounded context and exposed tools. Do not invent evidence or claim that an unexecuted computation occurred.`,
+			systemPrompt: `You are the ${role} worker for one GeoRSI WorkGraph node. Work only from the bounded context and exposed tools. Do not invent evidence or claim that an unexecuted computation occurred. ${ROLE_CONTRACTS[role]}`,
 			customTools: [...scientificTools, artifactTool, submitTool],
 			promptTimeoutMs: node.budget.wallMs,
 			stallMs: Math.min(this.deps.stallMs ?? 120_000, node.budget.wallMs),
@@ -732,10 +746,11 @@ export class ResearchNodeExecutor {
 		const verifierProfile = expectedProfilesForNode(node.kind, this.deps.mission);
 		const synthesisHint = node.kind === "synthesis" ? "\n\nSYNTHESIS NOTE: your verifications[0].input_artifact must be a complete quantitative audit JSON. Either (a) reference the audit JSON artifact already produced by the verification/analysis node (see your dependency evidence artifact ids), or (b) recompute independently via the compute tool's resultFile. Do NOT submit a narrative summary as the verifier input." : "";
 		const optionalVerificationHint = verifierProfile.length === 0 ? "\n\nNOTE: this node performs no family audit of its own — you may submit an EMPTY verifications array ([]). Only include a verification if its input artifact is a complete audit JSON of that profile's shape." : "";
+		const deliverableContract = node.kind === "report" ? "\n\nDELIVERABLE CONTRACT: the packaged report is validated for the seven mandated section titles and evidence grounding - your report.md must comply." : node.kind === "presentation" ? "\n\nDELIVERABLE CONTRACT: the packaged presentation must contain exactly 8 slides with evidence-grounded bodies - your presentation.md must comply." : node.kind === "defense" ? "\n\nDELIVERABLE CONTRACT: the packaged defense requires at least 12 Q&A items, each with an explicit evidence citation, spanning method/data/uncertainty/reproducibility - your defense.json must comply." : "";
 		const verifierContract = verifierProfile.length > 0 ? `\n\nVERIFIER INPUT CONTRACT: this node must submit ${verifierProfile.length} verification entr${verifierProfile.length === 1 ? "y" : "ies"} with profile ${verifierProfile.join(", ")}. Each verification input artifact must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile[0]!]}${node.kind === "verification" ? " — this is an INDEPENDENT re-derivation: recompute from the raw data yourself and emit your own complete audit JSON, not a copy of the analysis node's summary." : ""}` : "";
 		const lessons = node.attempts > 0 ? this.deps.failureLessons?.(node.id) ?? [] : [];
 		const lessonsText = lessons.length > 0 ? `\n\nFAILURE LESSONS from your previous attempt(s) on this node — do NOT repeat these mistakes:\n${lessons.map((lesson) => `- [attempt ${lesson.attempt}/${lesson.source}] ${lesson.detail}`).join("; ")}` : "";
-		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}${synthesisHint}${optionalVerificationHint}${lessonsText}`, remainingWallMs());
+		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}${synthesisHint}${optionalVerificationHint}${deliverableContract}${lessonsText}`, remainingWallMs());
 			for (const receipt of outcome.modelCalls ?? (outcome.modelCall ? [outcome.modelCall] : [])) observedReceipts.push(receipt);
 			// Submission nudge (luna-smoke-012/013 sensitivity pattern): the model sometimes ends its
 			// turn with plain text after finishing the computations, never calling submit. One bounded
