@@ -174,12 +174,79 @@ export function buildDefensePackage(input: { mission: ResearchMission; claims: R
 	};
 }
 
+export interface CommunicationDrafts {
+	/** report node's report.md (raw). */
+	reportMarkdown?: string;
+	/** presentation node's presentation.md (raw). */
+	presentationMarkdown?: string;
+	/** defense node's defense.json (parsed or raw JSON string). */
+	defenseItems?: unknown;
+}
+
+const REPORT_SECTIONS = ["Scientific Question and Value", "Hypotheses and Falsification", "Data Provenance and Quality", "Methods and Tool Chain", "Uncertainty and Sensitivity", "Reproducibility", "Evidence Index"];
+
+function reportDraftIssues(content: string): string[] {
+	const issues: string[] = [];
+	for (const section of REPORT_SECTIONS) if (!content.includes(section)) issues.push(`missing section: ${section}`);
+	if ((content.match(/\[evidence:/g) ?? []).length < 3) issues.push("fewer than 3 evidence citations");
+	return issues;
+}
+
+function presentationDraftIssues(content: string): string[] {
+	const slides = (content.match(/^# Slide /gm) ?? []).length;
+	return slides === 8 ? [] : [`must contain exactly 8 slides, found ${slides}`];
+}
+
+function defenseDraftIssues(items: unknown, evidence: readonly EvidenceRef[]): { issues: string[]; normalized: { version: 1; items: DefenseItem[] } | undefined } {
+	if (!Array.isArray(items) || items.length < 12) return { issues: [`defense draft requires at least 12 items, found ${Array.isArray(items) ? items.length : 0}`], normalized: undefined };
+	const known = new Map(evidence.map((item) => [item.id, item]));
+	const normalizedItems: DefenseItem[] = [];
+	const issues: string[] = [];
+	for (const [index, raw] of items.entries()) {
+		const item = raw as Partial<DefenseItem>;
+		const id = typeof item.id === "string" && item.id.trim() ? item.id : `defense-${String(index + 1).padStart(2, "0")}`;
+		const category = item.category as DefenseItem["category"];
+		if (!item.question?.trim()) { issues.push(`${id}: empty question`); continue; }
+		if (!item.expertAnswer?.includes("[evidence:")) { issues.push(`${id}: answer lacks an evidence citation`); continue; }
+		const evidenceIds = Array.isArray(item.evidenceIds) ? item.evidenceIds.filter((eid) => typeof eid === "string" && known.has(eid)) : [];
+		if (evidenceIds.length === 0) { issues.push(`${id}: no citable evidence`); continue; }
+		const allowed = DEFENSE_CATEGORY_KINDS[category];
+		if (allowed && !evidenceIds.some((eid) => allowed.has(known.get(eid)?.kind ?? "source"))) { issues.push(`${id}: lacks category-relevant evidence`); continue; }
+		normalizedItems.push({ id, category, question: item.question, expertAnswer: item.expertAnswer, nonExpertAnswer: item.nonExpertAnswer ?? item.expertAnswer.split(/[.;]/)[0] + ".", claimIds: Array.isArray(item.claimIds) ? item.claimIds : [], evidenceIds });
+	}
+	if (normalizedItems.length < 12) issues.unshift(`defense draft has only ${normalizedItems.length} grounded items (needs 12)`);
+	return { issues, normalized: issues.length === 0 ? { version: 1, items: normalizedItems } : undefined };
+}
+
+/** Phase-(a): deliverables prefer the communication nodes' own artifacts when they pass the same
+ * validation as packaged output; deterministic template build remains the fallback. */
+export interface DeliverableBuildResult {
+	bundle: ResearchDeliverableBundle;
+	sources: { report: "node" | "template"; presentation: "node" | "template"; defense: "node" | "template" };
+}
+
+export function buildResearchDeliverablesWithSources(input: Parameters<typeof buildResearchReport>[0] & { narrative: ResearchNarrative; drafts?: CommunicationDrafts }): DeliverableBuildResult {
+	const sources: DeliverableBuildResult["sources"] = { report: "template", presentation: "template", defense: "template" };
+	let reportMarkdown = buildResearchReport(input);
+	let presentationMarkdown = buildResearchPresentation(input);
+	let defense: ResearchDeliverableBundle["defense"] = buildDefensePackage(input);
+	if (input.drafts?.reportMarkdown !== undefined) {
+		const issues = reportDraftIssues(input.drafts.reportMarkdown);
+		if (issues.length === 0) { reportMarkdown = input.drafts.reportMarkdown; sources.report = "node"; }
+	}
+	if (input.drafts?.presentationMarkdown !== undefined) {
+		const issues = presentationDraftIssues(input.drafts.presentationMarkdown);
+		if (issues.length === 0) { presentationMarkdown = input.drafts.presentationMarkdown; sources.presentation = "node"; }
+	}
+	if (input.drafts?.defenseItems !== undefined) {
+		const { issues, normalized } = defenseDraftIssues(input.drafts.defenseItems, input.evidence);
+		if (normalized) { defense = normalized; sources.defense = "node"; }
+	}
+	return { bundle: { reportMarkdown, presentationMarkdown, defense }, sources };
+}
+
 export function buildResearchDeliverables(input: Parameters<typeof buildResearchReport>[0] & { narrative: ResearchNarrative }): ResearchDeliverableBundle {
-	return {
-		reportMarkdown: buildResearchReport(input),
-		presentationMarkdown: buildResearchPresentation(input),
-		defense: buildDefensePackage(input),
-	};
+	return buildResearchDeliverablesWithSources(input).bundle;
 }
 
 export function validateResearchDeliverables(bundle: ResearchDeliverableBundle, evidence: readonly EvidenceRef[]): string[] {

@@ -5,7 +5,7 @@ import type { ResearchEnvironment } from "./environment-capture.js";
 import type { ScientificValueCard } from "./value-evaluator.js";
 import { evaluateScientificValue } from "./value-evaluator.js";
 import type { ResearchNarrative } from "./deliverables.js";
-import { buildResearchDeliverables, validateResearchDeliverables } from "./deliverables.js";
+import { buildResearchDeliverablesWithSources, validateResearchDeliverables, type CommunicationDrafts } from "./deliverables.js";
 import type { PersistedResearchDeliverable } from "./deliverable-store.js";
 import { createResearchPackageManifest, createResearchPackageSeal } from "./artifact-manifest.js";
 import { verifyResearchPackage, type ResearchReplayReport } from "./replay.js";
@@ -34,12 +34,14 @@ export interface ResearchOrchestratorPorts {
 	verifyNode(node: ResearchWorkGraph["nodes"][number], result: NodeExecutionResult, graph: ResearchWorkGraph, signal: AbortSignal): Promise<NodeVerificationResult>;
 	checkpointGraph(graph: ResearchWorkGraph): void | Promise<void>;
 	currentEvidence(): EvidenceRef[];
-	synthesize(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ResearchSynthesis>;
+			/** Communication node drafts (report/presentation/defense artifacts) for Phase-(a) consumption. */
+		communicationDrafts?(): CommunicationDrafts;
+synthesize(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ResearchSynthesis>;
 	runtimeAttestation(): ResearchRuntimeAttestation;
 	outcomeAttestation(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<OutcomeAttestation>;
 	persistJson(path: string, value: unknown): void;
 	persistText(path: string, value: string): void;
-	persistDeliverables(bundle: ReturnType<typeof buildResearchDeliverables>): PersistedResearchDeliverable[];
+	persistDeliverables(bundle: ReturnType<typeof buildResearchDeliverablesWithSources>["bundle"]): PersistedResearchDeliverable[];
 	readDeliverable(path: string): Buffer;
 	computeReplay(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ComputeReplayAttestation>;
 	now(): Date;
@@ -95,7 +97,10 @@ export async function runResearchOrchestrator(input: {
 		const value = evaluateScientificValue(synthesis.valueCard, evidence.map((item) => item.id));
 		if (!value.passed) throw new Error(`scientific value card failed: ${value.issues.join("; ")}`);
 		phase = "deliverables";
-		const bundle = buildResearchDeliverables({ mission, valueCard: synthesis.valueCard, hypotheses: synthesis.hypotheses, claims: synthesis.claims, evidence, narrative: synthesis.narrative });
+		const drafts = ports.communicationDrafts?.() ?? {};
+		const built = buildResearchDeliverablesWithSources({ mission, valueCard: synthesis.valueCard, hypotheses: synthesis.hypotheses, claims: synthesis.claims, evidence, narrative: synthesis.narrative, drafts });
+		const bundle = built.bundle;
+		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "deliverable-sources", status: "success", payload: { sources: built.sources } });
 		const deliverableIssues = validateResearchDeliverables(bundle, evidence);
 		if (deliverableIssues.length > 0) throw new Error(`research deliverables failed: ${deliverableIssues.join("; ")}`);
 		const deliverables = ports.persistDeliverables(bundle);

@@ -340,7 +340,31 @@ const startedAt = now().getTime();
 					persistJson("compute_receipts.json", computeReceipts);
 				},
 				currentEvidence: () => [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)),
-				synthesize: async (graph, evidence) => {
+				communicationDrafts: () => {
+				const drafts: { reportMarkdown?: string; presentationMarkdown?: string; defenseItems?: unknown } = {};
+				const wanted = [
+					{ kind: "report", key: "reportMarkdown" as const, match: (name: string) => name.endsWith("report.md") },
+					{ kind: "presentation", key: "presentationMarkdown" as const, match: (name: string) => name.endsWith("presentation.md") },
+					{ kind: "defense", key: "defenseItems" as const, match: (name: string) => name.endsWith("defense.json") },
+				];
+				for (const node of options.graph.nodes) {
+					const submission = executor.researchSubmission(node.id);
+					if (!submission) continue;
+					for (const target of wanted) {
+						if (node.kind !== target.kind || drafts[target.key] !== undefined) continue;
+						for (const id of submission.artifactIds) {
+							const reference = evidenceById.get(id);
+							if (!reference || !target.match(reference.logicalName)) continue;
+							try {
+								const content = evidenceStore.read(reference).toString("utf8");
+								drafts[target.key] = target.key === "defenseItems" ? JSON.parse(content) : content;
+							} catch { /* invalid draft falls back to the deterministic template */ }
+						}
+					}
+				}
+				return drafts;
+			},
+			synthesize: async (graph, evidence) => {
 					const synthesisNode = graph.nodes.find((node) => node.kind === "synthesis");
 					if (!synthesisNode) throw new Error("research graph has no synthesis node");
 					const submission = executor.researchSubmission(synthesisNode.id) as ResearchNodeSubmission | undefined;
