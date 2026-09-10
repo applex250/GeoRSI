@@ -351,7 +351,7 @@ export function buildResearchNodeContext(input: {
 			return `mission work graph (${graph.nodes.length} nodes; call context-recall {list:true} for current progress and committed memory):\n${lines.join("\n")}`.slice(0, 8000);
 		})() },
 		{ id: `budget-${node.id}`, kind: "budget", mandatory: true, priority: 100, content: stableJson(node.budget) },
-		...directDependencies.map((dependency) => ({ id: `dependency-${dependency.id}`, kind: "dependency" as const, mandatory: true, priority: 90, content: stableJson({ id: dependency.id, kind: dependency.kind, state: dependency.state, outputArtifactIds: dependency.outputArtifactIds, acceptanceEvidenceIds: dependency.acceptanceEvidenceIds }) })),
+		...directDependencies.map((dependency) => ({ id: `dependency-${dependency.id}`, kind: "dependency" as const, mandatory: true, priority: 90, content: stableJson({ id: dependency.id, kind: dependency.kind, state: dependency.state, outputArtifactIds: dependency.outputArtifactIds, outputArtifacts: dependency.outputArtifactIds.map((id) => ({ id, logicalName: evidence.find((reference) => reference.id === id)?.logicalName ?? "" })), acceptanceEvidenceIds: dependency.acceptanceEvidenceIds }) })),
 		...relevantEvidence.map((reference) => ({ id: `evidence-${reference.id}`, kind: "evidence" as const, mandatory: false, priority: 80, sourceHash: reference.sha256, content: stableJson(reference).slice(0, strategy.context.artifactSummaryChars) })),
 		...recipes.map((recipe) => ({ id: `recipe-${recipe.id}`, kind: "recipe" as const, mandatory: false, priority: 60, content: stableJson(recipe) })),
 	];

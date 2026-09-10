@@ -527,7 +527,7 @@ export async function selftest(): Promise<boolean> {
 	const lunaCfg = loadConfig(lunaCfgPath);
 	check("Luna-only config exposes one routed model", JSON.stringify(configuredModelIds(lunaCfg, tmp)) === JSON.stringify(["gpt-5.6-luna"]));
 	const researchLunaCfg = loadConfig(join(process.cwd(), "config", "research-competition-luna.json"));
-	check("research competition config is Luna xhigh open-network GIS", researchLunaCfg.single_model_id === "gpt-5.6-luna" && researchLunaCfg.single_model_thinking_level === "xhigh" && researchLunaCfg.network_mode === "open" && /GeoRSI[\\/]venvs[\\/]gis/i.test(researchLunaCfg.python_cmd));
+	check("research competition config is Luna open-network GIS (thinking from gateway route, currently high)", researchLunaCfg.single_model_id === "gpt-5.6-luna" && ["high", "xhigh"].includes(researchLunaCfg.single_model_thinking_level ?? "") && researchLunaCfg.network_mode === "open" && /GeoRSI[\\/]venvs[\\/]gis/i.test(researchLunaCfg.python_cmd));
 	let mixedLunaRouteRejected = false;
 	try { configuredModelIds({ ...lunaCfg, quiz_inner_model: "hy3" }, tmp); }
 	catch (error) { mixedLunaRouteRejected = String(error).includes("single-model policy"); }
