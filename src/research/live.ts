@@ -260,6 +260,10 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	// WorkGraph resume: restore persisted executor state (submissions, family verifications,
 	// successful model receipts, tool receipts) and the evidence-by-id map from the checkpoint.
 	if (options.resumeDir) {
+		const computePath = join(runDir, "compute_receipts.json");
+		if (existsSync(computePath)) {
+			for (const receipt of JSON.parse(readFileSync(computePath, "utf8")) as SandboxieComputeRunReceipt[]) computeReceipts.push(receipt);
+		}
 		// Always rebuild from the CAS store first (exact ids/integrity), then overlay any persisted
 		// executor snapshot — a partial snapshot from an earlier broken resume must never shrink it.
 		for (const reference of evidenceStore.listContents()) evidenceById.set(reference.id, reference);
@@ -305,6 +309,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 					// Durable executor snapshot for WorkGraph resume: submissions, family verifications,
 					// successful model receipts, tool receipts, and the evidence-by-id map.
 					persistJson("executor_state.json", { version: 1, missionId: options.mission.id, executor: executor.exportNodeState(), evidence: [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)) });
+					persistJson("compute_receipts.json", computeReceipts);
 				},
 				currentEvidence: () => [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)),
 				synthesize: async (graph, evidence) => {
