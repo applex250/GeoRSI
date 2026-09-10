@@ -3,7 +3,7 @@ export interface StrategyOutcome {
 	runId: string;
 	manifestFingerprint: string;
 	model: "gpt-5.6-luna";
-	thinkingLevel: "xhigh";
+	thinkingLevel: string;
 	repetition: number;
 	validRate: number;
 	score: number | null;
@@ -28,8 +28,8 @@ export interface StrategyPromotionDecision {
 	reasons: string[];
 }
 
-export function strategyOutcomeEligible(outcome: StrategyOutcome): boolean {
-	return outcome.validRate > 0 && outcome.score != null && outcome.replayPassRate === 1 && outcome.guardViolations === 0 && outcome.cleanupPassed && outcome.otherModelCalls === 0 && outcome.model === "gpt-5.6-luna" && outcome.thinkingLevel === "xhigh";
+export function strategyOutcomeEligible(outcome: StrategyOutcome, allowedThinkingLevels: readonly string[] = ["xhigh"]): boolean {
+	return outcome.validRate > 0 && outcome.score != null && outcome.replayPassRate === 1 && outcome.guardViolations === 0 && outcome.cleanupPassed && outcome.otherModelCalls === 0 && outcome.model === "gpt-5.6-luna" && allowedThinkingLevels.includes(outcome.thinkingLevel);
 }
 
 function stableNumberList(values: readonly number[]): string {
@@ -49,7 +49,13 @@ function scorePer100k(score: number, tokens: number): number {
 	return tokens > 0 ? score * 100_000 / tokens : 0;
 }
 
-export function decideStrategyPromotion(baseline: readonly StrategyOutcome[], candidate: readonly StrategyOutcome[]): StrategyPromotionDecision {
+export interface PromotionPolicy {
+	/** Allowed model+thinking identities for promotion (default: Luna xhigh only — the
+	 * competition-grade red line). Host-development evolution passes its honest level too. */
+	allowedThinkingLevels?: readonly string[];
+}
+
+export function decideStrategyPromotion(baseline: readonly StrategyOutcome[], candidate: readonly StrategyOutcome[], policy?: PromotionPolicy): StrategyPromotionDecision {
 	const reasons: string[] = [];
 	if (baseline.length < 2 || candidate.length < 2) reasons.push("paired promotion requires at least two repetitions per arm");
 	if (baseline.length !== candidate.length) reasons.push("paired promotion requires equal arm sizes");
@@ -61,9 +67,10 @@ export function decideStrategyPromotion(baseline: readonly StrategyOutcome[], ca
 	if (stableNumberList(sortedBaselineKeys) !== stableNumberList(sortedCandidateKeys)) reasons.push("baseline and candidate repetition keys must match exactly");
 	const manifests = new Set([...baseline, ...candidate].map((outcome) => outcome.manifestFingerprint));
 	if (manifests.size !== 1) reasons.push("all paired runs must use one fixed manifest");
-	if ([...baseline, ...candidate].some((outcome) => outcome.model !== "gpt-5.6-luna" || outcome.thinkingLevel !== "xhigh" || outcome.otherModelCalls !== 0)) reasons.push("every model call must be Luna xhigh with no other model receipts");
-	if (baseline.some((outcome) => !strategyOutcomeEligible(outcome))) reasons.push("every baseline repetition must pass score/replay/guard/cleanup eligibility");
-	if (candidate.some((outcome) => !strategyOutcomeEligible(outcome))) reasons.push("every candidate repetition must pass score/replay/guard/cleanup eligibility");
+	const allowedThinking = policy?.allowedThinkingLevels ?? ["xhigh"];
+	if ([...baseline, ...candidate].some((outcome) => outcome.model !== "gpt-5.6-luna" || !allowedThinking.includes(outcome.thinkingLevel) || outcome.otherModelCalls !== 0)) reasons.push(`every model call must be Luna within [${allowedThinking.join("/")}] with no other model receipts`);
+	if (baseline.some((outcome) => !strategyOutcomeEligible(outcome, allowedThinking))) reasons.push("every baseline repetition must pass score/replay/guard/cleanup eligibility");
+	if (candidate.some((outcome) => !strategyOutcomeEligible(outcome, allowedThinking))) reasons.push("every candidate repetition must pass score/replay/guard/cleanup eligibility");
 	const baselineByRepetition = new Map(baseline.map((outcome) => [outcome.repetition, outcome]));
 	const candidateByRepetition = new Map(candidate.map((outcome) => [outcome.repetition, outcome]));
 	const matchedKeys = sortedBaselineKeys.filter((key) => candidateByRepetition.has(key));

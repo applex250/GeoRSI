@@ -48,6 +48,7 @@ export async function runStrategyGeneration(input: {
 	candidateEdits: readonly (readonly StrategyEdit[])[];
 	evaluator: StrategyEvaluationPort;
 	originRun?: string;
+	promotionPolicy?: import("./promotion.js").PromotionPolicy;
 }): Promise<StrategyGenerationResult> {
 	const baselineOutcomes = await input.evaluator.evaluate(input.champion, "baseline", -1);
 	const seen = new Set<string>([strategyBundleFingerprint(input.champion)]);
@@ -60,7 +61,7 @@ export async function runStrategyGeneration(input: {
 		if (seen.has(fingerprint)) continue;
 		seen.add(fingerprint);
 		const outcomes = await input.evaluator.evaluate(bundle, "candidate", index);
-		candidates.push({ bundle, outcomes, promotion: decideStrategyPromotion(baselineOutcomes, outcomes) });
+		candidates.push({ bundle, outcomes, promotion: decideStrategyPromotion(baselineOutcomes, outcomes, input.promotionPolicy) });
 	}
 	const eligible = candidates.map((candidate, index) => ({ candidate, index, aggregate: aggregate(candidate.outcomes) })).filter((item) => item.candidate.promotion.promote);
 	eligible.sort((left, right) => compareStrategyOutcomes(left.aggregate, right.aggregate));

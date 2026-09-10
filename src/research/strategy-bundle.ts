@@ -5,7 +5,7 @@ import { stableJson } from "./event-ledger.js";
 import type { WorkNodeKind } from "./contracts.js";
 import type { GraphSpec } from "./graph-spec.js";
 
-export type StrategyComponent = "scaffold" | "planner" | "recipe" | "verifier" | "context" | "recovery" | "budget" | "communication";
+export type StrategyComponent = "scaffold" | "planner" | "recipe" | "verifier" | "context" | "recovery" | "budget" | "communication" | "workGraph";
 
 export interface PlannerPolicy {
 	maxNodes: number;

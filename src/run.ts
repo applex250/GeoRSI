@@ -100,6 +100,21 @@ async function main() {
 		process.exit(result.replay.passed && result.computeReplay.passed ? 0 : 2);
 	}
 
+	if (cmd === "research-evolve") {
+		// Evolution loop driver (#79): baseline + graph-mutation candidates, each a full
+		// research-live mission on the same seed; promotion via runStrategyGeneration.
+		const { runEvolutionCampaign, proposeGraphMutations } = await import("./evolution-driver.js");
+		const missionPath = args.mission ? String(args.mission) : join(ROOT, "config", "research-mission-quant-smoke.json");
+		const configPath = args.config ? String(args.config) : undefined;
+		const candidates = args.candidates ? Math.max(1, Math.min(4, Number(args.candidates))) : 2;
+		const runPrefix = args["run-prefix"] ? String(args["run-prefix"]) : `evo-${Date.now()}`;
+		console.log(`[evolve] proposing ${candidates} candidate mutations:`, JSON.stringify(proposeGraphMutations(candidates).map((edit) => edit.op)));
+		const generation = await runEvolutionCampaign({ missionPath, configPath, candidates, runPrefix }, (message) => console.log(message));
+		console.log(`RESEARCH_EVOLVE_DONE accepted=${generation.acceptedCandidate ?? "none"} runs=${generation.runDirs.join(",")}`);
+		console.log(`champion workGraph: ${JSON.stringify(generation.champion.workGraph ?? { default: "linear" })}`);
+		process.exit(generation.acceptedCandidate !== null ? 0 : 2);
+	}
+
 	if (cmd === "research-live") {
 		const missionPath = args.mission ? String(args.mission) : "";
 		if (!missionPath) {
