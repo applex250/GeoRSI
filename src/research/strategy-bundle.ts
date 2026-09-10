@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { SEED_SCAFFOLD, type Scaffold } from "../scaffold.js";
 import { stableJson } from "./event-ledger.js";
 import type { WorkNodeKind } from "./contracts.js";
+import type { GraphSpec } from "./graph-spec.js";
 
 export type StrategyComponent = "scaffold" | "planner" | "recipe" | "verifier" | "context" | "recovery" | "budget" | "communication";
 
@@ -78,6 +79,8 @@ export interface StrategyBundle {
 	communication: CommunicationPolicy;
 	budget: BudgetPolicy;
 	lineage: StrategyLineage;
+	/** Evolvable WorkGraph topology (Phase-2). Absent = the default linear research graph. */
+	workGraph?: GraphSpec;
 }
 
 export const SEED_STRATEGY_BUNDLE: StrategyBundle = {
@@ -118,6 +121,19 @@ export function validateStrategyBundle(bundle: StrategyBundle): string[] {
 	for (const [role, value] of Object.entries(bundle.context.roleBudgets)) if (!Number.isSafeInteger(value) || value <= 0 || value > 120_000) issues.push(`invalid context budget: ${role}`);
 	for (const recipes of Object.values(bundle.recipes)) {
 		for (const recipe of recipes) if (!recipe.id.trim() || recipe.steps.length === 0 || recipe.steps.length > 16) issues.push(`invalid tool recipe: ${recipe.id}`);
+	}
+	if (bundle.workGraph !== undefined) {
+		const spec = bundle.workGraph;
+		if (!Array.isArray(spec.stages) || spec.stages.length === 0 || spec.stages.length > 32) issues.push("workGraph stages must contain 1..32 stages");
+		const ids = new Set<string>();
+		for (const stage of spec.stages ?? []) {
+			if (!stage.id.trim() || ids.has(stage.id)) issues.push(`invalid or duplicate workGraph stage id: ${stage.id}`);
+			ids.add(stage.id);
+			if (stage.dependsOn.includes(stage.id)) issues.push(`workGraph stage ${stage.id} depends on itself`);
+			const scale = stage.budgetScale ?? 1;
+			if (!Number.isSafeInteger(scale) || scale < 1 || scale > 4) issues.push(`workGraph stage ${stage.id} budgetScale must be 1..4`);
+		}
+		for (const stage of spec.stages ?? []) for (const dependency of stage.dependsOn ?? []) if (!ids.has(dependency)) issues.push(`workGraph stage ${stage.id} depends on unknown stage: ${dependency}`);
 	}
 	return issues;
 }

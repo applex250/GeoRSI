@@ -75,6 +75,20 @@ export interface ResearchMission {
 	requiredDeliverables: DeliverableSpec[];
 	sourcePolicy: SourcePolicy;
 	taskProfile: ResearchTaskProfile;
+	/** Data contract fixed at planning time (Phase-1): binding generation params / source file
+	 * so results are reproducible and cross-run comparable. Absent = no data contract (legacy). */
+	dataset?: MissionDataset;
+}
+
+export interface MissionDataset {
+	type: "synthetic" | "file";
+	description: string;
+	/** Binding integer seed for synthetic generation. */
+	seed?: number;
+	/** Generation parameters (catalogSize, magnitudeRange, trueB, noiseModel, ...). */
+	params?: Record<string, string | number | boolean | (string | number)[]>;
+	/** Source file path relative to the mission for type "file". */
+	path?: string;
 }
 
 export interface WorkNodeBudget {
@@ -167,6 +181,21 @@ export function validateResearchMission(mission: ResearchMission): string[] {
 	if (mission.units.length === 0) issues.push("at least one unit declaration is required");
 	if (mission.successCriteria.length === 0) issues.push("success criteria are required");
 	if (!mission.successCriteria.some((criterion) => criterion.required)) issues.push("at least one required success criterion is needed");
+	if (mission.dataset !== undefined) {
+		const dataset = mission.dataset;
+		if (dataset.type !== "synthetic" && dataset.type !== "file") issues.push("mission dataset.type must be synthetic or file");
+		if (!dataset.description.trim()) issues.push("mission dataset.description is required");
+		if (dataset.seed !== undefined && (!Number.isSafeInteger(dataset.seed) || dataset.seed < 0)) issues.push("mission dataset.seed must be a non-negative integer");
+		if (dataset.type === "file" && (!dataset.path || dataset.path.includes(".."))) issues.push("mission dataset.path is required and must be relative for file datasets");
+		if (dataset.params !== undefined) {
+			for (const [key, value] of Object.entries(dataset.params)) {
+				if (!key.trim()) issues.push("mission dataset params keys must be non-empty");
+				const scalarOk = typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+			const arrayOk = Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" || typeof item === "number");
+			if (!scalarOk && !arrayOk) issues.push(`mission dataset param ${key} must be string/number/boolean or an array of those`);
+			}
+		}
+	}
 	const criterionIds = new Set<string>();
 	for (const criterion of mission.successCriteria) {
 		if (!criterion.id.trim() || criterionIds.has(criterion.id)) issues.push(`invalid or duplicate criterion id: ${criterion.id}`);

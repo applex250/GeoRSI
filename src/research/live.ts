@@ -11,10 +11,11 @@ import { atomicWriteJson, writeTextAtomic } from "../journal.js";
 import { scanTextForBreaches, scanWorkspaceForBreachesStrict } from "../guard.js";
 import { assertExchangeWorkspace } from "../workspace-tools.js";
 import { assertSandboxPythonCommand, resolveExchangeWorkspace, SandboxieAdapter } from "../sandboxie.js";
-import type { EvidenceRef, ResearchClaim, ResearchMission, ResearchWorkGraph } from "./contracts.js";
+import type { EvidenceRef, ResearchClaim, ResearchMission, ResearchWorkGraph, WorkNodeBudget } from "./contracts.js";
 import { validateResearchMission } from "./contracts.js";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import { ResearchEventLedger, readResearchLedger, stableJson } from "./event-ledger.js";
+import { graphSpecCoverageIssues, instantiateGraphSpec } from "./graph-spec.js";
 import { captureResearchEnvironment } from "./environment-capture.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
 import { validateWorkGraphForMission, createWorkGraph, createWorkNode } from "./work-graph.js";
@@ -67,11 +68,14 @@ export function loadResearchGraph(path: string, mission: ResearchMission): Resea
 	return graph;
 }
 
+/** Base per-node budget envelope (Phase-2 GraphSpec scales this per stage). */
+export const RESEARCH_NODE_BUDGET: WorkNodeBudget = { wallMs: 40 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
+
 export function createLinearResearchGraph(mission: ResearchMission, now = new Date()): ResearchWorkGraph {
 	const criterion = mission.successCriteria.find((item) => item.required)?.id ?? mission.successCriteria[0]?.id ?? "research-evidence";
 	// Tool-loop nodes legitimately make many model calls within one node: the
 	// per-node budget must bound the AGGREGATE loop, not force a single call.
-	const budget = { wallMs: 40 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
+	const budget = { ...RESEARCH_NODE_BUDGET };
 	const nodes = mission.taskProfile.requiredStages.map((kind, index) => createWorkNode({
 		id: `${String(index + 1).padStart(2, "0")}-${kind}`,
 		kind,
@@ -181,6 +185,8 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	const missionShapeIssues = validateCompetitionMissionShape(options.mission);
 	if (missionShapeIssues.length > 0) throw new Error(`invalid competition mission shape: ${missionShapeIssues.join("; ")}`);
 	const graphIssues = validateLiveGraph(options.mission, options.graph);
+	const coverageIssues = graphSpecCoverageIssues({ stages: options.graph.nodes.map((node) => ({ id: node.id, kind: node.kind, dependsOn: node.dependsOn, budgetScale: 1 })) }, options.mission.taskProfile.requiredStages);
+	if (coverageIssues.length > 0) throw new Error(`research graph stage coverage failure: ${coverageIssues.join("; ")}`);
 	if (graphIssues.length > 0) throw new Error(`invalid research graph: ${graphIssues.join("; ")}`);
 	if (options.graph.missionId !== options.mission.id) throw new Error("research mission and graph IDs do not match");
 	assertCompetitionConfig(options.cfg, options.mission);
@@ -311,8 +317,8 @@ const startedAt = now().getTime();
 		modelProfileFingerprint: modelProfileFingerprint(),
 		pythonPath: pythonCmd,
 		networkMode,
-		evaluatorMetrics: { research: "three-layer-v1", runtime: "research-node-executor-v1", deterministicPreflight: preflight.outputHash, researchModelPolicy: researchModelConfigFingerprint(researchPolicy), researchCapabilityProbe: runtime.researchProbe.fingerprint },
-		randomSeeds: [],
+		evaluatorMetrics: { research: "three-layer-v1", runtime: "research-node-executor-v1", deterministicPreflight: preflight.outputHash, researchModelPolicy: researchModelConfigFingerprint(researchPolicy), researchCapabilityProbe: runtime.researchProbe.fingerprint, ...(options.mission.dataset ? { datasetFingerprint: createHash("sha256").update(stableJson(options.mission.dataset)).digest("hex").slice(0, 16) } : {}) },
+		randomSeeds: options.mission.dataset?.seed !== undefined ? [options.mission.dataset.seed] : [],
 	}, now());
 	const persistJson = (path: string, value: unknown): void => atomicWriteJson(safeOutputPath(runDir, path), value);
 	const persistText = (path: string, value: string): void => writeTextAtomic(safeOutputPath(runDir, path), value);
@@ -401,9 +407,17 @@ export async function runLunaResearchMissionFromFiles(input: LunaResearchMission
 	const mission = loadResearchMission(input.missionPath);
 	// Resume: the persisted plan.json carries node states (completed/failed/attempts); a fresh
 	// linear graph would throw away that progress.
-	const graph = input.resumeDir
+	const strategy = input.strategy ?? SEED_STRATEGY_BUNDLE;
+	let graph = input.resumeDir
 		? loadResearchGraph(join(input.resumeDir, "plan.json"), mission)
-		: input.planPath ? loadResearchGraph(input.planPath, mission) : createLinearResearchGraph(mission, input.now?.() ?? new Date());
+		: input.planPath ? loadResearchGraph(input.planPath, mission)
+		: strategy.workGraph ? instantiateGraphSpec(strategy.workGraph, mission, RESEARCH_NODE_BUDGET, input.now?.() ?? new Date())
+		: createLinearResearchGraph(mission, input.now?.() ?? new Date());
+	if (input.resumeDir) {
+		// GraphSpec instantiation runs for fresh strategies only; a resumed run replays its own
+		// persisted plan so node states and ids stay stable.
+		void strategy;
+	}
 	if (input.resumeDir) {
 		for (const node of graph.nodes) {
 			if (node.state === "failed" || node.state === "running") {
@@ -412,5 +426,5 @@ export async function runLunaResearchMissionFromFiles(input: LunaResearchMission
 			}
 		}
 	}
-	return runLunaResearchMission({ ...input, mission, graph });
+	return runLunaResearchMission({ ...input, mission, graph, strategy });
 }

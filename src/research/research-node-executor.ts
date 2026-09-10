@@ -418,6 +418,8 @@ export function buildResearchNodeContext(input: {
 	const blocks: ContextBlock[] = [
 		{ id: "research-policy", kind: "policy", mandatory: true, priority: 100, content: "Use only the exposed scientific tools. Never invent evidence IDs. Record concise externally reviewable decisions, uncertainty, and falsifiers; do not provide hidden chain-of-thought. Finish by calling submit_research_node_output exactly once." },
 		{ id: `mission-${mission.id}`, kind: "mission", mandatory: true, priority: 100, content: stableJson(mission) },
+		...(mission.dataset ? [{ id: `dataset-${mission.id}`, kind: "policy" as const, mandatory: true, priority: 100, content: `DATA CONTRACT (binding): ${stableJson(mission.dataset)}
+Use exactly these generation parameters and seed (or the provided file). Do not invent substitute data; your outputs must be reproducible from this contract.` }] : []),
 		{ id: `node-${node.id}`, kind: "node", mandatory: true, priority: 100, content: stableJson({ id: node.id, kind: node.kind, title: node.title, expectedOutputs: node.expectedOutputs, acceptanceCriteriaIds: node.acceptanceCriteriaIds, allowedCapabilities: node.allowedCapabilities }) },
 		{ id: `graph-${graph.missionId}`, kind: "graph", mandatory: true, priority: 95, content: (() => {
 			const downstream = graph.nodes.filter((candidate) => candidate.dependsOn.includes(node.id)).map((candidate) => candidate.id);
