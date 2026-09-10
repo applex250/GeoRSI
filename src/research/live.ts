@@ -267,7 +267,10 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 			executor.importNodeState(state.executor);
 			for (const reference of state.evidence ?? []) evidenceById.set(reference.id, reference);
 		} else {
-			log("[research] resume: no executor_state.json (pre-checkpoint run); completed-node receipts will be absent from the attestation");
+			// Pre-checkpoint run: rebuild the evidence index by scanning the CAS store so dependency
+			// artifacts resolve; receipts/submissions for completed nodes stay absent (attestation notes it).
+			for (const reference of evidenceStore.listContents()) evidenceById.set(reference.id, reference);
+			log("[research] resume: no executor_state.json (pre-checkpoint run); evidence index rebuilt from the CAS store; completed-node receipts absent from the attestation");
 		}
 		log(`[research] resumed ${runDir}: ${options.graph.nodes.filter((node) => node.state === "completed").length}/${options.graph.nodes.length} nodes already completed`);
 	}

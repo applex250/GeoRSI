@@ -1,6 +1,6 @@
 /** Content-addressed quarantine store for untrusted research artifacts. */
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { EvidenceRef } from "./contracts.js";
 import { sanitizeResearchUrl, stableJson } from "./event-ledger.js";
@@ -62,5 +62,23 @@ export class ContentAddressedEvidenceStore {
 	read(reference: EvidenceRef): Buffer {
 		if (!this.verify(reference)) throw new Error(`evidence integrity failure: ${reference.id}`);
 		return readFileSync(this.pathFor(reference));
+	}
+
+	/** Rebuild refs by scanning the CAS directory (resume support): metadata is synthetic
+	 * (original kind/logicalName live only in the executor snapshot / ledger), but ids and
+	 * integrity are exact, which is all downstream context assembly requires. */
+	listContents(): EvidenceRef[] {
+		const refs: EvidenceRef[] = [];
+		if (!existsSync(this.root)) return refs;
+		for (const prefix of readdirSync(this.root)) {
+			const directory = join(this.root, prefix);
+			for (const name of readdirSync(directory)) {
+				const path = join(directory, name);
+				const content = readFileSync(path);
+				const sha256 = createHash("sha256").update(content).digest("hex");
+				refs.push({ id: `sha256:${sha256}`, kind: "tool-output", sha256, logicalName: `${sha256.slice(0, 12)}.bin`, producerNodeId: "resumed", mediaType: "application/octet-stream", bytes: content.byteLength });
+			}
+		}
+		return refs.sort((left, right) => left.id.localeCompare(right.id));
 	}
 }
