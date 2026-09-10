@@ -158,8 +158,10 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
             policy_issues.append(f"model policy missing fields: {', '.join(missing)}")
         if policy.get("fallback") != "none":
             policy_issues.append("model policy fallback must be none")
-        if policy.get("thinking_level") != "xhigh":
-            policy_issues.append("model policy thinking must be xhigh")
+        if policy.get("thinking_level") not in ("high", "xhigh"):
+            policy_issues.append("model policy thinking must be high or xhigh")
+        if mode == "competition" and policy.get("thinking_level") != "xhigh":
+            policy_issues.append("competition model policy thinking must be xhigh")
         expected_fp = digest(policy)[:24]
         if attestation.get("modelPolicyFingerprint") != expected_fp:
             policy_issues.append("research model policy fingerprint mismatch")

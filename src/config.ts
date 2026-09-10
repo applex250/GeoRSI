@@ -188,7 +188,7 @@ export function validateResearchModelConfig(policy: ResearchModelConfig): string
 	if (!policy.base_url.trim() || !/^https?:\/\//i.test(policy.base_url)) issues.push("research_model.base_url must be an http(s) URL");
 	if (!policy.model.trim()) issues.push("research_model.model is required");
 	if (policy.api !== "openai-completions" && policy.api !== "openai-responses") issues.push("research_model.api is invalid");
-	if (policy.thinking_level !== "xhigh") issues.push("research_model.thinking_level must be xhigh for competition research");
+	if (policy.thinking_level !== "xhigh" && policy.thinking_level !== "high") issues.push("research_model.thinking_level must be high or xhigh (xhigh is required for competition runs)");
 	if (policy.max_tokens_field !== "max_tokens" && policy.max_tokens_field !== "max_completion_tokens") issues.push("research_model.max_tokens_field is invalid");
 	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(policy.credential_env)) issues.push("research_model.credential_env must be an environment variable name");
 	if (policy.fallback !== "none") issues.push("research_model.fallback must be none");

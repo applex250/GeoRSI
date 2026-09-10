@@ -107,13 +107,15 @@ async function main() {
 			process.exit(1);
 		}
 		const { runLunaResearchMissionFromFiles } = await import("./research/live.js");
+		const resumeDir = args.resume ? String(args.resume) : undefined;
 		const runName = args["run-name"] ? String(args["run-name"]) : `research-live-${Date.now()}`;
-		const runDir = join(ROOT, "runs", runName);
+		const runDir = resumeDir ?? join(ROOT, "runs", runName);
 		const result = await runLunaResearchMissionFromFiles({
 			cfg,
 			missionPath,
 			planPath: args.plan ? String(args.plan) : undefined,
-			runDir,
+			resumeDir,
+			runDir: resumeDir ?? runDir,
 			log: (message) => console.log(message),
 		});
 		console.log(`RESEARCH_LIVE_DONE eligible=${result.competitionScore.eligible} overall=${result.competitionScore.overall ?? "null"} replay=${result.replay.passed ? "PASS" : "FAIL"} computeReplay=${result.computeReplay.passed ? "PASS" : "FAIL"} artifacts=${runDir}`);

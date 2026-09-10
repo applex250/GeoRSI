@@ -39,6 +39,8 @@ export interface LunaResearchRunOptions {
 	mission: ResearchMission;
 	graph: ResearchWorkGraph;
 	runDir: string;
+	/** WorkGraph resume: continue a prior run directory from its persisted plan + executor state. */
+	resumeDir?: string;
 	strategy?: StrategyBundle;
 	/** Live entry executes and records its own deterministic preflight. */
 	stopRequested?: () => boolean;
@@ -69,7 +71,7 @@ export function createLinearResearchGraph(mission: ResearchMission, now = new Da
 	const criterion = mission.successCriteria.find((item) => item.required)?.id ?? mission.successCriteria[0]?.id ?? "research-evidence";
 	// Tool-loop nodes legitimately make many model calls within one node: the
 	// per-node budget must bound the AGGREGATE loop, not force a single call.
-	const budget = { wallMs: 30 * 60 * 1000, maxModelCalls: 48, maxToolCalls: 40, maxOutputTokens: 131_072, maxAttempts: 2 };
+	const budget = { wallMs: 40 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
 	const nodes = mission.taskProfile.requiredStages.map((kind, index) => createWorkNode({
 		id: `${String(index + 1).padStart(2, "0")}-${kind}`,
 		kind,
@@ -167,8 +169,10 @@ export function runResearchDeterministicPreflight(): ResearchDeterministicPrefli
 export async function runLunaResearchMission(options: LunaResearchRunOptions): Promise<ResearchRunResult> {
 	const now = options.now ?? (() => new Date());
 	const log = options.log ?? (() => {});
-	const runDir = safeRunDirectory(options.runDir);
-	if (existsSync(runDir) && readdirSync(runDir).length > 0) throw new Error(`research run directory is not empty: ${runDir}`);
+	// WorkGraph resume: continue an existing run directory instead of requiring a fresh one.
+	const runDir = safeRunDirectory(options.resumeDir ?? options.runDir);
+	if (!options.resumeDir && existsSync(runDir) && readdirSync(runDir).length > 0) throw new Error(`research run directory is not empty: ${runDir}`);
+	if (options.resumeDir && !existsSync(join(runDir, "plan.json"))) throw new Error(`resume requires a persisted plan.json in: ${runDir}`);
 	const strategy = options.strategy ?? SEED_STRATEGY_BUNDLE;
 	const strategyIssues = validateStrategyBundle(strategy);
 	if (strategyIssues.length > 0) throw new Error(`invalid research strategy: ${strategyIssues.join("; ")}`);
@@ -253,6 +257,20 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		},
 		now,
 	});
+	// WorkGraph resume: restore persisted executor state (submissions, family verifications,
+	// successful model receipts, tool receipts) and the evidence-by-id map from the checkpoint.
+	if (options.resumeDir) {
+		const statePath = join(runDir, "executor_state.json");
+		if (existsSync(statePath)) {
+			const state = JSON.parse(readFileSync(statePath, "utf8")) as { version: number; missionId: string; executor: import("./research-node-executor.js").ResearchExecutorSnapshot; evidence: EvidenceRef[] };
+			if (state.version !== 1 || state.missionId !== options.mission.id) throw new Error(`resume executor state mismatch in ${statePath}`);
+			executor.importNodeState(state.executor);
+			for (const reference of state.evidence ?? []) evidenceById.set(reference.id, reference);
+		} else {
+			log("[research] resume: no executor_state.json (pre-checkpoint run); completed-node receipts will be absent from the attestation");
+		}
+		log(`[research] resumed ${runDir}: ${options.graph.nodes.filter((node) => node.state === "completed").length}/${options.graph.nodes.length} nodes already completed`);
+	}
 	const startedAt = now().getTime();
 	const environment: ResearchEnvironment = captureResearchEnvironment({
 		gitCommit: gitValue(["rev-parse", "HEAD"]),
@@ -278,7 +296,12 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 			ports: {
 				executeNode: executor.executeNode.bind(executor),
 				verifyNode: executor.verifyNode.bind(executor),
-				checkpointGraph: (graph) => persistJson("plan.json", graph),
+				checkpointGraph: (graph) => {
+					persistJson("plan.json", graph);
+					// Durable executor snapshot for WorkGraph resume: submissions, family verifications,
+					// successful model receipts, tool receipts, and the evidence-by-id map.
+					persistJson("executor_state.json", { version: 1, missionId: options.mission.id, executor: executor.exportNodeState(), evidence: [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)) });
+				},
 				currentEvidence: () => [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)),
 				synthesize: async (graph, evidence) => {
 					const synthesisNode = graph.nodes.find((node) => node.kind === "synthesis");
@@ -345,6 +368,18 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 
 export async function runLunaResearchMissionFromFiles(input: LunaResearchMissionFiles & Omit<LunaResearchRunOptions, "mission" | "graph">): Promise<ResearchRunResult> {
 	const mission = loadResearchMission(input.missionPath);
-	const graph = input.planPath ? loadResearchGraph(input.planPath, mission) : createLinearResearchGraph(mission, input.now?.() ?? new Date());
+	// Resume: the persisted plan.json carries node states (completed/failed/attempts); a fresh
+	// linear graph would throw away that progress.
+	const graph = input.resumeDir
+		? loadResearchGraph(join(input.resumeDir, "plan.json"), mission)
+		: input.planPath ? loadResearchGraph(input.planPath, mission) : createLinearResearchGraph(mission, input.now?.() ?? new Date());
+	if (input.resumeDir) {
+		for (const node of graph.nodes) {
+			if (node.state === "failed" || node.state === "running") {
+				node.state = "ready";
+				node.attempts = 0; // each resumed session grants a fresh attempt budget for the interrupted node
+			}
+		}
+	}
 	return runLunaResearchMission({ ...input, mission, graph });
 }

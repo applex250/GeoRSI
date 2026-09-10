@@ -268,7 +268,7 @@ async function preflightResponsesResearch(policy: ResearchModelConfig, apiKey: s
 	const probeBody: Record<string, unknown> = {
 		model: modelId,
 		input: "Call georsi_capability_probe with answer=1.",
-		reasoning: { effort: "xhigh" },
+		reasoning: { effort: policy.thinking_level },
 		max_output_tokens: 256,
 		tools: [{ type: "function", name: "georsi_capability_probe", description: "Record the capability probe answer.", parameters: { type: "object", properties: { answer: { type: "integer" } }, required: ["answer"], additionalProperties: false }, strict: true }],
 		tool_choice: { type: "function", name: "georsi_capability_probe" },
@@ -303,7 +303,7 @@ async function preflightResponsesResearch(policy: ResearchModelConfig, apiKey: s
 	if (payload.model !== modelId) throw new Error(`research capability probe returned model ${String(payload.model)} instead of ${modelId}`);
 	if (payload.status !== undefined && payload.status !== "completed") throw new Error(`research capability probe did not complete: ${String(payload.status)}`);
 	const reasoning = payload.reasoning && typeof payload.reasoning === "object" ? payload.reasoning as Record<string, unknown> : undefined;
-	if (reasoning?.effort !== "xhigh") throw new Error(`research capability probe did not echo provider-observed reasoning.effort=xhigh (got ${String(reasoning?.effort)})`);
+	if (reasoning?.effort !== policy.thinking_level) throw new Error(`research capability probe did not echo provider-observed reasoning.effort=${policy.thinking_level} (got ${String(reasoning?.effort)})`);
 	const rawUsage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : {};
 	const usage = {
 		inputTokens: Number(rawUsage.input_tokens ?? rawUsage.prompt_tokens ?? 0),
@@ -325,7 +325,7 @@ async function preflightCompletionsResearch(policy: ResearchModelConfig, apiKey:
 	const probeBody: Record<string, unknown> = {
 		model: modelId,
 		messages: [{ role: "user", content: "Call georsi_capability_probe with answer=1." }],
-		reasoning_effort: "xhigh",
+		reasoning_effort: policy.thinking_level,
 		[policy.max_tokens_field]: 256,
 		stream: false,
 		tools: [{ type: "function", function: { name: "georsi_capability_probe", description: "Record the capability probe answer.", parameters: { type: "object", properties: { answer: { type: "integer" } }, required: ["answer"], additionalProperties: false }, strict: true } }],

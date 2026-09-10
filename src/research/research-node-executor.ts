@@ -39,6 +39,13 @@ export interface ResearchHarness {
 	dispose(): void;
 }
 
+export interface ResearchExecutorSnapshot {
+	submissions: { nodeId: string; submission: ResearchNodeSubmission }[];
+	familyVerifications: FamilyVerificationAttestation[];
+	modelReceipts: ModelCallReceipt[];
+	toolReceipts: ScientificToolReceipt[];
+}
+
 export interface ResearchNodeExecutorDeps {
 	mission: ResearchMission;
 	strategy: StrategyBundle;
@@ -392,6 +399,24 @@ export class ResearchNodeExecutor {
 		return [...this.familyAttestations.values()].map((item) => ({ ...item, result: { ...item.result, issues: [...item.result.issues], checks: { ...item.result.checks } }, evidenceIds: [...item.evidenceIds] })).sort((left, right) => left.profile.localeCompare(right.profile));
 	}
 
+	/** WorkGraph resume support: durable snapshot of everything the attestation gates consume.
+	 * Only successful model receipts are exported; failed attempts remain in the ledger. */
+	exportNodeState(): ResearchExecutorSnapshot {
+		return {
+			submissions: [...this.submissions.entries()].map(([nodeId, submission]) => ({ nodeId, submission: structuredClone(submission) })),
+			familyVerifications: this.familyVerifications(),
+			modelReceipts: this.modelReceiptsValue.filter((receipt) => receipt.success).map((receipt) => structuredClone(receipt)),
+			toolReceipts: this.toolReceipts(),
+		};
+	}
+
+	importNodeState(snapshot: ResearchExecutorSnapshot): void {
+		for (const entry of snapshot.submissions ?? []) this.submissions.set(entry.nodeId, entry.submission);
+		for (const verification of snapshot.familyVerifications ?? []) this.familyAttestations.set(verification.profile, verification);
+		for (const receipt of snapshot.modelReceipts ?? []) this.modelReceiptsValue.push(receipt);
+		for (const receipt of snapshot.toolReceipts ?? []) this.toolReceiptsValue.push(receipt);
+	}
+
 	researchSubmission(nodeId: string): ResearchNodeSubmission | undefined {
 		const submission = this.submissions.get(nodeId);
 		return submission ? structuredClone(submission) : undefined;
@@ -590,7 +615,7 @@ export class ResearchNodeExecutor {
 
 		const harness = this.createHarness({
 			model: this.deps.model,
-			thinkingLevel: this.deps.modelPolicy.thinking_level as "xhigh",
+			thinkingLevel: this.deps.modelPolicy.thinking_level,
 			cwd: this.deps.cwdForNode(node.id, node.attempts),
 			systemPrompt: `You are the ${role} worker for one GeoRSI WorkGraph node. Work only from the bounded context and exposed tools. Do not invent evidence or claim that an unexecuted computation occurred.`,
 			customTools: [...scientificTools, artifactTool, submitTool],

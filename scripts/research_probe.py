@@ -100,8 +100,8 @@ def load_policy(config_path: Path) -> dict:
         raise SystemExit(f"research_model missing fields: {', '.join(missing)}")
     if policy["api"] not in ("openai-completions", "openai-responses"):
         raise SystemExit("research probe requires openai-completions or openai-responses")
-    if policy["thinking_level"] != "xhigh":
-        raise SystemExit("research probe requires thinking_level xhigh")
+    if policy["thinking_level"] not in ("high", "xhigh"):
+        raise SystemExit("research probe requires thinking_level high or xhigh")
     return policy
 
 
