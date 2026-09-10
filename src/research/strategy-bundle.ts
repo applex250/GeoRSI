@@ -93,7 +93,7 @@ export const SEED_STRATEGY_BUNDLE: StrategyBundle = {
 		gis: { profile: "gis-v1", requireUncertainty: true, minimumSensitivityRuns: 2, requireIndependentCheck: true, requireReplay: true },
 		literature: { profile: "literature-v1", requireUncertainty: true, minimumSensitivityRuns: 1, requireIndependentCheck: true, requireReplay: true },
 	},
-	context: { roleBudgets: { planner: 48_000, literature: 64_000, quantitative: 96_000, gis: 96_000, verifier: 48_000, synthesis: 96_000, defense: 64_000 }, includeOnlyDirectDependencies: true, artifactSummaryChars: 2000 },
+	context: { roleBudgets: { planner: 48_000, literature: 64_000, quantitative: 96_000, gis: 96_000, verifier: 48_000, synthesis: 96_000, defense: 96_000 }, includeOnlyDirectDependencies: true, artifactSummaryChars: 2000 },
 	recovery: { maxNodeAttempts: 2, retryableFailureClasses: ["network", "timeout", "data-schema", "verification", "citation", "numerical-instability"], checkpointAfterEveryTransition: true },
 	routing: { allowFallbackModels: false },
 	communication: { reportTemplate: "research-report-v1", presentationSlides: 8, minimumDefenseQuestions: 12, requireEvidenceCitations: true },

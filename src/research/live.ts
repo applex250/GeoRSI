@@ -223,7 +223,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	try {
 	const registry = new ScientificToolRegistry(now, randomUUID, (receipt) => {
 		toolReceipts.push(receipt.id);
-		ledger.append({ missionId: options.mission.id, episodeId: options.mission.id, nodeId: receipt.nodeId, actor: "tool", type: "scientific-tool-receipt", status: receipt.status === "success" ? "success" : "failure", inputHash: receipt.inputHash, outputHash: receipt.outputHash, artifactIds: receipt.artifactIds, payload: { toolId: receipt.toolId, wallMs: receipt.wallMs, exitCode: receipt.exitCode, error: receipt.error } });
+		ledger.append({ missionId: options.mission.id, episodeId: options.mission.id, nodeId: receipt.nodeId, actor: "tool", type: "scientific-tool-receipt", status: receipt.status === "success" ? "success" : "failure", inputHash: receipt.inputHash, outputHash: receipt.outputHash, artifactIds: receipt.artifactIds, payload: { toolId: receipt.toolId, inputExcerpt: stableJson(receipt.input ?? {}).slice(0, 240), wallMs: receipt.wallMs, exitCode: receipt.exitCode, error: receipt.error } });
 	});
 	const contextMemory = new ResearchContextMemory({ evidenceStore, evidenceById: (id) => evidenceById.get(id) });
 	const computePort = isolation === "sandboxie"

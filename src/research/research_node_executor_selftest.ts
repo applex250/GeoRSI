@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { capHarnessModelOutput, type HarnessOpts, type PromptOutcome } from "../piharness.js";
 import type { EvidenceRef, ResearchMission, ResearchWorkGraph, WorkNode } from "./contracts.js";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
-import { ResearchNodeExecutor, type ResearchHarness } from "./research-node-executor.js";
+import { ResearchNodeExecutor, buildResearchNodeContext, type ResearchHarness } from "./research-node-executor.js";
 import { ResearchContextMemory } from "./context-memory.js";
 import type { ModelCallReceipt } from "./runtime-attestation.js";
 import { createSandboxiePythonResearchTool, attestComputeReplay, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
@@ -209,6 +209,16 @@ async function main(): Promise<void> {
 		const committed = contextMemory.catalog().find((entry) => entry.nodeId === node.id);
 		check("node submission commits read-only context memory with artifacts", committed !== undefined && committed.artifacts.length > 0 && contextMemory.fetch(committed.artifacts[0]!.evidenceId).excerpt.length > 0);
 		check("graph state is synced before node context assembly", contextMemory.progress()[node.id] === "running");
+		// E16: dependency content injection caps (12KB/artifact, 32KB/dependency, 96KB total).
+		{
+			const bigId = "sha256:" + "b".repeat(64);
+			const upstream = { ...makeNode("verification"), id: "node-upstream", dependsOn: [], outputArtifactIds: [bigId], acceptanceEvidenceIds: [] };
+			const dependent = { ...makeNode(), id: "node-dependent", dependsOn: ["node-upstream"] };
+			const evidenceBig = { id: bigId, kind: "tool-output" as const, sha256: "b".repeat(64), logicalName: "big-result.json", producerNodeId: "node-upstream", mediaType: "application/json", bytes: 200_000 };
+			const ctx = buildResearchNodeContext({ mission, strategy: SEED_STRATEGY_BUNDLE, node: dependent, graph: { version: 1, missionId: mission.id, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", nodes: [upstream, dependent] }, evidence: [evidenceBig], artifactContent: (id: string) => (id === bigId ? "x".repeat(200_000) : undefined) });
+			const contentEntries = ctx.entries.filter((entry) => entry.id.startsWith("dependency-content-"));
+			check("context injection caps content blocks", contentEntries.length > 0 && contentEntries.every((entry: { chars: number }) => entry.chars <= 34_000) && ctx.estimatedTokens <= 30_000);
+		}
 
 		let wrongModelRejected = false;
 		try {
