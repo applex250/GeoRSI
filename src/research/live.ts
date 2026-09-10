@@ -260,19 +260,20 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	// WorkGraph resume: restore persisted executor state (submissions, family verifications,
 	// successful model receipts, tool receipts) and the evidence-by-id map from the checkpoint.
 	if (options.resumeDir) {
+		// Always rebuild from the CAS store first (exact ids/integrity), then overlay any persisted
+		// executor snapshot — a partial snapshot from an earlier broken resume must never shrink it.
+		for (const reference of evidenceStore.listContents()) evidenceById.set(reference.id, reference);
 		const statePath = join(runDir, "executor_state.json");
 		if (existsSync(statePath)) {
 			const state = JSON.parse(readFileSync(statePath, "utf8")) as { version: number; missionId: string; executor: import("./research-node-executor.js").ResearchExecutorSnapshot; evidence: EvidenceRef[] };
 			if (state.version !== 1 || state.missionId !== options.mission.id) throw new Error(`resume executor state mismatch in ${statePath}`);
 			executor.importNodeState(state.executor);
 			for (const reference of state.evidence ?? []) evidenceById.set(reference.id, reference);
+			log(`[research] resume: executor state restored (${state.executor.modelReceipts.length} model receipts, ${state.executor.familyVerifications.length} family verifications)`);
 		} else {
-			// Pre-checkpoint run: rebuild the evidence index by scanning the CAS store so dependency
-			// artifacts resolve; receipts/submissions for completed nodes stay absent (attestation notes it).
-			for (const reference of evidenceStore.listContents()) evidenceById.set(reference.id, reference);
-			log("[research] resume: no executor_state.json (pre-checkpoint run); evidence index rebuilt from the CAS store; completed-node receipts absent from the attestation");
+			log("[research] resume: no executor_state.json; completed-node receipts absent from the attestation");
 		}
-		log(`[research] resumed ${runDir}: ${options.graph.nodes.filter((node) => node.state === "completed").length}/${options.graph.nodes.length} nodes already completed`);
+		log(`[research] resumed ${runDir}: ${options.graph.nodes.filter((node) => node.state === "completed").length}/${options.graph.nodes.length} nodes already completed, ${evidenceById.size} evidence refs indexed`);
 	}
 	const startedAt = now().getTime();
 	const environment: ResearchEnvironment = captureResearchEnvironment({
