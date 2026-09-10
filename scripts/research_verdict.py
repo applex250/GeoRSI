@@ -226,9 +226,12 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
             runtime_issues.append("host-development package must attest host-audit isolation honestly")
     else:
         runtime_issues.append("unknown research run mode")
+    overrides = attestation.get("thinkingOverrides") or {}
     receipt_ids = set()
     for receipt in receipts:
         rid = receipt.get("id")
+        nid = receipt.get("nodeId")
+        expected_t = overrides.get(nid, expected_thinking) if isinstance(nid, str) else expected_thinking
         if not isinstance(rid, str) or not rid.strip():
             runtime_issues.append("model receipt id is missing")
         elif isinstance(rid, str) and rid in receipt_ids:
@@ -242,8 +245,9 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
         total = receipt.get("totalTokens")
         if isinstance(total, bool) or not isinstance(total, int) or total < 0:
             runtime_issues.append(f"invalid totalTokens in model receipt {rid}")
-        if receipt.get("provider") != expected_provider or receipt.get("model") != expected_model or receipt.get("api") != expected_api or receipt.get("requestedThinking") != expected_thinking or receipt.get("effectiveThinking") != expected_thinking or receipt.get("success") is not True or not isinstance(receipt.get("outputTokens"), int) or isinstance(receipt.get("outputTokens"), bool) or receipt.get("outputTokens") <= 0:
+        if receipt.get("provider") != expected_provider or receipt.get("model") != expected_model or receipt.get("api") != expected_api or receipt.get("requestedThinking") != expected_t or receipt.get("effectiveThinking") != expected_t or receipt.get("success") is not True or not isinstance(receipt.get("outputTokens"), int) or isinstance(receipt.get("outputTokens"), bool) or receipt.get("outputTokens") <= 0:
             runtime_issues.append(f"forbidden or invalid model receipt {rid}")
+
     receipt_totals = []
     for item in receipts:
         value = item.get("totalTokens")

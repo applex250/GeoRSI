@@ -16,6 +16,8 @@ export interface GraphStageSpec {
 	dependsOn: string[];
 	/** Multiplier on the base node budget (wall/calls/output); default 1, hard-capped at 4. */
 	budgetScale?: number;
+	/** Optional thinking-level override for this stage (host-development only). */
+	thinkingOverride?: "medium" | "high" | "xhigh";
 }
 
 export interface GraphSpec {
@@ -41,6 +43,7 @@ export function validateGraphSpec(spec: GraphSpec, allowedKinds: readonly WorkNo
 		if (stage.dependsOn.includes(stage.id)) issues.push(`stage ${stage.id} depends on itself`);
 		const scale = stage.budgetScale ?? 1;
 		if (!Number.isSafeInteger(scale) || scale < 1 || scale > 4) issues.push(`stage ${stage.id} budgetScale must be an integer within 1..4`);
+		if (stage.thinkingOverride !== undefined && !["medium", "high", "xhigh"].includes(stage.thinkingOverride)) issues.push(`stage ${stage.id} thinkingOverride must be medium|high|xhigh`);
 	}
 	for (const stage of spec.stages) {
 		for (const dependency of stage.dependsOn) if (!ids.has(dependency)) issues.push(`stage ${stage.id} depends on unknown stage: ${dependency}`);
@@ -166,6 +169,7 @@ export function instantiateGraphSpec(spec: GraphSpec, mission: ResearchMission, 
 		return createWorkNode({
 			id: `${String(index + 1).padStart(2, "0")}-${stage.id}`,
 			kind: stage.kind,
+			thinking: stage.thinkingOverride,
 			title: stage.id.replace(/-/g, " "),
 			dependsOn: stage.dependsOn.map((dependency) => idByStage.get(dependency) ?? dependency),
 			inputEvidenceIds: [],

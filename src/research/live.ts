@@ -281,7 +281,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 			modelReceipts.push(receipt.id);
 			// Key names must avoid the ledger's credential-shape redactor (anything
 			// containing "token" gets redacted); use input/output/total.
-			ledger.append({ missionId: options.mission.id, episodeId: options.mission.id, actor: "researcher", type: "model-call-receipt", status: receipt.success ? "success" : "failure", payload: { id: receipt.id, provider: receipt.provider, model: receipt.model, api: receipt.api, requestedThinking: receipt.requestedThinking, effectiveThinking: receipt.effectiveThinking, input: receipt.inputTokens, output: receipt.outputTokens, total: receipt.totalTokens, success: receipt.success } });
+			ledger.append({ missionId: options.mission.id, episodeId: options.mission.id, actor: "researcher", type: "model-call-receipt", status: receipt.success ? "success" : "failure", payload: { id: receipt.id, nodeId: receipt.nodeId, provider: receipt.provider, model: receipt.model, api: receipt.api, requestedThinking: receipt.requestedThinking, effectiveThinking: receipt.effectiveThinking, input: receipt.inputTokens, output: receipt.outputTokens, total: receipt.totalTokens, success: receipt.success } });
 		},
 		now,
 	});
@@ -353,7 +353,9 @@ const startedAt = now().getTime();
 					const receiptsValid = computeReceipts.length > 0 && computeReceipts.every((receipt) => validateComputeReceipt(receipt, networkMode).length === 0 && (isolation === "host-audit" || sandboxieCleanupComplete(receipt.cleanup)));
 					const cleanupPassed = exchangeCleaned && receiptsValid;
 					const modelReceiptsList = executor.modelReceipts();
-					return { version: 1, runMode: isolation === "sandboxie" ? "competition" as const : "host-development" as const, modelPolicy: researchPolicy, modelPolicyFingerprint: researchModelConfigFingerprint(researchPolicy), unitTestsPassed: preflight.passed, guardViolations: [...new Set(guardViolations)], cleanupPassed, isolationBackend: isolation === "sandboxie" ? "sandboxie-app-level" as const : "host-audit" as const, modelCalls: modelReceiptsList, familyVerifications: executor.familyVerifications(), contraryEvidenceLinks, totalTokens: modelReceiptsList.reduce((sum, receipt) => sum + receipt.totalTokens, 0), wallSeconds: Math.max(0, (now().getTime() - startedAt) / 1000) };
+					const thinkingOverrides: Record<string, string> = {};
+					for (const node of options.graph.nodes) if (node.thinking) thinkingOverrides[node.id] = node.thinking;
+					return { version: 1, runMode: isolation === "sandboxie" ? "competition" as const : "host-development" as const, modelPolicy: researchPolicy, modelPolicyFingerprint: researchModelConfigFingerprint(researchPolicy), unitTestsPassed: preflight.passed, guardViolations: [...new Set(guardViolations)], cleanupPassed, isolationBackend: isolation === "sandboxie" ? "sandboxie-app-level" as const : "host-audit" as const, modelCalls: modelReceiptsList, thinkingOverrides: Object.keys(thinkingOverrides).length > 0 ? thinkingOverrides : undefined, familyVerifications: executor.familyVerifications(), contraryEvidenceLinks, totalTokens: modelReceiptsList.reduce((sum, receipt) => sum + receipt.totalTokens, 0), wallSeconds: Math.max(0, (now().getTime() - startedAt) / 1000) };
 				},
 			outcomeAttestation: async (graph) => {
 					const required = options.mission.taskProfile.family === "capstone" ? ["quantitative-v1", "gis-v1", "literature-v1"] : [options.mission.taskProfile.verifierProfile];

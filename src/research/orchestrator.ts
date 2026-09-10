@@ -104,7 +104,11 @@ export async function runResearchOrchestrator(input: {
 		const runtimeAttestation = ports.runtimeAttestation();
 		const runtimeIssues = validateRuntimeAttestation(runtimeAttestation, computeReplay, mission, evidence, synthesis.claims.map((claim) => claim.id));
 		const outcome = await ports.outcomeAttestation(scheduled.graph, evidence);
-		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "research-precommit-attested", status: runtimeIssues.length || !computeReplay.passed ? "failure" : "success", artifactIds: evidence.map((item) => item.id), payload: { runtimeIssues, computeReplay } });
+		// D4: the expected honest note (host-development not-competition-eligible) is a "noted"
+		// condition, not an unexpected failure — only genuinely unexpected issues read as failure.
+		const expectedNotes = runtimeIssues.filter((issue) => issue.includes("not competition-eligible"));
+		const unexpectedIssues = runtimeIssues.filter((issue) => !issue.includes("not competition-eligible"));
+		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "research-precommit-attested", status: unexpectedIssues.length || !computeReplay.passed ? "failure" : "success", artifactIds: evidence.map((item) => item.id), payload: { runtimeIssues, expectedNotes, unexpectedIssues, computeReplay } });
 		const ledgerRoot = ledger.rootHash();
 		ledger.close();
 		ledgerClosed = true;

@@ -108,6 +108,8 @@ export interface WorkNode {
 	inputEvidenceIds: string[];
 	expectedOutputs: string[];
 	acceptanceCriteriaIds: string[];
+	/** Optional per-node thinking-level override (host-development only; competition keeps uniform policy). */
+	thinking?: string;
 	allowedCapabilities: string[];
 	budget: WorkNodeBudget;
 	attempts: number;

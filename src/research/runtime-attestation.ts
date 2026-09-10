@@ -8,6 +8,8 @@ import type { ScientificVerificationResult } from "./verifiers/base.js";
 
 export interface ModelCallReceipt {
 	id: string;
+	/** Node identity stamped at collection time (per-node thinking overrides key off this). */
+	nodeId?: string;
 	provider: string;
 	model: string;
 	requestedThinking: string;
@@ -55,14 +57,16 @@ export interface ResearchRuntimeAttestation {
 	contraryEvidenceLinks: ContraryEvidenceLink[];
 	totalTokens: number;
 	wallSeconds: number;
+	/** Per-node thinking overrides (host-development only; competition forbids them). */
+	thinkingOverrides?: Record<string, string>;
 }
 
-export function validateModelCallReceipt(receipt: ModelCallReceipt, policy?: ResearchModelConfig): string[] {
+export function validateModelCallReceipt(receipt: ModelCallReceipt, policy?: ResearchModelConfig, expectedThinkingOverride?: string): string[] {
 	const issues: string[] = [];
 	const expectedProvider = policy?.provider ?? "ai-pixel";
 	const expectedModel = policy?.model ?? "gpt-5.6-luna";
 	const expectedApi = policy?.api ?? "openai-responses";
-	const expectedThinking = policy?.thinking_level ?? "xhigh";
+	const expectedThinking = expectedThinkingOverride ?? policy?.thinking_level ?? "xhigh";
 	if (!receipt.id.trim()) issues.push("model receipt id is required");
 	if (receipt.provider !== expectedProvider || receipt.model !== expectedModel || receipt.api !== expectedApi) issues.push(`model receipt ${receipt.id} does not match the configured research model policy`);
 	if (receipt.requestedThinking !== expectedThinking || receipt.effectiveThinking !== expectedThinking) issues.push(`model receipt ${receipt.id} did not prove configured thinking level`);
@@ -106,6 +110,7 @@ export function validateRuntimeAttestation(attestation: ResearchRuntimeAttestati
 		if (compute.backend !== "sandboxie-app-level" || !compute.processOwnershipVerified) issues.push("competition compute replay requires verified Sandboxie ownership");
 		if (attestation.modelCalls.length === 0) issues.push("competition runtime requires model-call receipts");
 		if ((attestation.modelPolicy?.thinking_evidence ?? "provider-observed") !== "provider-observed") issues.push("competition runtime requires provider-observed thinking evidence");
+		if (attestation.thinkingOverrides && Object.keys(attestation.thinkingOverrides).length > 0) issues.push("competition runtime requires a uniform thinking level (no per-node overrides)");
 	} else if (attestation.runMode === "host-development") {
 		// Honest development mode: isolation is disabled by configuration; the package stays
 		// permanently ineligible but every other gate still applies.
@@ -115,9 +120,11 @@ export function validateRuntimeAttestation(attestation: ResearchRuntimeAttestati
 	} else {
 		issues.push("deterministic demo is not competition-eligible runtime evidence");
 	}
+	const thinkingOverrides = attestation.thinkingOverrides ?? {};
 	const receiptIds = new Set<string>();
 	for (const receipt of attestation.modelCalls) {
-		for (const issue of validateModelCallReceipt(receipt, attestation.modelPolicy)) issues.push(issue);
+		const override = receipt.nodeId !== undefined ? thinkingOverrides[receipt.nodeId] : undefined;
+		for (const issue of validateModelCallReceipt(receipt, attestation.modelPolicy, override)) issues.push(issue);
 		if (receiptIds.has(receipt.id)) issues.push(`duplicate model receipt id: ${receipt.id}`);
 		receiptIds.add(receipt.id);
 	}

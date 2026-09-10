@@ -1,7 +1,7 @@
 /** Production WorkGraph node adapter: one bounded, Luna-gated xhigh Pi session per node. */
 import { createHash } from "node:crypto";
 import type { Model } from "@earendil-works/pi-ai";
-import { validateResearchModelConfig, type ResearchModelConfig } from "../config.js";
+import { validateResearchModelConfig, type ConfigThinkingLevel, type ResearchModelConfig } from "../config.js";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type, type TSchema } from "typebox";
 import { PiHarness, toolOutput, type HarnessOpts, type PromptOutcome } from "../piharness.js";
@@ -90,6 +90,7 @@ export interface ResearchNodeSubmission {
 	artifactIds: string[];
 	decisions: { question: string; alternatives: string[]; selected: string; evidenceIds: string[]; uncertainty: string }[];
 	verifications: CapturedVerification[];
+	conventions?: string[];
 	hypotheses?: HypothesisRecord[];
 	claims?: ResearchClaim[];
 	valueCard?: ScientificValueCard;
@@ -109,6 +110,7 @@ interface CapturedSubmission {
 		uncertainty: string;
 	}[];
 	verifications: CapturedVerification[];
+	conventions?: string[];
 	hypotheses?: HypothesisRecord[];
 	claims?: ResearchClaim[];
 	valueCard?: ScientificValueCard;
@@ -186,6 +188,7 @@ const SUBMISSION_SCHEMA = Type.Object({
 	value_card: Type.Optional(VALUE_CARD_SCHEMA),
 	narrative: Type.Optional(NARRATIVE_SCHEMA),
 	contrary_evidence_links: Type.Optional(Type.Array(Type.Object({ source_evidence_id: Type.String({ minLength: 1, maxLength: 160 }), claim_id: Type.String({ minLength: 1, maxLength: 160 }) }), { maxItems: 64 })),
+	conventions: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 300 }), { maxItems: 12, description: "Implicit conventions this node adopted (RNG draw order, correction formulas, binning, tie-breaking) so downstream independent verification can replicate exactly" })),
 });
 
 export function researchNodeRole(kind: WorkNodeKind): ResearchNodeRole {
@@ -243,8 +246,8 @@ const VERIFIER_INPUT_CONTRACTS: Record<FamilyVerifierProfile, string> = {
 	"literature-v1": `JSON object {"sources":[...],"claims":[...],"hypotheses":[...],"searchQueries":[string],"minimumSources":int,"requireContraryEvidence":bool,"noveltyScope":string,"noveltySearchCutoff":string}`,
 };
 
-function exactModelReceiptIssue(receipt: ModelCallReceipt, policy: ResearchModelConfig): string | null {
-	const issues = validateModelCallReceipt(receipt, policy);
+function exactModelReceiptIssue(receipt: ModelCallReceipt, policy: ResearchModelConfig, expectedThinking?: string): string | null {
+	const issues = validateModelCallReceipt(receipt, policy, expectedThinking);
 	return issues.length > 0 ? issues[0]! : null;
 }
 
@@ -324,8 +327,8 @@ export function validateFamilyVerifierInputStructure(profile: FamilyVerifierProf
  * Each contract states the role's methodological obligations, its artifact duties, and the
  * anti-hallucination red line. Kept terse: these ride along in EVERY prompt of the node. */
 const ROLE_CONTRACTS: Record<ResearchNodeRole, string> = {
-	quantitative: "QUANTITATIVE CONTRACT: declare the estimand and the chosen estimator before computing; state units for every quantity; quantify uncertainty (bootstrap or analytic CI, recorded seed); run at least two sensitivity settings; cross-check with a second, independent formula and report the relative difference; emit the complete audit JSON via the compute tool's resultFile.",
-	verifier: "VERIFIER CONTRACT: re-derive independently - write your own script, never reuse upstream code paths; emit the complete audit JSON (rowCount, missingCount, duplicateCount, columnsAudited, units, estimand, method, uncertainty, sensitivityRuns>=2, independentCheck with relativeDifference<=tolerance) via resultFile; compare against the upstream estimate and report the relative difference; a mismatch you cannot resolve is a finding, not a failure to hide.",
+	quantitative: "QUANTITATIVE CONTRACT: declare the estimand and the chosen estimator before computing; record every implicit convention (RNG draw order, correction formula, binning) in the submit conventions array; state units for every quantity; quantify uncertainty (bootstrap or analytic CI, recorded seed); run at least two sensitivity settings; cross-check with a second, independent formula and report the relative difference; emit the complete audit JSON via the compute tool's resultFile.",
+	verifier: "VERIFIER CONTRACT: re-derive independently - write your own script, never reuse upstream code paths; check the upstream conventions array and follow it exactly; emit the complete audit JSON (rowCount, missingCount, duplicateCount, columnsAudited, units, estimand, method, uncertainty, sensitivityRuns>=2, independentCheck with relativeDifference<=tolerance) via resultFile; compare against the upstream estimate and report the relative difference; a mismatch you cannot resolve is a finding, not a failure to hide.",
 	synthesis: "SYNTHESIS CONTRACT: aggregate only verified results; every claim cites its evidenceIds and carries uncertainty and limitations; fill every value-card dimension with a scored rationale; write all six narrative sections (dataSummary, methodSummary, resultSummary, uncertaintySummary, innovationSummary, reproducibilitySummary), each grounded in evidenceIds.",
 	report: "COMMUNICATION CONTRACT: report nodes produce report.md with the seven mandated sections - Scientific Question and Value / Hypotheses and Falsification / Data Provenance and Quality / Methods and Tool Chain / Uncertainty and Sensitivity / Reproducibility / Evidence Index; presentation nodes produce exactly 8 slides matching the mandated titles. Every paragraph/slide cites evidenceIds; every number must come from an upstream artifact, never from memory.",
 	defense: "DEFENSE CONTRACT: produce at least 12 Q&A items spanning method, data, uncertainty, and reproducibility categories; every answer embeds an explicit evidence citation; include at least one falsifier item and one strongest-limitation item; do not fabricate questions about evidence categories that do not exist in this mission (e.g. gis/literature without such artifacts).",
@@ -708,6 +711,7 @@ export class ResearchNodeExecutor {
 					} as ScientificValueCard : undefined,
 					narrative: params.narrative ? Object.fromEntries(Object.entries(params.narrative).map(([key, section]) => [key, { text: section.text, evidenceIds: section.evidence_ids, claimIds: section.claim_ids }])) as unknown as ResearchNarrative : undefined,
 					contraryEvidenceLinks: params.contrary_evidence_links?.map((link) => ({ sourceEvidenceId: link.source_evidence_id, claimId: link.claim_id })),
+					conventions: params.conventions,
 				};
 				const issues = validateSubmissionContent(candidate);
 				if (issues.length > 0) {
@@ -724,7 +728,7 @@ export class ResearchNodeExecutor {
 
 		const harness = this.createHarness({
 			model: this.deps.model,
-			thinkingLevel: this.deps.modelPolicy.thinking_level,
+			thinkingLevel: (node.thinking as ConfigThinkingLevel | undefined) ?? this.deps.modelPolicy.thinking_level,
 			cwd: this.deps.cwdForNode(node.id, node.attempts),
 			systemPrompt: `You are the ${role} worker for one GeoRSI WorkGraph node. Work only from the bounded context and exposed tools. Do not invent evidence or claim that an unexecuted computation occurred. ${ROLE_CONTRACTS[role]}`,
 			customTools: [...scientificTools, artifactTool, submitTool],
@@ -746,7 +750,7 @@ export class ResearchNodeExecutor {
 		const verifierProfile = expectedProfilesForNode(node.kind, this.deps.mission);
 		const synthesisHint = node.kind === "synthesis" ? "\n\nSYNTHESIS NOTE: your verifications[0].input_artifact must be a complete quantitative audit JSON. Either (a) reference the audit JSON artifact already produced by the verification/analysis node (see your dependency evidence artifact ids), or (b) recompute independently via the compute tool's resultFile. Do NOT submit a narrative summary as the verifier input." : "";
 		const optionalVerificationHint = verifierProfile.length === 0 ? "\n\nNOTE: this node performs no family audit of its own — you may submit an EMPTY verifications array ([]). Only include a verification if its input artifact is a complete audit JSON of that profile's shape." : "";
-		const deliverableContract = node.kind === "report" ? "\n\nDELIVERABLE CONTRACT: the packaged report is validated for the seven mandated section titles and evidence grounding - your report.md must comply." : node.kind === "presentation" ? "\n\nDELIVERABLE CONTRACT: the packaged presentation must contain exactly 8 slides with evidence-grounded bodies - your presentation.md must comply." : node.kind === "defense" ? "\n\nDELIVERABLE CONTRACT: the packaged defense requires at least 12 Q&A items, each with an explicit evidence citation, spanning method/data/uncertainty/reproducibility - your defense.json must comply." : "";
+		const deliverableContract = node.kind === "report" ? "\n\nDELIVERABLE CONTRACT: the packaged report is validated for the seven mandated section titles and evidence grounding - your report.md must comply." : node.kind === "presentation" ? "\n\nDELIVERABLE CONTRACT: the packaged presentation must contain exactly 8 slides with evidence-grounded bodies - your presentation.md must comply. Do NOT run new computations: assemble every number from the upstream artifacts already in your context." : node.kind === "defense" ? "\n\nDELIVERABLE CONTRACT: the packaged defense requires at least 12 Q&A items, each with an explicit evidence citation, spanning method/data/uncertainty/reproducibility - your defense.json must comply." : "";
 		const verifierContract = verifierProfile.length > 0 ? `\n\nVERIFIER INPUT CONTRACT: this node must submit ${verifierProfile.length} verification entr${verifierProfile.length === 1 ? "y" : "ies"} with profile ${verifierProfile.join(", ")}. Each verification input artifact must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile[0]!]}${node.kind === "verification" ? " — this is an INDEPENDENT re-derivation: recompute from the raw data yourself and emit your own complete audit JSON, not a copy of the analysis node's summary." : ""}` : "";
 		const lessons = node.attempts > 0 ? this.deps.failureLessons?.(node.id) ?? [] : [];
 		const lessonsText = lessons.length > 0 ? `\n\nFAILURE LESSONS from your previous attempt(s) on this node — do NOT repeat these mistakes:\n${lessons.map((lesson) => `- [attempt ${lesson.attempt}/${lesson.source}] ${lesson.detail}`).join("; ")}` : "";
@@ -765,13 +769,14 @@ export class ResearchNodeExecutor {
 		}
 		if (signal.aborted) throw new Error(`research node ${node.id} was aborted`);
 		for (const receipt of observedReceipts) {
+			receipt.nodeId = node.id;
 			this.modelReceiptsValue.push(receipt);
 			this.deps.onModelReceipt?.(receipt);
 		}
 		if (outcome.error || outcome.aborted || outcome.timedOut || outcome.stalled) throw new Error(`research node prompt failed: ${outcome.error ?? "aborted"}`);
 		if (!observedReceipts.length) throw new Error("research node produced no exact model-call receipts");
 		if (new Set(observedReceipts.map((receipt) => receipt.id)).size !== observedReceipts.length) throw new Error("research node produced duplicate model-call receipt IDs");
-		const receiptIssue = observedReceipts.map((receipt) => exactModelReceiptIssue(receipt, this.deps.modelPolicy)).find((issue) => issue !== null);
+		const receiptIssue = observedReceipts.map((receipt) => exactModelReceiptIssue(receipt, this.deps.modelPolicy, node.thinking)).find((issue) => issue !== null);
 		if (receiptIssue) throw new Error(receiptIssue);
 		const outputTokens = observedReceipts.reduce((sum, receipt) => sum + receipt.outputTokens!, 0);
 		if (outputTokens > aggregateOutputCap) throw new Error(`research node exceeded aggregate output cap: ${outputTokens}/${aggregateOutputCap}`);

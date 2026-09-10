@@ -213,7 +213,7 @@ export class PiHarness {
 		// RSILAB_PROMPT_DIAG enables per-node session diagnostics; RSILAB_PROMPT_DIAG_DIR
 		// redirects them out of the exchange workspace so failed-run evidence survives cleanup.
 		const diagDir = process.env.RSILAB_PROMPT_DIAG_DIR || this.opts.cwd;
-		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(diagDir, `prompt_diag-${basename(this.opts.cwd)}.jsonl`) : null;
+		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(diagDir, `prompt_diag-${basename(this.opts.cwd)}-${process.pid}.jsonl`) : null;
 		const thinkingLevel = resolveHarnessThinking(this.opts.model, this.opts.thinkingLevel);
 		this.effectiveThinkingLevel = thinkingLevel;
 		// Fully isolated resource loading: our system prompt only, no ambient

@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "id": "quant-lean-001",
+  "question": "Estimate the Gutenberg-Richter b-value and its stability across completeness thresholds for a synthetic catalog.",
+  "scope": "Lean dev-iteration variant: quant -> sensitivity -> verification -> synthesis only (no communication nodes); deliverables still built from the synthesis narrative.",
+  "estimands": [
+    "Gutenberg-Richter b-value"
+  ],
+  "units": [
+    "dimensionless"
+  ],
+  "assumptions": [
+    "magnitudes share one comparable scale",
+    "catalog is a synthetic fixture"
+  ],
+  "constraints": [
+    "no private truth",
+    "bounded runtime",
+    "sandboxed compute only"
+  ],
+  "successCriteria": [
+    {
+      "id": "criterion-evidence",
+      "description": "each stage has hashed output and deterministic verifier evidence",
+      "kind": "replay",
+      "required": true
+    }
+  ],
+  "requiredDeliverables": [
+    {
+      "id": "report",
+      "kind": "report",
+      "path": "report.md",
+      "required": true,
+      "description": "scientific report"
+    },
+    {
+      "id": "presentation",
+      "kind": "presentation",
+      "path": "presentation.md",
+      "required": true,
+      "description": "eight-slide presentation"
+    },
+    {
+      "id": "defense",
+      "kind": "defense",
+      "path": "defense.json",
+      "required": true,
+      "description": "evidence-grounded defense questions"
+    }
+  ],
+  "sourcePolicy": {
+    "networkMode": "open",
+    "requireProvenance": true,
+    "requireContentHash": true,
+    "requireLicenseMetadata": false,
+    "requireRetrievedAt": false,
+    "requireContraryEvidence": false
+  },
+  "taskProfile": {
+    "family": "quantitative",
+    "requiredStages": [
+      "quantitative-analysis",
+      "sensitivity",
+      "verification",
+      "synthesis"
+    ],
+    "capabilities": [
+      "filesystem",
+      "network",
+      "python",
+      "statistics",
+      "artifact-register",
+      "claim-record",
+      "context-memory"
+    ],
+    "verifierProfile": "quantitative-v1",
+    "deliverableSchema": "georsi-quantitative-research-v1",
+    "sourceRequirements": [],
+    "networkMode": "open"
+  },
+  "dataset": {
+    "type": "synthetic",
+    "description": "Synthetic Gutenberg-Richter catalog fixture; Poisson arrivals in time, magnitudes sampled from GR law with true b=1.0 above completeness; all parameters binding for reproducibility.",
+    "seed": 20260909,
+    "params": {
+      "catalogSize": 1000,
+      "magnitudeRange": [
+        0.5,
+        7.5
+      ],
+      "completenessMc": 2.0,
+      "trueB": 1.0,
+      "noiseModel": "poisson-arrival",
+      "rounding": 0.1
+    }
+  }
+}
