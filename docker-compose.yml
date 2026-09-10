@@ -1,0 +1,91 @@
+name: georsi
+
+# GeoRSI Lab - Docker Compose
+# 用法:
+#   docker compose up -d              # 以 config.json 默认套件启动 rsi (4 代)
+#   docker compose --profile tools run --rm georsi selftest
+#   docker compose logs -f georsi
+#
+# 配置覆盖: 复制 .env.example 为 .env 并填入 API Key，或直接编辑 config/*.json
+
+services:
+  georsi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: georsi:latest
+    container_name: georsi-lab
+    # 默认命令: 可被外部覆盖
+    # command: ["npx", "tsx", "src/run.ts", "rsi", "--gens", "4"]
+    # TUI 需要 TTY: docker compose run --rm georsi npx tsx src/run.ts tui
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    environment:
+      # --- 凭据 (优先从 .env / host env 注入) ---
+      - RSILAB_API_KEY=${RSILAB_API_KEY:-}
+      - RSILAB_LOCAL_API_KEY=${RSILAB_LOCAL_API_KEY:-}
+      - RSILAB_OR_KEY=${RSILAB_OR_KEY:-}
+      - RSILAB_EMOOO_API_KEY=${RSILAB_EMOOO_API_KEY:-}
+      - RSILAB_JUDGE_BASE=${RSILAB_JUDGE_BASE:-}
+      - RSILAB_JUDGE_KEY=${RSILAB_JUDGE_KEY:-}
+      - RSILAB_JUDGE_MODEL=${RSILAB_JUDGE_MODEL:-}
+      - GEORSI_RESEARCH_API_KEY=${GEORSI_RESEARCH_API_KEY:-}
+      - GEILIAPI_API_KEY=${GEILIAPI_API_KEY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+      # --- 运行时 ---
+      - NODE_ENV=production
+      - PYTHONUNBUFFERED=1
+      - TZ=${TZ:-Asia/Shanghai}
+      # 容器内强制 host-audit (Sandboxie 仅 Windows)
+      - EXECUTION_BACKEND=host-audit
+    volumes:
+      # 持久化产出 (journal / state / episode)
+      - ./runs:/app/runs
+      # 知识库与 RAG 持久化
+      - ./knowledge:/app/knowledge
+      - ./rag:/app/rag
+      # 配置热挂载 (改 config 不需重建镜像)
+      - ./config:/app/config
+      - ./config.json:/app/config.json:ro
+      # 私有真值 (若存在于宿主机 ../rsi-lab-private，缺失时 compose 会创建空目录，不影响运行)
+      - ../rsi-lab-private:/app/rsi-lab-private:ro
+      # 注意: api_key.txt 等文件优先走 .env 环境变量注入，不再直接 bind 单文件
+      # 若需文件方式，请手动创建后取消下行注释:
+      # - ./api_key.txt:/app/api_key.txt:ro
+      # - ./api_key_local.txt:/app/api_key_local.txt:ro
+      # - ./api_key_or.txt:/app/api_key_or.txt:ro
+    # 无需暴露端口，纯 CLI 任务系统
+    # ports:
+    #   - "8080:8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "npx", "tsx", "src/run.ts", "selftest"]
+      interval: 120s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+
+  # 可选工具容器: 一次性任务 (selftest / smoke / exam)
+  # 用法: docker compose --profile tools run --rm georsi-tools selftest
+  georsi-tools:
+    extends: georsi
+    container_name: georsi-tools
+    profiles: ["tools"]
+    restart: "no"
+    tty: false
+    stdin_open: false
+    command: ["npx", "tsx", "src/run.ts", "selftest"]
+    volumes:
+      - ./runs:/app/runs
+      - ./knowledge:/app/knowledge
+      - ./rag:/app/rag
+      - ./config:/app/config
+      - ./config.json:/app/config.json:ro
+      - ../rsi-lab-private:/app/rsi-lab-private:ro
