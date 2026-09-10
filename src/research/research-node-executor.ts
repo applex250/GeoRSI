@@ -323,6 +323,9 @@ export function buildResearchNodeContext(input: {
 	node: WorkNode;
 	graph: ResearchWorkGraph;
 	evidence: readonly EvidenceRef[];
+	/** Optional content loader: resolves an artifact id to its full CAS content so direct
+	 * dependency outputs (submissions, result JSONs) are injected uncompressed into the pack. */
+	artifactContent?: (id: string) => string | undefined;
 }): ContextPack {
 	const { mission, strategy, node, graph, evidence } = input;
 	const role = researchNodeRole(node.kind);
@@ -334,6 +337,38 @@ export function buildResearchNodeContext(input: {
 		...directDependencies.flatMap((dependency) => [...dependency.outputArtifactIds, ...dependency.acceptanceEvidenceIds]),
 	]);
 	const relevantEvidence = evidence.filter((reference) => relevantIds.has(reference.id));
+	// Dependency-output push (smoke-018 analysis): static packs only carried artifact METADATA, so
+	// downstream nodes burned dozens of context-recall calls pulling upstream content. Inject the
+	// full content of direct-dependency artifacts instead, with layered size caps.
+	const PER_ARTIFACT_CAP = 12_000;
+	const PER_DEPENDENCY_CAP = 32_000;
+	const TOTAL_CONTENT_CAP = 96_000;
+	const artifactContent = input.artifactContent;
+	const dependencyContentBlocks: ContextBlock[] = [];
+	const contentCoveredIds = new Set<string>();
+	if (artifactContent) {
+		let totalUsed = 0;
+		for (const dependency of directDependencies) {
+			const ids = unique([...dependency.outputArtifactIds, ...dependency.acceptanceEvidenceIds]);
+			const sections: string[] = [];
+			let used = 0;
+			for (const id of ids) {
+				if (totalUsed + used >= TOTAL_CONTENT_CAP) break;
+				const reference = evidence.find((candidate) => candidate.id === id);
+				const raw = artifactContent(id);
+				if (reference === undefined || raw === undefined) continue;
+				contentCoveredIds.add(id);
+				const body = raw.length > PER_ARTIFACT_CAP ? `${raw.slice(0, PER_ARTIFACT_CAP)}\n…[truncated ${raw.length - PER_ARTIFACT_CAP} chars; recall with evidenceId=${id} for full content]` : raw;
+				const chunk = body.slice(0, Math.max(0, PER_DEPENDENCY_CAP - used));
+				used += chunk.length;
+				sections.push(`--- artifact ${id} (${reference.logicalName}, ${reference.kind}) ---\n${chunk}`);
+			}
+			if (sections.length > 0) {
+				totalUsed += used;
+				dependencyContentBlocks.push({ id: `dependency-content-${dependency.id}`, kind: "dependency", mandatory: true, priority: 92, content: `full outputs of dependency ${dependency.id} (${dependency.kind}):\n${sections.join("\n")}` });
+			}
+		}
+	}
 	const recipes = [
 		...(strategy.recipes[mission.taskProfile.family] ?? []),
 		...(strategy.recipes[node.kind] ?? []),
@@ -352,7 +387,8 @@ export function buildResearchNodeContext(input: {
 		})() },
 		{ id: `budget-${node.id}`, kind: "budget", mandatory: true, priority: 100, content: stableJson(node.budget) },
 		...directDependencies.map((dependency) => ({ id: `dependency-${dependency.id}`, kind: "dependency" as const, mandatory: true, priority: 90, content: stableJson({ id: dependency.id, kind: dependency.kind, state: dependency.state, outputArtifactIds: dependency.outputArtifactIds, outputArtifacts: dependency.outputArtifactIds.map((id) => ({ id, logicalName: evidence.find((reference) => reference.id === id)?.logicalName ?? "" })), acceptanceEvidenceIds: dependency.acceptanceEvidenceIds }) })),
-		...relevantEvidence.map((reference) => ({ id: `evidence-${reference.id}`, kind: "evidence" as const, mandatory: false, priority: 80, sourceHash: reference.sha256, content: stableJson(reference).slice(0, strategy.context.artifactSummaryChars) })),
+		...dependencyContentBlocks,
+		...relevantEvidence.filter((reference) => !contentCoveredIds.has(reference.id)).map((reference) => ({ id: `evidence-${reference.id}`, kind: "evidence" as const, mandatory: false, priority: 80, sourceHash: reference.sha256, content: stableJson(reference).slice(0, strategy.context.artifactSummaryChars) })),
 		...recipes.map((recipe) => ({ id: `recipe-${recipe.id}`, kind: "recipe" as const, mandatory: false, priority: 60, content: stableJson(recipe) })),
 	];
 	return buildContextPack(blocks, budget!);
@@ -437,7 +473,21 @@ export class ResearchNodeExecutor {
 		const evidence = evidenceIds.map((id) => this.deps.evidenceById(id)).filter((reference): reference is EvidenceRef => !!reference);
 		if (evidence.length !== evidenceIds.length) throw new Error(`node ${node.id} context references unknown evidence`);
 		this.deps.contextMemory?.syncGraphState(graph.nodes.map((candidate) => ({ id: candidate.id, state: candidate.state, attempts: candidate.attempts })));
-		const context = buildResearchNodeContext({ mission: this.deps.mission, strategy: this.deps.strategy, node, graph, evidence });
+		const context = buildResearchNodeContext({
+			mission: this.deps.mission,
+			strategy: this.deps.strategy,
+			node,
+			graph,
+			evidence,
+			artifactContent: (id) => {
+				try {
+					const reference = this.deps.evidenceById(id);
+					return reference ? this.deps.evidenceStore.read(reference).toString("utf8") : undefined;
+				} catch {
+					return undefined; // unreadable artifacts fall back to the metadata block + recall
+				}
+			},
+		});
 		const startedAt = Date.now();
 		const remainingWallMs = (): number => Math.max(0, node.budget.wallMs - (Date.now() - startedAt));
 		const ensureActive = (): void => {
