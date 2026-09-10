@@ -62,6 +62,9 @@ export interface ResearchNodeExecutorDeps {
 	onToolReceipt?: (receipt: ScientificToolReceipt) => void;
 	/** Optional run-scoped read-only context memory fed by node submissions. */
 	contextMemory?: ResearchContextMemory;
+	/** Prior-attempt failure lessons for a node (P1): injected into retry prompts so the same
+	 * mistake is not repeated in a fresh session. Backed by the run ledger. */
+	failureLessons?: (nodeId: string) => { attempt: number; source: string; detail: string }[];
 	now?: () => Date;
 	stallMs?: number;
 }
@@ -317,6 +320,10 @@ export function validateFamilyVerifierInputStructure(profile: FamilyVerifierProf
 	return issues;
 }
 
+function isSubmissionArtifact(reference: { logicalName: string }): boolean {
+	return /-submission\.json$/i.test(reference.logicalName) || /submission/i.test(reference.logicalName);
+}
+
 export function buildResearchNodeContext(input: {
 	mission: ResearchMission;
 	strategy: StrategyBundle;
@@ -326,6 +333,8 @@ export function buildResearchNodeContext(input: {
 	/** Optional content loader: resolves an artifact id to its full CAS content so direct
 	 * dependency outputs (submissions, result JSONs) are injected uncompressed into the pack. */
 	artifactContent?: (id: string) => string | undefined;
+	/** Optional metadata resolver for ids outside the relevant-evidence set (transitive grounding). */
+	artifactRef?: (id: string) => EvidenceRef | undefined;
 }): ContextPack {
 	const { mission, strategy, node, graph, evidence } = input;
 	const role = researchNodeRole(node.kind);
@@ -344,8 +353,10 @@ export function buildResearchNodeContext(input: {
 	const PER_DEPENDENCY_CAP = 32_000;
 	const TOTAL_CONTENT_CAP = 96_000;
 	const artifactContent = input.artifactContent;
+	const artifactRef = input.artifactRef;
 	const dependencyContentBlocks: ContextBlock[] = [];
 	const contentCoveredIds = new Set<string>();
+	const transitiveIds = new Set<string>();
 	if (artifactContent) {
 		let totalUsed = 0;
 		for (const dependency of directDependencies) {
@@ -354,18 +365,49 @@ export function buildResearchNodeContext(input: {
 			let used = 0;
 			for (const id of ids) {
 				if (totalUsed + used >= TOTAL_CONTENT_CAP) break;
-				const reference = evidence.find((candidate) => candidate.id === id);
+				const reference = artifactRef?.(id) ?? evidence.find((candidate) => candidate.id === id);
 				const raw = artifactContent(id);
 				if (reference === undefined || raw === undefined) continue;
 				contentCoveredIds.add(id);
-				const body = raw.length > PER_ARTIFACT_CAP ? `${raw.slice(0, PER_ARTIFACT_CAP)}\n…[truncated ${raw.length - PER_ARTIFACT_CAP} chars; recall with evidenceId=${id} for full content]` : raw;
+				// P2 noise filter: stdout/stderr streams are recall-only; scripts truncated to a glance.
+				if (/stdout|stderr/i.test(reference.logicalName)) continue;
+				const isScript = reference.mediaType === "text/x-python" || /\.py$/i.test(reference.logicalName);
+				const cap = isScript ? Math.min(1_000, PER_ARTIFACT_CAP) : PER_ARTIFACT_CAP;
+				const body = raw.length > cap ? `${raw.slice(0, cap)}\n…[truncated ${raw.length - cap} chars; recall with evidenceId=${id} for full content]` : raw;
 				const chunk = body.slice(0, Math.max(0, PER_DEPENDENCY_CAP - used));
 				used += chunk.length;
 				sections.push(`--- artifact ${id} (${reference.logicalName}, ${reference.kind}) ---\n${chunk}`);
+				// P3 claim-accompanied transitive push: submission JSONs reference the upstream evidence
+				// their claims rest on; harvest those ids so grounding content travels with the claim.
+				if (isSubmissionArtifact(reference)) {
+					try {
+						const parsed = JSON.parse(raw) as { claims?: { evidenceIds?: string[] }[]; narrative?: Record<string, { evidenceIds?: string[] }> };
+						for (const claim of parsed.claims ?? []) for (const claimed of claim.evidenceIds ?? []) transitiveIds.add(claimed);
+						for (const section of Object.values(parsed.narrative ?? {})) for (const cited of section.evidenceIds ?? []) transitiveIds.add(cited);
+					} catch { /* unparseable submission body: transitive harvest skipped */ }
+				}
 			}
 			if (sections.length > 0) {
 				totalUsed += used;
 				dependencyContentBlocks.push({ id: `dependency-content-${dependency.id}`, kind: "dependency", mandatory: true, priority: 92, content: `full outputs of dependency ${dependency.id} (${dependency.kind}):\n${sections.join("\n")}` });
+			}
+		}
+		// P3: transitive grounding — upstream claim support evidence injected alongside the claims.
+		if (artifactContent && artifactRef && transitiveIds.size > 0 && totalUsed < TOTAL_CONTENT_CAP) {
+			const sections: string[] = [];
+			let used = 0;
+			for (const id of transitiveIds) {
+				if (totalUsed + used >= TOTAL_CONTENT_CAP) break;
+				const reference = artifactRef(id);
+				const raw = artifactContent(id);
+				if (reference === undefined || raw === undefined) continue;
+				contentCoveredIds.add(id);
+				const chunk = raw.slice(0, Math.max(0, Math.min(4_000, 16_000 - used)));
+				used += chunk.length;
+				sections.push(`--- ${id} (${reference.logicalName}, ${reference.kind}) ---\n${chunk}`);
+			}
+			if (sections.length > 0) {
+				dependencyContentBlocks.push({ id: "claim-support-evidence", kind: "claim", mandatory: true, priority: 91, content: `evidence backing upstream node claims (transitive grounding):\n${sections.join("\n")}` });
 			}
 		}
 	}
@@ -479,6 +521,7 @@ export class ResearchNodeExecutor {
 			node,
 			graph,
 			evidence,
+			artifactRef: (id) => this.deps.evidenceById(id),
 			artifactContent: (id) => {
 				try {
 					const reference = this.deps.evidenceById(id);
@@ -688,7 +731,9 @@ export class ResearchNodeExecutor {
 		const synthesisHint = node.kind === "synthesis" ? "\n\nSYNTHESIS NOTE: your verifications[0].input_artifact must be a complete quantitative audit JSON. Either (a) reference the audit JSON artifact already produced by the verification/analysis node (see your dependency evidence artifact ids), or (b) recompute independently via the compute tool's resultFile. Do NOT submit a narrative summary as the verifier input." : "";
 		const optionalVerificationHint = verifierProfile.length === 0 ? "\n\nNOTE: this node performs no family audit of its own — you may submit an EMPTY verifications array ([]). Only include a verification if its input artifact is a complete audit JSON of that profile's shape." : "";
 		const verifierContract = verifierProfile.length > 0 ? `\n\nVERIFIER INPUT CONTRACT: this node must submit ${verifierProfile.length} verification entr${verifierProfile.length === 1 ? "y" : "ies"} with profile ${verifierProfile.join(", ")}. Each verification input artifact must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile[0]!]}${node.kind === "verification" ? " — this is an INDEPENDENT re-derivation: recompute from the raw data yourself and emit your own complete audit JSON, not a copy of the analysis node's summary." : ""}` : "";
-		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}${synthesisHint}${optionalVerificationHint}`, remainingWallMs());
+		const lessons = node.attempts > 0 ? this.deps.failureLessons?.(node.id) ?? [] : [];
+		const lessonsText = lessons.length > 0 ? `\n\nFAILURE LESSONS from your previous attempt(s) on this node — do NOT repeat these mistakes:\n${lessons.map((lesson) => `- [attempt ${lesson.attempt}/${lesson.source}] ${lesson.detail}`).join("; ")}` : "";
+		outcome = await harness.prompt(`${context.text}\n\nExecute node ${node.id}. Persist every produced result through a tool, then call submit_research_node_output exactly once. IMPORTANT: every verifications[].input_artifact must be an artifact id returned by a scientific tool (resultArtifactId / evidenceIds), never a model-artifact handle.${verifierContract}${synthesisHint}${optionalVerificationHint}${lessonsText}`, remainingWallMs());
 			for (const receipt of outcome.modelCalls ?? (outcome.modelCall ? [outcome.modelCall] : [])) observedReceipts.push(receipt);
 			// Submission nudge (luna-smoke-012/013 sensitivity pattern): the model sometimes ends its
 			// turn with plain text after finishing the computations, never calling submit. One bounded

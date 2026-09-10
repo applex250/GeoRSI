@@ -14,7 +14,7 @@ import { assertSandboxPythonCommand, resolveExchangeWorkspace, SandboxieAdapter 
 import type { EvidenceRef, ResearchClaim, ResearchMission, ResearchWorkGraph } from "./contracts.js";
 import { validateResearchMission } from "./contracts.js";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
-import { ResearchEventLedger, stableJson } from "./event-ledger.js";
+import { ResearchEventLedger, readResearchLedger, stableJson } from "./event-ledger.js";
 import { captureResearchEnvironment } from "./environment-capture.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
 import { validateWorkGraphForMission, createWorkGraph, createWorkNode } from "./work-graph.js";
@@ -228,11 +228,33 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	registry.register(createContextRecallTool({ memory: contextMemory }));
 	const computeToolId = isolation === "sandboxie" ? "sandboxie-python" : "python-host";
 	registry.register(createSandboxiePythonResearchTool({ port: computePort, evidenceStore, networkMode, capability: "python", toolId: computeToolId, onRunReceipt: (receipt) => computeReceipts.push(receipt) }));
-	const executor = new ResearchNodeExecutor({
+	// P1 failure lessons: prior node-failed / verification-failed / failed tool receipts are
+	// replayed into retry prompts so a fresh session does not repeat a known mistake.
+	const failureLessons = (nodeId: string): { attempt: number; source: string; detail: string }[] => {
+		try {
+			const record = readResearchLedger(ledgerPath);
+			if (!record.valid) return [];
+			const lessons: { attempt: number; source: string; detail: string }[] = [];
+			let attempt = 0;
+			for (const event of record.events) {
+				if (event.nodeId !== nodeId) continue;
+				if (event.type === "node-start") attempt += 1;
+				const payload = (event.payload ?? {}) as Record<string, unknown>;
+				if (event.type === "node-failed" && typeof payload.message === "string") lessons.push({ attempt: Math.max(1, attempt), source: `node-failed/${String(payload.class ?? "unknown")}`, detail: payload.message.slice(0, 300) });
+				else if (event.type === "node-verification-failed" && Array.isArray(payload.issues)) lessons.push({ attempt: Math.max(1, attempt), source: "verification", detail: payload.issues.map(String).join("; ").slice(0, 400) });
+				else if (event.type === "scientific-tool-receipt" && event.status === "failure" && typeof payload.error === "string") lessons.push({ attempt: Math.max(1, attempt), source: `tool:${String(payload.toolId ?? "?")}`, detail: payload.error.slice(0, 300) });
+			}
+			return lessons;
+		} catch {
+			return [];
+		}
+	};
+		const executor = new ResearchNodeExecutor({
 		mission: options.mission,
 		strategy,
 		modelPolicy: researchPolicy,
 		contextMemory,
+		failureLessons,
 		model: runtime.inner,
 		cwdForNode: (nodeId, attempt) => {
 			const nodeToken = createHash("sha256").update(nodeId).digest("hex").slice(0, 16);
@@ -245,7 +267,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		registerEvidence: (reference) => evidenceById.set(reference.id, reference),
 		toolRegistry: registry,
 		toolBindings: [
-			{ toolId: "context-recall", description: "Inspect and recall committed run context memory. Call {list:true} first to see which nodes have committed memory and what artifacts/decisions/verifications exist; then filter by node/field, search by query, or fetch a listed evidenceId for verified content.", parameters: Type.Object({ list: Type.Optional(Type.Union([Type.Literal(true), Type.Literal("nodes"), Type.Literal("artifacts")])), node: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })), field: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("decisions"), Type.Literal("artifacts"), Type.Literal("verifications"), Type.Literal("all")])), query: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })), evidenceId: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })), topK: Type.Optional(Type.Integer({ minimum: 1, maximum: 10 })), maxChars: Type.Optional(Type.Integer({ minimum: 200, maximum: 20_000 })) }) },
+			{ toolId: "context-recall", description: "Inspect and recall committed run context memory. Call {list:true} first to see which nodes have committed memory and what artifacts/decisions/verifications exist; then filter by node/field, search by query, or fetch a listed evidenceId for verified content.", parameters: Type.Object({ list: Type.Optional(Type.Union([Type.Literal(true), Type.Literal("nodes"), Type.Literal("artifacts")])), node: Type.Optional(Type.String({ minLength: 1, maxLength: 160 })), field: Type.Optional(Type.Union([Type.Literal("summary"), Type.Literal("decisions"), Type.Literal("artifacts"), Type.Literal("verifications"), Type.Literal("all")])), query: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })), evidenceId: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })), evidenceIds: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 200 }), { minItems: 1, maxItems: 8, description: "Batch-fetch up to 8 evidence ids in one call" })), topK: Type.Optional(Type.Integer({ minimum: 1, maximum: 10 })), maxChars: Type.Optional(Type.Integer({ minimum: 200, maximum: 20_000 })) }) },
 			{ toolId: "web-fetch", description: isolation === "sandboxie" ? "Fetch one bounded HTTP(S) scholarly/data source inside the configured Sandboxie network policy." : "Fetch one bounded HTTP(S) scholarly/data source on the host; no sandbox network isolation is enforced in this development run.", parameters: Type.Object({ url: Type.String({ minLength: 1, maxLength: 2000 }), method: Type.Optional(Type.Union([Type.Literal("GET"), Type.Literal("HEAD")])), timeoutMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 120_000 })), maxBytes: Type.Optional(Type.Integer({ minimum: 1, maximum: 5_000_000 })) }) },
 			{ toolId: computeToolId, description: isolation === "sandboxie" ? "Run a bounded Python/GIS computation in a newly prepared Sandboxie box with verified PID ownership and cleanup. Pass resultFile to persist a structured JSON result; its artifact id is returned as resultArtifactId and is what verifications[].input_artifact must reference." : "Run a bounded Python/GIS computation directly on the host. Sandbox isolation is disabled for this development run; the run is recorded as host-audit and is not competition-eligible. Pass resultFile to persist a structured JSON result; its artifact id is returned as resultArtifactId and is what verifications[].input_artifact must reference.", parameters: Type.Object({ purpose: Type.String({ minLength: 1, maxLength: 500 }), script: Type.String({ minLength: 1, maxLength: 250_000 }), timeoutMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 900_000 })), resultFile: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "Filename (safe basename, no slashes) your script writes in its working directory, e.g. result.json; becomes the resultArtifactId" })) }) },
 		],
@@ -279,7 +301,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		}
 		log(`[research] resumed ${runDir}: ${options.graph.nodes.filter((node) => node.state === "completed").length}/${options.graph.nodes.length} nodes already completed, ${evidenceById.size} evidence refs indexed`);
 	}
-	const startedAt = now().getTime();
+const startedAt = now().getTime();
 	const environment: ResearchEnvironment = captureResearchEnvironment({
 		gitCommit: gitValue(["rev-parse", "HEAD"]),
 		gitDirty: gitValue(["status", "--porcelain"]) !== null,

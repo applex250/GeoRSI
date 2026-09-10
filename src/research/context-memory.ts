@@ -65,6 +65,8 @@ export interface ContextRecallOutput {
 	/** Full work-graph progress snapshot when a graph state has been synced. */
 	progress?: Record<string, string>;
 	nodes?: NodeCatalogEntry[];
+	/** Artifact preview lines for list:"artifacts" discoverability. */
+	artifactPreviews?: { nodeId: string; evidenceId: string; preview: string }[];
 	entries?: ContextRecallEntry[];
 	truncated?: boolean;
 	hint?: string;
@@ -76,6 +78,8 @@ export interface ContextRecallRequest {
 	field?: ContextRecallField;
 	query?: string;
 	evidenceId?: string;
+	/** Batch fetch: up to 8 evidence ids in one call (saves model round-trips). */
+	evidenceIds?: string[];
 	topK?: number;
 	maxChars?: number;
 }
@@ -256,6 +260,7 @@ export function createContextRecallTool(input: { memory: ResearchContextMemory }
 			if (request.field !== undefined && !["summary", "decisions", "artifacts", "verifications", "all"].includes(request.field)) issues.push("field is invalid");
 			if (request.query !== undefined && (typeof request.query !== "string" || request.query.trim().length === 0 || request.query.length > 500)) issues.push("query must be 1..500 characters");
 			if (request.evidenceId !== undefined && (typeof request.evidenceId !== "string" || request.evidenceId.trim().length === 0 || request.evidenceId.length > 200)) issues.push("evidenceId must be 1..200 characters");
+		if (request.evidenceIds !== undefined && (!Array.isArray(request.evidenceIds) || request.evidenceIds.length === 0 || request.evidenceIds.length > 8 || request.evidenceIds.some((id) => typeof id !== "string" || id.trim().length === 0 || id.length > 200))) issues.push("evidenceIds must be 1..8 evidence id strings");
 			if (request.topK !== undefined && (!Number.isSafeInteger(request.topK) || request.topK < 1 || request.topK > 10)) issues.push("topK must be within 1..10");
 			if (request.maxChars !== undefined && (!Number.isSafeInteger(request.maxChars) || request.maxChars < 200 || request.maxChars > 20_000)) issues.push("maxChars must be within 200..20000");
 			return issues;
@@ -267,11 +272,24 @@ export function createContextRecallTool(input: { memory: ResearchContextMemory }
 				const nodeFilter = request.node === "self" ? context.nodeId : request.node;
 				const nodes = input.memory.catalog(nodeFilter);
 				if (request.list === "artifacts") {
-					return { output: { mode: "list", progress: input.memory.progress(), nodes: nodes.map((node) => ({ ...node, summaryExcerpt: "", decisionCount: 0, verificationProfiles: [] })) } };
+					const artifactPreviews = input.memory.blocks(nodeFilter).filter((block) => block.field === "artifacts").map((block) => ({ nodeId: block.nodeId, evidenceId: block.evidenceId, preview: sliceText(block.text, 240) }));
+					return { output: { mode: "list", progress: input.memory.progress(), nodes: nodes.map((node) => ({ ...node, summaryExcerpt: "", decisionCount: 0, verificationProfiles: [] })), artifactPreviews } };
 				}
 				return { output: { mode: "list", progress: input.memory.progress(), nodes } };
 			}
-			// L0 — exact fetch
+			// L0 — exact fetch (single or batch)
+			if (request.evidenceIds?.length) {
+				const perEntry = clamp(Math.floor(maxChars / request.evidenceIds.length), 200, 2000);
+				const entries = request.evidenceIds.map((id) => {
+					try {
+						const entry = input.memory.fetch(id);
+						return { nodeId: entry.nodeId, version: entry.version, field: entry.field, evidenceId: entry.evidenceId, excerpt: sliceText(entry.excerpt, perEntry) };
+					} catch {
+						return { nodeId: context.nodeId, version: 0, field: "fetch-error", evidenceId: id, excerpt: "evidence id not found in committed memory" };
+					}
+				});
+				return { output: { mode: "fetch", entries, truncated: false } };
+			}
 			if (request.evidenceId) {
 				const entry = input.memory.fetch(request.evidenceId);
 				entry.excerpt = sliceText(entry.excerpt, maxChars);
