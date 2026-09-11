@@ -7,9 +7,10 @@ GitHub：`origin/master`
 
 ## 0. 2026-09 阶段要点（先读这节）
 
-1. **沙盒默认关闭（开发期决策）**：`execution_backend` 缺省即 `host-audit`（直接主机执行，无隔离）。
-   显式 `"execution_backend": "sandboxie"` 才启用 Sandboxie。Sandboxie 代码全量保留；
-   相关故障（`/env:=Refresh` 空名环境对、`Start.exe` ownership 窗口）延后迭代再修。
+1. **沙盒永久关闭（最终决策 2026-09-11）**：`execution_backend` 缺省即 `host-audit`（直接主机执行，无隔离）。
+   项目保持无沙盒开发版形态；Sandboxie 严格后端代码全量保留（显式 `"execution_backend": "sandboxie"`
+   仍可用，fail-closed 语义不变），但不再投入硬化迭代——`/env:=Refresh` 空名环境对、`Start.exe`
+   ownership 窗口等遗留故障不再计划修复。诚实性门禁不受影响：host-audit 运行永不满足竞赛资格。
 2. **诚实性不降级**：host-audit 运行记为 `runMode=host-development` + `isolationBackend=host-audit`
    + `networkIsolationEnforced=false`，TS 门禁与 Python verdict 双侧强制其**永不满足竞赛资格**。
 3. **统一网关路由层**：`config/*.json` 的 `research_gateways` 登记表承载 endpoint/model/api/
