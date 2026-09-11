@@ -1,7 +1,19 @@
-/** Evidence-grounded report, presentation, and defense deliverables. */
-import type { EvidenceRef, HypothesisRecord, ResearchClaim, ResearchMission } from "./contracts.js";
+/** Evidence-grounded report, presentation, and defense deliverables.
+ *
+ * Draft validation is split in two, deliberately:
+ *  - `draft-normalizer.ts` owns SHAPE. Field names, containers, heading spelling, slide markers and
+ *    citation placement are repaired deterministically before anything is judged, so a purely
+ *    formal mismatch can never cost the model a round trip (smoke-021b burned 3.48M tokens doing
+ *    exactly that).
+ *  - this file owns SUBSTANCE. What remains here is the packaged gate: item counts, category
+ *    coverage, and whether the cited evidence actually exists in this run.
+ */
+import type { DefenseItem, EvidenceRef, HypothesisRecord, ResearchClaim, ResearchMission } from "./contracts.js";
 import type { ScientificValueCard } from "./value-evaluator.js";
 import { validateResearchClaim } from "./decision-policy.js";
+import { DEFENSE_CATEGORY_KINDS, DEFENSE_REQUIRED_CATEGORIES, DEFENSE_REQUIRED_ITEMS, normalizeDefenseDraft, normalizePresentationDraft, normalizeReportDraft } from "./draft-normalizer.js";
+
+export { DEFENSE_CATEGORY_KINDS };
 
 export interface GroundedNarrativeSection {
 	text: string;
@@ -19,15 +31,7 @@ export interface ResearchNarrative {
 	reproducibilitySummary: GroundedNarrativeSection;
 }
 
-export interface DefenseItem {
-	id: string;
-	category: "method" | "data" | "causality" | "uncertainty" | "gis" | "literature" | "negative-result" | "reproducibility" | "limitation" | "alternative";
-	question: string;
-	expertAnswer: string;
-	nonExpertAnswer: string;
-	claimIds: string[];
-	evidenceIds: string[];
-}
+export type { DefenseItem };
 
 export interface ResearchDeliverableBundle {
 	reportMarkdown: string;
@@ -108,15 +112,6 @@ export function buildResearchPresentation(input: { mission: ResearchMission; cla
 	return slides.map(([title, body], index) => `# Slide ${index + 1} — ${title}\n\n${body}`).join("\n\n---\n\n") + "\n";
 }
 
-const DEFENSE_CATEGORY_KINDS: Partial<Record<DefenseItem["category"], Set<EvidenceRef["kind"]>>> = {
-	method: new Set(["script", "tool-output", "table", "verifier", "geodata"]),
-	data: new Set(["dataset", "table", "tool-output", "source"]),
-	uncertainty: new Set(["table", "figure", "verifier", "tool-output"]),
-	gis: new Set(["geodata", "figure", "verifier"]),
-	literature: new Set(["source"]),
-	reproducibility: new Set(["script", "verifier", "tool-output"]),
-};
-
 export function buildDefensePackage(input: { mission: ResearchMission; claims: ResearchClaim[]; evidence: EvidenceRef[]; narrative: ResearchNarrative }): { version: 1; items: DefenseItem[] } {
 	const claims = supportedClaims(input.claims, input.evidence);
 	validateNarrative(input.narrative, input.claims, input.evidence);
@@ -179,70 +174,148 @@ export interface CommunicationDrafts {
 	reportMarkdown?: string;
 	/** presentation node's presentation.md (raw). */
 	presentationMarkdown?: string;
-	/** defense node's defense.json (parsed or raw JSON string). */
+	/** defense node's defense.json (parsed object or raw JSON string). */
 	defenseItems?: unknown;
+	/** Claim ids the defense drafts may reference; unknown ids are dropped by the normalizer. */
+	claimIds?: readonly string[];
 }
 
-const REPORT_SECTIONS = ["Scientific Question and Value", "Hypotheses and Falsification", "Data Provenance and Quality", "Methods and Tool Chain", "Uncertainty and Sensitivity", "Reproducibility", "Evidence Index"];
+/** Normalized draft + the audit trail of what code repaired.
+ * `issues` block (the draft is unusable); `notes` are advisory quality gaps the packaging step
+ * tops up from the deterministic template. */
+export interface DraftNormalization {
+	normalized: { version: 1; items: DefenseItem[] } | undefined;
+	coercions: string[];
+	issues: string[];
+	notes: string[];
+}
 
 export function reportDraftIssues(content: string): string[] {
-	const issues: string[] = [];
-	for (const section of REPORT_SECTIONS) if (!content.includes(section)) issues.push(`missing section: ${section}`);
-	if ((content.match(/\[evidence:/g) ?? []).length < 3) issues.push("fewer than 3 evidence citations");
-	return issues;
+	return normalizeReportDraft(content).issues;
 }
 
 export function presentationDraftIssues(content: string): string[] {
-	const slides = (content.match(/^# Slide /gm) ?? []).length;
-	return slides === 8 ? [] : [`must contain exactly 8 slides, found ${slides}`];
+	return normalizePresentationDraft(content).issues;
 }
 
-export function defenseDraftIssues(items: unknown, evidence: readonly EvidenceRef[]): { issues: string[]; normalized: { version: 1; items: DefenseItem[] } | undefined } {
-	if (!Array.isArray(items) || items.length < 12) return { issues: [`defense draft requires at least 12 items, found ${Array.isArray(items) ? items.length : 0}`], normalized: undefined };
-	const known = new Map(evidence.map((item) => [item.id, item]));
-	const normalizedItems: DefenseItem[] = [];
-	const issues: string[] = [];
-	for (const [index, raw] of items.entries()) {
-		const item = raw as Partial<DefenseItem>;
-		const id = typeof item.id === "string" && item.id.trim() ? item.id : `defense-${String(index + 1).padStart(2, "0")}`;
-		const category = item.category as DefenseItem["category"];
-		if (!item.question?.trim()) { issues.push(`${id}: empty question`); continue; }
-		if (!item.expertAnswer?.includes("[evidence:")) { issues.push(`${id}: answer lacks an evidence citation`); continue; }
-		const evidenceIds = Array.isArray(item.evidenceIds) ? item.evidenceIds.filter((eid) => typeof eid === "string" && known.has(eid)) : [];
-		if (evidenceIds.length === 0) { issues.push(`${id}: no citable evidence`); continue; }
-		const allowed = DEFENSE_CATEGORY_KINDS[category];
-		if (allowed && !evidenceIds.some((eid) => allowed.has(known.get(eid)?.kind ?? "source"))) { issues.push(`${id}: lacks category-relevant evidence`); continue; }
-		normalizedItems.push({ id, category, question: item.question, expertAnswer: item.expertAnswer, nonExpertAnswer: item.nonExpertAnswer ?? item.expertAnswer.split(/[.;]/)[0] + ".", claimIds: Array.isArray(item.claimIds) ? item.claimIds : [], evidenceIds });
-	}
-	if (normalizedItems.length < 12) issues.unshift(`defense draft has only ${normalizedItems.length} grounded items (needs 12)`);
-	return { issues, normalized: issues.length === 0 ? { version: 1, items: normalizedItems } : undefined };
+export function defenseDraftIssues(items: unknown, evidence: readonly EvidenceRef[], claimIds?: readonly string[]): DraftNormalization {
+	const result = normalizeDefenseDraft(items, evidence, claimIds);
+	return {
+		// Usable as soon as anything grounded survives: the template tops it up rather than
+		// discarding the node's work outright.
+		normalized: result.issues.length === 0 && result.items.length > 0 ? { version: 1, items: result.items } : undefined,
+		coercions: result.coercions,
+		issues: result.issues,
+		notes: result.notes,
+	};
 }
 
 /** Phase-(a): deliverables prefer the communication nodes' own artifacts when they pass the same
  * validation as packaged output; deterministic template build remains the fallback. */
+/** `node` = entirely the node's own draft; `augmented` = node draft topped up with deterministic
+ * template content; `template` = the node's draft was unusable and none of it was kept. */
+export type DeliverableSource = "node" | "augmented" | "template";
+
 export interface DeliverableBuildResult {
 	bundle: ResearchDeliverableBundle;
-	sources: { report: "node" | "template"; presentation: "node" | "template"; defense: "node" | "template" };
+	sources: { report: DeliverableSource; presentation: DeliverableSource; defense: DeliverableSource };
+	/** Deterministic repairs and augmentations applied to each draft (audit trail; never a failure). */
+	coercions: { report: string[]; presentation: string[]; defense: string[] };
+	/** Substance-only reasons a node draft was replaced or topped up by the template. */
+	draftIssues: { report: string[]; presentation: string[]; defense: string[] };
+}
+
+/** Split a report into `title -> section text` so a missing mandated section can be filled from the
+ * deterministic template instead of discarding the whole report. */
+function reportSections(markdown: string): Map<string, string> {
+	const sections = new Map<string, string>();
+	for (const part of markdown.split(/\n(?=#{1,6}\s)/)) {
+		const match = /^#{1,6}\s+(?:\d+\.\s*)?(.+?)\s*$/m.exec(part);
+		if (match) sections.set(match[1]!.trim(), part.trim());
+	}
+	return sections;
 }
 
 export function buildResearchDeliverablesWithSources(input: Parameters<typeof buildResearchReport>[0] & { narrative: ResearchNarrative; drafts?: CommunicationDrafts }): DeliverableBuildResult {
 	const sources: DeliverableBuildResult["sources"] = { report: "template", presentation: "template", defense: "template" };
-	let reportMarkdown = buildResearchReport(input);
-	let presentationMarkdown = buildResearchPresentation(input);
-	let defense: ResearchDeliverableBundle["defense"] = buildDefensePackage(input);
+	const coercions: DeliverableBuildResult["coercions"] = { report: [], presentation: [], defense: [] };
+	const draftIssues: DeliverableBuildResult["draftIssues"] = { report: [], presentation: [], defense: [] };
+	const templateReport = buildResearchReport(input);
+	const templatePresentation = buildResearchPresentation(input);
+	const templateDefense = buildDefensePackage(input);
+	let reportMarkdown = templateReport;
+	let presentationMarkdown = templatePresentation;
+	let defense: ResearchDeliverableBundle["defense"] = templateDefense;
+
 	if (input.drafts?.reportMarkdown !== undefined) {
-		const issues = reportDraftIssues(input.drafts.reportMarkdown);
-		if (issues.length === 0) { reportMarkdown = input.drafts.reportMarkdown; sources.report = "node"; }
+		// Take the NORMALIZED markdown, not the raw draft: heading canonicalization is part of the fix.
+		const result = normalizeReportDraft(input.drafts.reportMarkdown);
+		coercions.report = result.coercions;
+		draftIssues.report = result.issues;
+		if (result.issues.length === 0) {
+			reportMarkdown = result.markdown;
+			sources.report = "node";
+		} else {
+			// Top up: keep the node's report and splice in only the sections it is missing. Appending
+			// template sections also restores the citation count, so the node's own prose survives
+			// instead of the whole node being replaced by the template.
+			const missing = result.issues.filter((issue) => issue.startsWith("missing section: ")).map((issue) => issue.slice("missing section: ".length));
+			const templateSections = reportSections(templateReport);
+			const fill = missing.map((title) => templateSections.get(title)).filter((section): section is string => !!section);
+			if (fill.length > 0) {
+				const evidenceIndexSplit = result.markdown.search(/\n#{1,6}\s+\d*\.?\s*Evidence Index/);
+				const merged = evidenceIndexSplit >= 0
+					? `${result.markdown.slice(0, evidenceIndexSplit)}\n\n${fill.join("\n\n")}${result.markdown.slice(evidenceIndexSplit)}`
+					: `${result.markdown}\n\n${fill.join("\n\n")}`;
+				const rechecked = normalizeReportDraft(merged);
+				coercions.report.push(...rechecked.coercions);
+				if (rechecked.issues.length === 0) {
+					reportMarkdown = rechecked.markdown;
+					sources.report = "augmented";
+					coercions.report.push(`report: kept the node draft and filled ${fill.length} missing section(s) from the deterministic template: ${missing.join(", ")}`);
+				}
+			}
+		}
 	}
 	if (input.drafts?.presentationMarkdown !== undefined) {
-		const issues = presentationDraftIssues(input.drafts.presentationMarkdown);
-		if (issues.length === 0) { presentationMarkdown = input.drafts.presentationMarkdown; sources.presentation = "node"; }
+		const result = normalizePresentationDraft(input.drafts.presentationMarkdown);
+		coercions.presentation = result.coercions;
+		draftIssues.presentation = result.issues;
+		if (result.issues.length === 0) { presentationMarkdown = result.markdown; sources.presentation = "node"; }
 	}
 	if (input.drafts?.defenseItems !== undefined) {
-		const { issues, normalized } = defenseDraftIssues(input.drafts.defenseItems, input.evidence);
-		if (normalized) { defense = normalized; sources.defense = "node"; }
+		const result = defenseDraftIssues(input.drafts.defenseItems, input.evidence, input.drafts.claimIds);
+		coercions.defense = result.coercions;
+		draftIssues.defense = [...result.issues, ...result.notes];
+		if (result.normalized) {
+			// Augment: keep every grounded node item, then top up from the template for anything the
+			// node did not cover (missing categories, or a shortfall against the packaged minimum).
+			const items = [...result.normalized.items];
+			const ids = new Set(items.map((item) => item.id));
+			// Required-category template items first, so a topping-up pass closes coverage before it
+			// pads the count.
+			const pool = [...templateDefense.items].sort((left, right) => Number(!DEFENSE_REQUIRED_CATEGORIES.includes(left.category)) - Number(!DEFENSE_REQUIRED_CATEGORIES.includes(right.category)));
+			let added = 0;
+			for (const candidate of pool) {
+				const needCategory = DEFENSE_REQUIRED_CATEGORIES.includes(candidate.category) && !items.some((item) => item.category === candidate.category);
+				if (!needCategory && items.length >= DEFENSE_REQUIRED_ITEMS) break;
+				let id = candidate.id;
+				let suffix = 2;
+				while (ids.has(id)) { id = `${candidate.id}-tpl${suffix === 2 ? "" : suffix}`; suffix += 1; }
+				ids.add(id);
+				items.push({ ...candidate, id });
+				added += 1;
+			}
+			if (added > 0) {
+				coercions.defense.push(`defense: kept ${result.normalized.items.length} node item(s) and added ${added} deterministic template item(s) to complete coverage and reach ${DEFENSE_REQUIRED_ITEMS} items`);
+				sources.defense = "augmented";
+			} else {
+				sources.defense = "node";
+			}
+			if (items.length >= DEFENSE_REQUIRED_ITEMS) defense = { version: 1, items };
+		}
 	}
-	return { bundle: { reportMarkdown, presentationMarkdown, defense }, sources };
+	return { bundle: { reportMarkdown, presentationMarkdown, defense }, sources, coercions, draftIssues };
 }
 
 export function buildResearchDeliverables(input: Parameters<typeof buildResearchReport>[0] & { narrative: ResearchNarrative }): ResearchDeliverableBundle {

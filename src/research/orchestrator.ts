@@ -100,7 +100,9 @@ export async function runResearchOrchestrator(input: {
 		const drafts = ports.communicationDrafts?.() ?? {};
 		const built = buildResearchDeliverablesWithSources({ mission, valueCard: synthesis.valueCard, hypotheses: synthesis.hypotheses, claims: synthesis.claims, evidence, narrative: synthesis.narrative, drafts });
 		const bundle = built.bundle;
-		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "deliverable-sources", status: "success", payload: { sources: built.sources } });
+		// `coercions` records every deterministic shape repair; `draftIssues` records the substance-only
+		// reasons a node draft lost to the template. Both are audit evidence, not failures.
+		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "deliverable-sources", status: "success", payload: { sources: built.sources, coercions: built.coercions, draftIssues: built.draftIssues } });
 		const deliverableIssues = validateResearchDeliverables(bundle, evidence);
 		if (deliverableIssues.length > 0) throw new Error(`research deliverables failed: ${deliverableIssues.join("; ")}`);
 		const deliverables = ports.persistDeliverables(bundle);

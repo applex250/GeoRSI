@@ -8,7 +8,8 @@ import { PiHarness, toolOutput, type HarnessOpts, type PromptOutcome } from "../
 import type { EvidenceRef, HypothesisRecord, ResearchClaim, ResearchMission, ResearchWorkGraph, WorkNode, WorkNodeKind } from "./contracts.js";
 import { buildContextPack, type ContextBlock, type ContextPack } from "./context-manager.js";
 import type { ContentAddressedEvidenceStore } from "./evidence-store.js";
-import { defenseDraftIssues, presentationDraftIssues, reportDraftIssues } from "./deliverables.js";
+import { defenseDraftIssues } from "./deliverables.js";
+import { normalizePresentationDraft, normalizeReportDraft } from "./draft-normalizer.js";
 import { WORK_NODE_KINDS } from "./graph-spec.js";
 import { sanitizeResearchEvidence, stableJson } from "./event-ledger.js";
 import { requiredFamilyVerifierProfiles, validateModelCallReceipt, type FamilyVerificationAttestation, type ModelCallReceipt } from "./runtime-attestation.js";
@@ -333,7 +334,17 @@ const ROLE_CONTRACTS: Record<ResearchNodeRole, string> = {
 	verifier: "VERIFIER CONTRACT: re-derive independently - write your own script, never reuse upstream code paths; check the upstream conventions array and follow it exactly; emit the complete audit JSON (rowCount, missingCount, duplicateCount, columnsAudited, units, estimand, method, uncertainty, sensitivityRuns>=2, independentCheck with relativeDifference<=tolerance) via resultFile; compare against the upstream estimate and report the relative difference; a mismatch you cannot resolve is a finding, not a failure to hide.",
 	synthesis: "SYNTHESIS CONTRACT: aggregate only verified results; every claim cites its evidenceIds and carries uncertainty and limitations; fill every value-card dimension with a scored rationale; write all six narrative sections (dataSummary, methodSummary, resultSummary, uncertaintySummary, innovationSummary, reproducibilitySummary), each grounded in evidenceIds.",
 	report: "COMMUNICATION CONTRACT: report nodes produce report.md with the seven mandated sections and should reference key figures (saved by the analysis nodes as .png evidence); - Scientific Question and Value / Hypotheses and Falsification / Data Provenance and Quality / Methods and Tool Chain / Uncertainty and Sensitivity / Reproducibility / Evidence Index; presentation nodes produce exactly 8 slides matching the mandated titles. Every paragraph/slide cites evidenceIds; every number must come from an upstream artifact, never from memory. BUDGET DISCIPLINE (smoke-021b): write report.md EARLY and submit; figures are OPTIONAL polish — never spend the node wall budget rendering figures before a valid report.md exists. A draft passes validation when it has the seven section headings and at least 3 [evidence:...] citations.",
-	defense: "DEFENSE CONTRACT: produce at least 12 Q&A items spanning method, data, uncertainty, and reproducibility categories; every answer embeds an explicit evidence citation; include at least one falsifier item and one strongest-limitation item; do not fabricate questions about evidence categories that do not exist in this mission (e.g. gis/literature without such artifacts).",
+	// Field names are stated verbatim on purpose: the packaged validator reads `expertAnswer`, and a
+	// node that guessed `answer` once burned 21 compute rounds and 3.48M tokens on it (smoke-021b).
+	// Shape is now repaired deterministically, but naming the fields is still free.
+	defense: `DEFENSE CONTRACT: write defense.json as a JSON ARRAY (not an object) of at least 12 Q&A items spanning method, data, uncertainty, and reproducibility, using these exact field names:
+{"id":"defense-01","category":"method","question":"Why was this method selected?","expertAnswer":"… prose ending in [evidence:sha256:…] …","nonExpertAnswer":"… plain-language version, same citation …","claimIds":[],"evidenceIds":["sha256:…"]}
+- category is one of: method | data | causality | uncertainty | gis | literature | negative-result | reproducibility | limitation | alternative.
+- Every item needs at least one evidenceIds entry, and the id must be a real artifact id from THIS run (see your context's artifact ids); each category also needs at least one evidence id whose kind is relevant — method: script/tool-output/table/verifier/geodata, data: dataset/table/tool-output/source, uncertainty: table/figure/verifier/tool-output, reproducibility: script/verifier/tool-output.
+- Include at least one falsifier item and one strongest-limitation item.
+- Do not fabricate questions about evidence categories that do not exist in this mission (e.g. gis/literature without such artifacts).
+- Field names, containers and citation placement are normalized automatically; do NOT spend rounds reformatting or searching the runtime source for the validator. Spend them on content.
+- A PARTIAL draft is accepted: every item you ground in real evidence is kept, and any missing category or item-count shortfall is filled from the deterministic template at packaging. Emit what you can ground and submit; never re-derive content to satisfy a format you are guessing at.`,
 	literature: "LITERATURE CONTRACT: record every search query; each source carries URL, year, and a relevance note; actively search for contrary evidence and link it; never cite a source that was not fetched through the web tool.",
 	gis: "GIS CONTRACT: declare the input CRS of every layer; verify axis order explicitly; use a projected CRS for all metric (distance/area) operations; record topology and null-geometry checks; emit geodata artifacts for every spatial output.",
 	planner: "PLANNER CONTRACT: keep the graph minimal - every node must earn its place; budgets are envelopes, not targets.",
@@ -570,6 +581,11 @@ export class ResearchNodeExecutor {
 		const nodeToolReceiptIds: string[] = [];
 		let submission: CapturedSubmission | undefined;
 		let toolCalls = 0;
+		/** Bounded draft-repair loop: the node may retry its own deliverable draft at most this many
+		 * times before the gate is waived and packaging takes over (smoke-021b burned 21 rounds). */
+		const MAX_DRAFT_REJECTIONS = 2;
+		let draftRejections = 0;
+		let draftGateWaived: string[] = [];
 
 		const bindingsById = new Map(this.deps.toolBindings.map((binding) => [binding.toolId, binding]));
 		const scientificTools = this.deps.toolRegistry.list()
@@ -635,8 +651,20 @@ export class ResearchNodeExecutor {
 		});
 		// Submission content validation shared by the submit tool (pre-acceptance, so the model can
 		// self-correct in-session) and the post-prompt gate (defense in depth).
-		const validateSubmissionContent = (captured: CapturedSubmission): string[] => {
+		//
+		// Two classes, deliberately separated (smoke-021b):
+		//  - `blockers` are integrity problems (invented ids, unknown evidence, missing verifier
+		//    input). They always reject and always consume a round trip.
+		//  - `draftIssues` are deliverable-shape problems, and they are the ONLY ones bounded by
+		//    `maxDraftRejections`. Format-only failures are already repaired deterministically by
+		//    `draft-normalizer.ts`, so whatever is left here is substance the model must supply —
+		//    but it still cannot hold the node hostage: after the budget is spent the submission is
+		//    accepted, the outstanding issues are recorded, and packaging falls back to the
+		//    deterministic template if it cannot build the deliverable either.
+		const coercions: string[] = [];
+		const validateSubmissionContent = (captured: CapturedSubmission): { blockers: string[]; draftIssues: string[] } => {
 			const issues: string[] = [];
+			const draftIssues: string[] = [];
 			if (new Set(captured.artifactIds).size !== captured.artifactIds.length) issues.push("submission contains duplicate artifact IDs");
 			const stagedHandles = new Set(pendingArtifacts.map((artifact) => artifact.handle));
 			for (const id of captured.artifactIds) if (!stagedHandles.has(id) && !producedToolArtifacts.has(id)) issues.push(`invented artifact ID: ${id}`);
@@ -703,23 +731,55 @@ export class ResearchNodeExecutor {
 			if (node.kind === "report") {
 				const draft = draftProbe("report.md");
 				if (!draft) issues.push("report node must produce report.md via the compute tool's resultFile (or record_research_artifact)");
-				else issues.push(...reportDraftIssues(draft.content).map((issue) => `report.md draft: ${issue}`));
+				else {
+					const normalized = normalizeReportDraft(draft.content);
+					coercions.push(...normalized.coercions.map((entry) => `report.md ${entry}`));
+					draftIssues.push(...normalized.issues.map((issue) => `report.md ${issue}`));
+				}
 			}
 			if (node.kind === "presentation") {
 				const draft = draftProbe("presentation.md");
 				if (!draft) issues.push("presentation node must produce presentation.md via the compute tool's resultFile (or record_research_artifact)");
-				else issues.push(...presentationDraftIssues(draft.content).map((issue) => `presentation.md draft: ${issue}`));
+				else {
+					const normalized = normalizePresentationDraft(draft.content);
+					coercions.push(...normalized.coercions.map((entry) => `presentation.md ${entry}`));
+					draftIssues.push(...normalized.issues.map((issue) => `presentation.md ${issue}`));
+				}
 			}
 			if (node.kind === "defense") {
 				const draft = draftProbe("defense.json");
 				if (!draft) issues.push("defense node must produce defense.json via the compute tool's resultFile (or record_research_artifact)");
 				else {
 					const draftEvidence = [...evidence, ...captured.artifactIds.map((id) => this.deps.evidenceById(id)).filter((ref): ref is EvidenceRef => !!ref)];
-					try { issues.push(...defenseDraftIssues(JSON.parse(draft.content), draftEvidence).issues.map((issue) => `defense.json draft: ${issue}`)); }
-					catch { issues.push("defense.json draft: not valid JSON"); }
+					const normalized = defenseDraftIssues(draft.content, draftEvidence);
+					coercions.push(...normalized.coercions.map((entry) => `defense.json ${entry}`));
+					draftIssues.push(...normalized.issues.map((issue) => `defense.json ${issue}`), ...normalized.notes.map((note) => `defense.json ${note}`));
 				}
 			}
-			return issues;
+			return { blockers: issues, draftIssues };
+		};
+		/** Machine-readable repair brief handed back on a rejected draft: the exact schema, plus the
+		 * citable evidence ids grouped by kind so the node never has to reverse-engineer the gate. */
+		const draftRepairBrief = (draftIssues: string[]): string => {
+			const byKind = new Map<string, string[]>();
+			for (const id of [...evidenceIds, ...producedToolArtifacts]) {
+				const reference = this.deps.evidenceById(id);
+				if (!reference) continue;
+				const list = byKind.get(reference.kind) ?? [];
+				if (list.length < 4) list.push(id);
+				byKind.set(reference.kind, list);
+			}
+			const catalog = [...byKind.entries()].map(([kind, ids]) => `  - ${kind}: ${ids.join(", ")}`).join("\n");
+			return [
+				"FIX THE CONTENT, NOT THE FORMAT — field names, containers, heading spelling, slide markers and citation placement are normalized automatically; you never need to guess them.",
+				`Remaining problems: ${draftIssues.length}`,
+				"defense.json canonical shape (a JSON array; every field name is exact):",
+				'[{"id":"defense-01","category":"method","question":"…","expertAnswer":"… [evidence:sha256:…]","nonExpertAnswer":"…","claimIds":[],"evidenceIds":["sha256:…"]}]',
+				`- the packaged set needs ≥${12} items covering method, data, uncertainty, reproducibility`,
+				"A PARTIAL draft is accepted: every item you ground in real evidence is kept, and the missing categories / shortfall are filled from the deterministic template. Do NOT re-derive content you already wrote.",
+				"What cannot be repaired automatically: an unreadable draft, or items whose evidence ids do not exist in this run.",
+				catalog ? `Citable evidence ids from this run, by kind:\n${catalog}` : "No citable evidence ids exist yet — run a scientific tool first.",
+			].join("\n");
 		};
 		const submitTool = defineTool({
 			name: "submit_research_node_output",
@@ -752,16 +812,28 @@ export class ResearchNodeExecutor {
 					contraryEvidenceLinks: params.contrary_evidence_links?.map((link) => ({ sourceEvidenceId: link.source_evidence_id, claimId: link.claim_id })),
 					conventions: params.conventions,
 				};
-				const issues = validateSubmissionContent(candidate);
-				if (issues.length > 0) {
+				const { blockers, draftIssues } = validateSubmissionContent(candidate);
+				if (blockers.length > 0) {
 					// In-session self-correction: reject without consuming the one-shot submission and
 					// tell the model exactly what is wrong plus which ids are citable.
 					const validIds = [...producedToolArtifacts].slice(0, 20).join(", ");
 					const staged = pendingArtifacts.map((artifact) => artifact.handle).join(", ");
-					return toolOutput(`SUBMISSION REJECTED — fix these issues and call submit_research_node_output again:\n- ${issues.join("\n- ")}\nValid tool-produced artifact ids: ${validIds || "(none yet — run a tool first)"}${staged ? `\nStaged model-artifact handles: ${staged}` : ""}`);
+					return toolOutput(`SUBMISSION REJECTED — fix these issues and call submit_research_node_output again:\n- ${blockers.join("\n- ")}\nValid tool-produced artifact ids: ${validIds || "(none yet — run a tool first)"}${staged ? `\nStaged model-artifact handles: ${staged}` : ""}`);
+				}
+				if (draftIssues.length > 0 && draftRejections < MAX_DRAFT_REJECTIONS) {
+					// Bounded draft loop. Deterministic normalization already absorbed every
+					// format-only failure, so these are content gaps — worth one guided retry, and
+					// not worth the wall budget: past the budget the submission is accepted and the
+					// outstanding issues are recorded instead.
+					draftRejections += 1;
+					return toolOutput(`SUBMISSION REJECTED — the submission itself is sound, but the node's own deliverable draft does not pass the packaged gate (attempt ${draftRejections}/${MAX_DRAFT_REJECTIONS}). Fix the draft and submit again.\n- ${draftIssues.join("\n- ")}\n\n${draftRepairBrief(draftIssues)}`);
+				}
+				if (draftIssues.length > 0) {
+					draftGateWaived = draftIssues;
+					console.warn(`[research] ${node.id}: draft gate waived after ${MAX_DRAFT_REJECTIONS} attempts — packaging will normalize or fall back to the deterministic template. Outstanding: ${draftIssues.join("; ")}`);
 				}
 				submission = candidate;
-				return toolOutput("research node output captured");
+				return toolOutput(draftIssues.length > 0 ? "research node output captured (draft gate waived — recorded)" : "research node output captured");
 			},
 		});
 
@@ -789,7 +861,7 @@ export class ResearchNodeExecutor {
 		const verifierProfile = expectedProfilesForNode(node.kind, this.deps.mission);
 		const synthesisHint = node.kind === "synthesis" ? "\n\nSYNTHESIS NOTE: your verifications[0].input_artifact must be a complete quantitative audit JSON. Either (a) reference the audit JSON artifact already produced by the verification/analysis node (see your dependency evidence artifact ids), or (b) recompute independently via the compute tool's resultFile. Do NOT submit a narrative summary as the verifier input." : "";
 		const optionalVerificationHint = verifierProfile.length === 0 ? "\n\nNOTE: this node performs no family audit of its own — you may submit an EMPTY verifications array ([]). Only include a verification if its input artifact is a complete audit JSON of that profile's shape." : "";
-		const deliverableContract = node.kind === "report" ? "\n\nDELIVERABLE CONTRACT: the packaged report is validated for the seven mandated section titles and evidence grounding - your report.md must comply." : node.kind === "presentation" ? "\n\nDELIVERABLE CONTRACT: the packaged presentation must contain exactly 8 slides with evidence-grounded bodies - your presentation.md must comply. Do NOT run new computations: assemble every number from the upstream artifacts already in your context." : node.kind === "defense" ? "\n\nDELIVERABLE CONTRACT: the packaged defense requires at least 12 Q&A items, each with an explicit evidence citation, spanning method/data/uncertainty/reproducibility - your defense.json must comply." : "";
+				const deliverableContract = node.kind === "report" ? "\n\nDELIVERABLE CONTRACT: the packaged report is validated for the seven mandated section titles and evidence grounding - your report.md must comply. Section headings are matched fuzzily and rewritten to the mandated titles automatically, so approximate headings are fine. A partial report is accepted: sections you do not write are filled from the deterministic template." : node.kind === "presentation" ? "\n\nDELIVERABLE CONTRACT: the packaged presentation must contain exactly 8 slides with evidence-grounded bodies - your presentation.md must comply. Slide markers are normalized automatically (## Slide 3: Title and **Slide 3** both work), but the COUNT is not negotiable: 8 non-empty slides. Do NOT run new computations: assemble every number from the upstream artifacts already in your context." : node.kind === "defense" ? "\n\nDELIVERABLE CONTRACT: the packaged defense needs at least 12 Q&A items covering method/data/uncertainty/reproducibility, each grounded in a real artifact id from this run. Shape is repaired automatically (a JSON array or {items:[...]}, either answer/expertAnswer spelling, citation markers re-derived from your own evidenceIds). A partial defense is accepted and topped up from the template, so emit what you can ground and submit - do not spend rounds on formatting." : "";
 		const verifierContract = verifierProfile.length > 0 ? `\n\nVERIFIER INPUT CONTRACT: this node must submit ${verifierProfile.length} verification entr${verifierProfile.length === 1 ? "y" : "ies"} with profile ${verifierProfile.join(", ")}. Each verification input artifact must be a JSON file you write via the compute tool's resultFile with exactly this shape: ${VERIFIER_INPUT_CONTRACTS[verifierProfile[0]!]}${node.kind === "verification" ? " — this is an INDEPENDENT re-derivation: recompute from the raw data yourself and emit your own complete audit JSON, not a copy of the analysis node's summary." : ""}` : "";
 		const exploratoryHint = WORK_NODE_KINDS.includes(node.kind) ? "" : "\n\nEXPLORATORY NODE: this stage uses a non-vocabulary node kind. Its outputs enter the evidence store and are recall-able, but it cannot satisfy mission required stages or family verifier gates. Ground every output in evidence and record what a promotion to a first-class kind would need.";
 		const lessons = node.attempts > 0 ? this.deps.failureLessons?.(node.id) ?? [] : [];
@@ -826,8 +898,12 @@ export class ResearchNodeExecutor {
 		if (!submission) throw new Error("research node did not call submit_research_node_output");
 		const captured = submission as CapturedSubmission;
 		if (stableJson(captured).length > aggregateOutputCap * 8) throw new Error("captured research node output exceeds bounded aggregate size");
-		const contentIssues = validateSubmissionContent(captured);
-		if (contentIssues.length > 0) throw new Error(`research node submitted invalid content: ${contentIssues.join("; ")}`);
+		// Final gate is a defense in depth on INTEGRITY only. Draft-shape issues are deliberately
+		// not re-thrown here: the submit-time loop already bounded them, and re-throwing would undo
+		// the waiver and re-open the unbounded retry this guard exists to prevent.
+		coercions.length = 0;
+		const finalValidation = validateSubmissionContent(captured);
+		if (finalValidation.blockers.length > 0) throw new Error(`research node submitted invalid content: ${finalValidation.blockers.join("; ")}`);
 
 		ensureActive();
 		const handleMap = new Map<string, string>();
@@ -894,7 +970,17 @@ export class ResearchNodeExecutor {
 		this.deps.contextMemory?.commit(node.id, { id: submissionReference.id, sha256: submissionReference.sha256 }, persistedSubmission);
 		return {
 			artifactIds: unique([...canonicalArtifacts, ...Object.values(verificationInputEvidenceIds), submissionReference.id]),
-			metadata: { nodeSubmissionEvidenceId: submissionReference.id, verificationInputEvidenceIds, verificationEvidenceIds, contextFingerprint: context.fingerprint, role },
+			metadata: {
+				nodeSubmissionEvidenceId: submissionReference.id,
+				verificationInputEvidenceIds,
+				verificationEvidenceIds,
+				contextFingerprint: context.fingerprint,
+				role,
+				// Audit trail for the deterministic shape layer: what code repaired, and whether the
+				// node's draft lost its in-session gate (packaging still normalizes or falls back).
+				draftCoercions: coercions,
+				draftGateWaived: draftGateWaived.length > 0 ? draftGateWaived : undefined,
+			},
 			usage: { modelCalls: observedReceipts.length, toolCalls, outputTokens },
 		};
 	}

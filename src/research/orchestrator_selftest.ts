@@ -129,9 +129,16 @@ async function main(): Promise<void> {
 		writeFileSync(join(readerRoot, "inner", "ok.txt"), "fine");
 		let linkRejected: boolean | null = null;
 		try {
-			symlinkSync(outsideFile, join(readerRoot, "inner", "link.txt"), "file");
-			try { readWorkspaceFileStrict(readerRoot, join(readerRoot, "inner", "link.txt")); linkRejected = false; }
-			catch (error) { linkRejected = String(error).includes("symlink/reparse"); }
+			const linkPath = join(readerRoot, "inner", "link.txt");
+			symlinkSync(outsideFile, linkPath, "file");
+			// Some hardened Windows hosts intercept file creation: symlinkSync resolves without error
+			// but no link is materialised, so the strict reader reports a missing path instead of a
+			// symlink. That is a host capability gap, not a reader defect — skip as unavailable.
+			if (!existsSync(linkPath)) linkRejected = null;
+			else {
+				try { readWorkspaceFileStrict(readerRoot, linkPath); linkRejected = false; }
+				catch (error) { linkRejected = String(error).includes("symlink/reparse"); }
+			}
 		} catch { linkRejected = null; /* symlink creation unavailable on this host */ }
 		let traversalRejected = false;
 		try { readWorkspaceFileStrict(readerRoot, join(readerRoot, "..", "outside.txt")); }
@@ -146,9 +153,13 @@ async function main(): Promise<void> {
 		writeFileSync(join(sweepRoot, "notes.md"), "contains answers.private marker");
 		let sweepSymlinkError: boolean | null = null;
 		try {
-			symlinkSync(outsideFile, join(sweepRoot, "escape.log"), "file");
-			const probeSweep = scanWorkspaceForBreachesStrict(sweepRoot);
-			sweepSymlinkError = probeSweep.errors.some((message) => message.includes("escape.log"));
+			const escapePath = join(sweepRoot, "escape.log");
+			symlinkSync(outsideFile, escapePath, "file");
+			if (!existsSync(escapePath)) sweepSymlinkError = null;
+			else {
+				const probeSweep = scanWorkspaceForBreachesStrict(sweepRoot);
+				sweepSymlinkError = probeSweep.errors.some((message) => message.includes("escape.log"));
+			}
 		} catch { sweepSymlinkError = null; }
 		const sweep = scanWorkspaceForBreachesStrict(sweepRoot);
 		check("strict guard sweep reports planted breaches", sweep.breaches.some((breach) => breach.pattern === "answers.private"));

@@ -28,3 +28,5 @@ problems/_shared/judge_cache*.jsonl
 nul
 
 knowledge/nodes-lane-*.jsonl
+.workbuddy-ai/
+.workbuddy/

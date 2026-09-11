@@ -173,6 +173,18 @@ export interface ResearchClaim {
 	limitations: string[];
 }
 
+/** One evidence-grounded defense question. Canonical field names are load-bearing: the packaged
+ * validator reads `expertAnswer`, and `draft-normalizer.ts` exists to repair anything else. */
+export interface DefenseItem {
+	id: string;
+	category: "method" | "data" | "causality" | "uncertainty" | "gis" | "literature" | "negative-result" | "reproducibility" | "limitation" | "alternative";
+	question: string;
+	expertAnswer: string;
+	nonExpertAnswer: string;
+	claimIds: string[];
+	evidenceIds: string[];
+}
+
 export function validateResearchMission(mission: ResearchMission): string[] {
 	const issues: string[] = [];
 	if (mission.version !== 1) issues.push("mission version must be 1");

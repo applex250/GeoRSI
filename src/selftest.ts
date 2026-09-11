@@ -3,7 +3,7 @@
  * eval protocol against a scratch python script. Fast enough to run before
  * any paid episode.
  */
-import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync, symlinkSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { applyEdits, builtinDomainKnowledge, composeSystemPrompt, scaffoldFingerprint, SEED_SCAFFOLD } from "./scaffold.js";
 import { Journal, atomicWriteJson, loadRunState, saveRunState, fingerprint, readJournalTail, type RunState } from "./journal.js";
@@ -1052,33 +1052,44 @@ export async function selftest(): Promise<boolean> {
 	try {
 		const dangling = join(guardDir, "dangling-link.txt");
 		symlinkSync(join(tmp, "does-not-exist.txt"), dangling, "file");
-		danglingSupported = true;
-		const writeTool = exchangeTools.find((tool) => tool.name === "write")!;
-		try {
-			await writeTool.execute("selftest", { path: "dangling-link.txt", content: "x" }, undefined, undefined, undefined as never);
-		} catch {
-			danglingRejected = true;
+		// Some hardened Windows hosts intercept link creation: symlinkSync resolves without
+		// error but materialises a REGULAR file, so a "dangling symlink" test would be
+		// vacuous. Verify the link actually exists as a link before asserting on it.
+		const danglingInfo = lstatSync(dangling, { throwIfNoEntry: false });
+		danglingSupported = !!danglingInfo?.isSymbolicLink();
+		if (danglingSupported) {
+			const writeTool = exchangeTools.find((tool) => tool.name === "write")!;
+			try {
+				await writeTool.execute("selftest", { path: "dangling-link.txt", content: "x" }, undefined, undefined, undefined as never);
+			} catch {
+				danglingRejected = true;
+			}
 		}
 	} catch {
 		/* symlink creation may require elevated Windows developer settings */
 	}
 	check("official write tool rejects dangling symlinks", !danglingSupported || danglingRejected, danglingSupported ? "" : "symlink creation unavailable; skipped");
 	let existingReparseRejected = false;
+	let existingReparseSupported = false;
 	try {
 		const target = join(guardDir, "inside-target.txt");
 		const link = join(guardDir, "inside-link.txt");
 		writeFileSync(target, "inside");
 		symlinkSync(target, link, "file");
-		const readTool = exchangeTools.find((tool) => tool.name === "read")!;
-		try {
-			await readTool.execute("selftest", { path: "inside-link.txt" }, undefined, undefined, undefined as never);
-		} catch {
-			existingReparseRejected = true;
+		// Same host caveat as above: only assert once the host really produced a link.
+		existingReparseSupported = !!lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink();
+		if (existingReparseSupported) {
+			const readTool = exchangeTools.find((tool) => tool.name === "read")!;
+			try {
+				await readTool.execute("selftest", { path: "inside-link.txt" }, undefined, undefined, undefined as never);
+			} catch {
+				existingReparseRejected = true;
+			}
 		}
 	} catch {
-		existingReparseRejected = true; // symlink creation unavailable is already covered above
+		existingReparseSupported = false; // symlink creation unavailable: host capability gap
 	}
-	check("official tools reject existing reparse components", existingReparseRejected);
+	check("official tools reject existing reparse components", !existingReparseSupported || existingReparseRejected, existingReparseSupported ? "" : "symlink creation unavailable; skipped");
 	const backgroundGuardTools = createExchangeToolDefinitions(guardDir, () => {
 		throw new Error("background job active");
 	});

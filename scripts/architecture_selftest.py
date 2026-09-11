@@ -46,6 +46,8 @@ FORBIDDEN = {
     "src/research/verifiers/gis.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/verifiers/literature.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/deliverables.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
+    # Deterministic draft-shape layer: pure text/JSON transformation, no I/O, no runtime deps.
+    "src/research/draft-normalizer.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
     "src/research/deliverable-store.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:child_process"],
     "src/research/strategy-bundle.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:fs", "node:child_process"],
     "src/research/strategy-edits.ts": ["provider", "sandboxie", "piharness", "bench/eval", "node:"],
