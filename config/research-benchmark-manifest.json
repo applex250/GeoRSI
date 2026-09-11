@@ -1,111 +1,174 @@
 {
-  "version": 1,
-  "id": "georsi-research-competition-v1",
-  "frozen": false,
-  "modelPolicy": {
-    "provider": "alsl",
-    "base_url": "https://ai.alsl.xyz/v1",
-    "model": "gpt-5.6-luna",
-    "api": "openai-responses",
-    "thinking_level": "xhigh",
-    "max_tokens_field": "max_completion_tokens",
-    "credential_env": "GEORSI_RESEARCH_API_KEY",
-    "fallback": "none",
-    "context_window": 600000,
-    "max_output": 128000,
-    "supports_developer_role": true,
-    "supports_reasoning_effort": true,
-    "supports_usage": true,
-    "supports_tool_loop": true,
-    "require_provider_observed_thinking": true
-  },
-  "strategyFingerprint": "f0aba011e0467d40f85f5b05",
-  "repetitions": [
-    1,
-    2
+ "version": 1,
+ "id": "georsi-research-competition-v1",
+ "frozen": false,
+ "modelPolicy": {
+  "provider": "alsl",
+  "base_url": "https://ai.alsl.xyz/v1",
+  "model": "gpt-5.6-luna",
+  "api": "openai-responses",
+  "thinking_level": "xhigh",
+  "max_tokens_field": "max_completion_tokens",
+  "credential_env": "GEORSI_RESEARCH_API_KEY",
+  "fallback": "none",
+  "context_window": 600000,
+  "max_output": 128000,
+  "supports_developer_role": true,
+  "supports_reasoning_effort": true,
+  "supports_usage": true,
+  "supports_tool_loop": true,
+  "require_provider_observed_thinking": true
+ },
+ "strategyFingerprint": "f0aba011e0467d40f85f5b05",
+ "repetitions": [
+  1,
+  2
+ ],
+ "stages": {
+  "stage-a": [
+   {
+    "id": "quake_b",
+    "family": "quantitative",
+    "weight": 1,
+    "public": true,
+    "heldOut": false,
+    "dataset": {
+     "type": "synthetic",
+     "description": "Synthetic Gutenberg-Richter catalog fixture; Poisson arrivals in time, magnitudes sampled from GR law with true b=1.0 above completeness; all parameters binding for reproducibility.",
+     "seed": 20260909,
+     "params": {
+      "catalogSize": 1000,
+      "magnitudeRange": [
+       0.5,
+       7.5
+      ],
+      "completenessMc": 2.0,
+      "trueB": 1.0,
+      "noiseModel": "poisson-arrival",
+      "rounding": 0.1
+     }
+    }
+   },
+   {
+    "id": "flood_rp",
+    "family": "quantitative",
+    "weight": 1,
+    "public": true,
+    "heldOut": false,
+    "dataset": {
+     "type": "synthetic",
+     "description": "Synthetic annual flood-peak series; log-Pearson III parent with fixed return-period truth; parameters binding for reproducibility.",
+     "seed": 20260910,
+     "params": {
+      "years": 80,
+      "distribution": "log-pearson-iii",
+      "returnPeriods": [
+       10,
+       50,
+       100
+      ],
+      "rounding": 0.01
+     }
+    }
+   },
+   {
+    "id": "climate_trend",
+    "family": "quantitative",
+    "weight": 1,
+    "public": true,
+    "heldOut": false,
+    "dataset": {
+     "type": "synthetic",
+     "description": "Synthetic annual temperature series with linear warming trend, AR(1) noise, and fixed break point; parameters binding for reproducibility.",
+     "seed": 20260911,
+     "params": {
+      "years": 120,
+      "trendCPerDecade": 0.18,
+      "ar1": 0.4,
+      "noiseSigma": 0.25,
+      "breakYear": 1985
+     }
+    }
+   },
+   {
+    "id": "gabench_54",
+    "family": "gis-remote-sensing",
+    "weight": 1,
+    "public": true,
+    "heldOut": false,
+    "dataset": {
+     "type": "synthetic",
+     "description": "Synthetic raster pair (reference vs classified) with fixed class proportions and spatial autocorrelation; parameters binding for reproducibility.",
+     "seed": 20260912,
+     "params": {
+      "rows": 256,
+      "cols": 256,
+      "classes": 5,
+      "spatialAutocorr": 0.6
+     }
+    }
+   },
+   {
+    "id": "quake_b_real",
+    "family": "capstone",
+    "weight": 1,
+    "public": true,
+    "heldOut": false,
+    "dataset": {
+     "type": "file",
+     "description": "Real catalog subset bound to a repository-relative source file; the fingerprint of the file is captured at run time.",
+     "seed": 20260913,
+     "path": "problems/quake_b_real/dataset.csv",
+     "params": {
+      "minMagnitude": 2.0
+     }
+    }
+   }
   ],
-  "stages": {
-    "stage-a": [
-      {
-        "id": "quake_b",
-        "family": "quantitative",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "flood_rp",
-        "family": "quantitative",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "climate_trend",
-        "family": "quantitative",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "gabench_54",
-        "family": "gis-remote-sensing",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "quake_b_real",
-        "family": "capstone",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      }
-    ],
-    "stage-b": [
-      {
-        "id": "research-capstone-seismic-gis",
-        "family": "capstone",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "research-remote-sensing-crs",
-        "family": "gis-remote-sensing",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "research-literature-completeness",
-        "family": "literature-hypothesis",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      },
-      {
-        "id": "research-quantitative-uncertainty",
-        "family": "quantitative",
-        "weight": 1,
-        "public": true,
-        "heldOut": false
-      }
-    ],
-    "held-out": [
-      {
-        "id": "poro_perm",
-        "family": "quantitative",
-        "weight": 1,
-        "public": false,
-        "heldOut": true
-      }
-    ]
-  },
-  "selection": {
-    "scoreBand": 0.01,
-    "minimumValidRate": 1,
-    "minimumRepetitions": 2
-  },
-  "protocolVersion": "research-competition-v1"
+  "stage-b": [
+   {
+    "id": "research-capstone-seismic-gis",
+    "family": "capstone",
+    "weight": 1,
+    "public": true,
+    "heldOut": false
+   },
+   {
+    "id": "research-remote-sensing-crs",
+    "family": "gis-remote-sensing",
+    "weight": 1,
+    "public": true,
+    "heldOut": false
+   },
+   {
+    "id": "research-literature-completeness",
+    "family": "literature-hypothesis",
+    "weight": 1,
+    "public": true,
+    "heldOut": false
+   },
+   {
+    "id": "research-quantitative-uncertainty",
+    "family": "quantitative",
+    "weight": 1,
+    "public": true,
+    "heldOut": false
+   }
+  ],
+  "held-out": [
+   {
+    "id": "poro_perm",
+    "family": "quantitative",
+    "weight": 1,
+    "public": false,
+    "heldOut": true
+   }
+  ]
+ },
+ "selection": {
+  "scoreBand": 0.01,
+  "minimumValidRate": 1,
+  "minimumRepetitions": 2
+ },
+ "protocolVersion": "research-competition-v1"
 }
