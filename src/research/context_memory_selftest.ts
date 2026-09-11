@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import type { EvidenceRef } from "./contracts.js";
-import { createContextRecallTool, ResearchContextMemory, scoreBlocks, tokenize, type ContextRecallOutput } from "./context-memory.js";
+import { createContextRecallTool, ResearchContextMemory, scoreBlocks, tokenize, trigramCosine, type ContextRecallOutput } from "./context-memory.js";
 import { ScientificToolRegistry } from "./tool-registry.js";
 import { buildResearchNodeContext } from "./research-node-executor.js";
 import { SEED_STRATEGY_BUNDLE } from "./strategy-bundle.js";
@@ -53,6 +53,15 @@ async function main(): Promise<void> {
 
 		check("tokenizer covers ascii words and CJK bigrams", tokenize("b-value estimate 不确定性").includes("estimate") && tokenize("不确定性区间").includes("确定"));
 		check("scoring is deterministic across repeated queries", JSON.stringify(scoreBlocks(tokenize("bootstrap uncertainty"), memory.blocks()).map((item) => item.block.evidenceId)) === JSON.stringify(scoreBlocks(tokenize("bootstrap uncertainty"), memory.blocks()).map((item) => item.block.evidenceId)));
+
+		// P5 (#84): trigram-cosine lexical-semantic re-ranking
+		check("trigram cosine is 1 for identical text and 0 for disjoint", Math.abs(trigramCosine("b-value uncertainty", "b-value uncertainty") - 1) < 1e-12 && trigramCosine("b-value", "sediment porosity") === 0);
+		const variantBlocks = [
+			{ nodeId: "a", version: 1, field: "summary" as const, evidenceId: "e-1", sha256: "0".repeat(64), text: "uncertainty interval estimated by bootstrap" },
+			{ nodeId: "a", version: 1, field: "summary" as const, evidenceId: "e-2", sha256: "1".repeat(64), text: "sediment porosity field survey" },
+		];
+		const rankedVariants = scoreBlocks(tokenize("uncertainties"), variantBlocks);
+		check("trigram re-ranking lifts morphological variants", rankedVariants.length > 0 && rankedVariants[0]!.block.evidenceId === "e-1");
 
 		const catalog = memory.catalog();
 		check("catalog lists committed nodes with latest versions and artifacts", catalog.length === 2 && catalog.find((node) => node.nodeId === "07-verify")?.version === 2 && catalog.find((node) => node.nodeId === "05-quant")?.artifacts[0]?.logicalName === "05-quant-result.json");

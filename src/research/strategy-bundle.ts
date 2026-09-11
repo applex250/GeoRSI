@@ -119,6 +119,7 @@ export function validateStrategyBundle(bundle: StrategyBundle): string[] {
 	if (bundle.budget.hardRequestMaxTokens > 32768 || bundle.budget.hardRequestMaxTokens <= 0) issues.push("hard request max tokens must be within 1..32768");
 	for (const [role, value] of Object.entries(bundle.budget.roleOutputCaps)) if (!Number.isSafeInteger(value) || value <= 0 || value > bundle.budget.hardRequestMaxTokens) issues.push(`invalid role output cap: ${role}`);
 	for (const [role, value] of Object.entries(bundle.context.roleBudgets)) if (!Number.isSafeInteger(value) || value <= 0 || value > 120_000) issues.push(`invalid context budget: ${role}`);
+
 	for (const recipes of Object.values(bundle.recipes)) {
 		for (const recipe of recipes) if (!recipe.id.trim() || recipe.steps.length === 0 || recipe.steps.length > 16) issues.push(`invalid tool recipe: ${recipe.id}`);
 	}
@@ -136,4 +137,18 @@ export function validateStrategyBundle(bundle: StrategyBundle): string[] {
 		for (const stage of spec.stages ?? []) for (const dependency of stage.dependsOn ?? []) if (!ids.has(dependency)) issues.push(`workGraph stage ${stage.id} depends on unknown stage: ${dependency}`);
 	}
 	return issues;
+}
+
+/** Role context budgets are authored against REFERENCE_CONTEXT_WINDOW; a model with a
+ * different context window gets them scaled proportionally (clamped to the same 4k..120k
+ * band the bundle validator enforces) so bigger windows neither starve nor flood nodes (#84). */
+export const REFERENCE_CONTEXT_WINDOW = 600_000;
+
+export function effectiveRoleBudgets(bundle: StrategyBundle, contextWindow: number): Record<string, number> {
+	const scale = Number.isFinite(contextWindow) && contextWindow > 0 ? contextWindow / REFERENCE_CONTEXT_WINDOW : 1;
+	const scaled: Record<string, number> = {};
+	for (const [role, tokens] of Object.entries(bundle.context.roleBudgets)) {
+		scaled[role] = Math.max(4_000, Math.min(120_000, Math.round(tokens * scale)));
+	}
+	return scaled;
 }
