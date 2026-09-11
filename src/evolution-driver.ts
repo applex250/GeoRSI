@@ -128,6 +128,7 @@ export async function runEvolutionCampaign(args: EvolveArgs, log: (message: stri
 		champion,
 		candidateEdits: edits.map((edit) => [edit]),
 		promotionPolicy: { allowedThinkingLevels: ["medium", "high", "xhigh"] },
+		family: "quantitative",
 		evaluator,
 		originRun: args.runPrefix,
 	});

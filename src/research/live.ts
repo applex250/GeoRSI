@@ -15,7 +15,7 @@ import type { EvidenceRef, ResearchClaim, ResearchMission, ResearchWorkGraph, Wo
 import { validateResearchMission } from "./contracts.js";
 import { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import { ResearchEventLedger, readResearchLedger, stableJson } from "./event-ledger.js";
-import { graphSpecCoverageIssues, instantiateGraphSpec } from "./graph-spec.js";
+import { familyGraphSpec, graphSpecCoverageIssues, instantiateGraphSpec } from "./graph-spec.js";
 import { captureResearchEnvironment } from "./environment-capture.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
 import { validateWorkGraphForMission, createWorkGraph, createWorkNode } from "./work-graph.js";
@@ -72,22 +72,9 @@ export function loadResearchGraph(path: string, mission: ResearchMission): Resea
 export const RESEARCH_NODE_BUDGET: WorkNodeBudget = { wallMs: 40 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
 
 export function createLinearResearchGraph(mission: ResearchMission, now = new Date()): ResearchWorkGraph {
-	const criterion = mission.successCriteria.find((item) => item.required)?.id ?? mission.successCriteria[0]?.id ?? "research-evidence";
-	// Tool-loop nodes legitimately make many model calls within one node: the
-	// per-node budget must bound the AGGREGATE loop, not force a single call.
-	const budget = { ...RESEARCH_NODE_BUDGET };
-	const nodes = mission.taskProfile.requiredStages.map((kind, index) => createWorkNode({
-		id: `${String(index + 1).padStart(2, "0")}-${kind}`,
-		kind,
-		title: kind.replace(/-/g, " "),
-		dependsOn: index === 0 ? [] : [`${String(index).padStart(2, "0")}-${mission.taskProfile.requiredStages[index - 1]}`],
-		inputEvidenceIds: [],
-		expectedOutputs: [`${kind}-output`],
-		acceptanceCriteriaIds: [criterion],
-		allowedCapabilities: mission.taskProfile.capabilities,
-		budget,
-	}));
-	return createWorkGraph(mission.id, nodes, now);
+	// Family template activation (#82): the linear family graph IS the family GraphSpec
+	// template instantiated — one code path for fresh and evolved topologies.
+	return instantiateGraphSpec(familyGraphSpec(mission.taskProfile.family), mission, RESEARCH_NODE_BUDGET, now);
 }
 
 export function validateCompetitionMissionShape(mission: ResearchMission): string[] {
@@ -103,6 +90,10 @@ export function validateCompetitionMissionShape(mission: ResearchMission): strin
 		const match = required.find((item) => item.id === id);
 		if (!match || match.path !== path || match.kind !== kind) issues.push(`competition deliverable ${id} must be ${kind} at ${path}`);
 	}
+	// Dataset contract gate (#82): a competition run must be bound to a fixed data
+	// contract with a binding seed so scoring runs are comparable and auditable.
+	if (!mission.dataset) issues.push("competition missions must declare a dataset contract (mission.dataset)");
+	else if (mission.dataset.seed === undefined) issues.push("competition mission dataset contract must bind a seed");
 	return issues;
 }
 
@@ -438,6 +429,8 @@ export async function runLunaResearchMissionFromFiles(input: LunaResearchMission
 		? loadResearchGraph(join(input.resumeDir, "plan.json"), mission)
 		: input.planPath ? loadResearchGraph(input.planPath, mission)
 		: strategy.workGraph ? instantiateGraphSpec(strategy.workGraph, mission, RESEARCH_NODE_BUDGET, input.now?.() ?? new Date())
+		// Family template activation (#82): fresh runs instantiate their family's GraphSpec
+		// template — the same validated pipeline as evolved strategies.
 		: createLinearResearchGraph(mission, input.now?.() ?? new Date());
 	if (input.resumeDir) {
 		// GraphSpec instantiation runs for fresh strategies only; a resumed run replays its own

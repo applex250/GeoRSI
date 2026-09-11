@@ -1,7 +1,8 @@
 /** Typed, evolvable WorkGraph specification (Phase-2): graph topology as a StrategyBundle
  * component. The Research Lead (offline strategy loop) mutates specs; every mutation result
  * must re-validate. Instantiation turns a validated spec into a concrete ResearchWorkGraph. */
-import type { ResearchMission, WorkNodeKind, ResearchWorkGraph, WorkNodeBudget } from "./contracts.js";
+import type { ResearchMission, ResearchTaskFamily, WorkNodeKind, ResearchWorkGraph, WorkNodeBudget } from "./contracts.js";
+import { STAGES } from "./task-profile.js";
 import { createWorkGraph, createWorkNode } from "./work-graph.js";
 
 export const WORK_NODE_KINDS: readonly WorkNodeKind[] = [
@@ -27,6 +28,16 @@ export interface GraphSpec {
 export interface GraphSpecContext {
 	/** Mission invariant: these stages MUST be present (mutators may never drop them). */
 	requiredStages: readonly string[];
+}
+
+/** Per-family default WorkGraph template: the requiredStages chain for that family,
+ * expressed as a GraphSpec. Family templates are the activation baseline (#82): fresh
+ * runs without an evolved workGraph instantiate THEIR family's template — quantitative
+ * gets data-audit, literature-hypothesis gets literature-search — through the same
+ * validated GraphSpec pipeline as evolved strategies. */
+export function familyGraphSpec(family: ResearchTaskFamily): GraphSpec {
+	const kinds = STAGES[family];
+	return { stages: kinds.map((kind, index) => ({ id: kind, kind, dependsOn: index === 0 ? [] : [kinds[index - 1]!] })) };
 }
 
 /** Structural validation independent of any mission. */
