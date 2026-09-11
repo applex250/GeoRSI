@@ -35,8 +35,14 @@ export interface GraphSpecContext {
  * runs without an evolved workGraph instantiate THEIR family's template — quantitative
  * gets data-audit, literature-hypothesis gets literature-search — through the same
  * validated GraphSpec pipeline as evolved strategies. */
-export function familyGraphSpec(family: ResearchTaskFamily): GraphSpec {
-	const kinds = STAGES[family];
+export function familyGraphSpec(family: ResearchTaskFamily, requiredStages?: readonly WorkNodeKind[]): GraphSpec {
+	// A mission's embedded requiredStages ARE the contract (smoke-019/020 pinned the 7
+	// core stages); the full family chain applies only when the mission defers to it.
+	const kinds = requiredStages && requiredStages.length > 0 ? requiredStages : STAGES[family];
+	const allowed = new Set<string>(STAGES[family]);
+	for (const kind of kinds) {
+		if (!allowed.has(kind)) throw new Error(`stage ${kind} is not part of the ${family} family template`);
+	}
 	return { stages: kinds.map((kind, index) => ({ id: kind, kind, dependsOn: index === 0 ? [] : [kinds[index - 1]!] })) };
 }
 

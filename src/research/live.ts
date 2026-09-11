@@ -73,8 +73,10 @@ export const RESEARCH_NODE_BUDGET: WorkNodeBudget = { wallMs: 40 * 60 * 1000, ma
 
 export function createLinearResearchGraph(mission: ResearchMission, now = new Date()): ResearchWorkGraph {
 	// Family template activation (#82): the linear family graph IS the family GraphSpec
-	// template instantiated — one code path for fresh and evolved topologies.
-	return instantiateGraphSpec(familyGraphSpec(mission.taskProfile.family), mission, RESEARCH_NODE_BUDGET, now);
+	// template instantiated — one code path for fresh and evolved topologies. The mission's
+	// embedded requiredStages pin the chain when present (smoke-021 regression: the template
+	// must not inject hypothesis/literature-v1 into a quantitative mission that pinned 7).
+	return instantiateGraphSpec(familyGraphSpec(mission.taskProfile.family, mission.taskProfile.requiredStages), mission, RESEARCH_NODE_BUDGET, now);
 }
 
 export function validateCompetitionMissionShape(mission: ResearchMission): string[] {

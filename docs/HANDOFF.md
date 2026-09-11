@@ -56,7 +56,36 @@ GitHub：`origin/master`
    JSON/结构校验（拒绝脚本/stdout 顶替）；答辩包按任务实际可用证据类别过滤题目
    （无 geodata/source 则不出现 gis/literature 题），题库 16 题过滤后仍 ≥12。
 16. **lean 迭代模式**：`config/research-mission-quant-lean.json`（4 阶段无沟通节点，
-   同数据契约）供开发迭代；正式出包用完整 7 阶段任务书。
+   同数据契约）供开发迭代；正式出包用完整任务书。
+
+### 阶段要点 17-24（进化环 / 族图 / Benchmark / 小改进）
+
+17. **进化环 driver（#79）**：`npm run research:evolve -- --candidates 2 --run-prefix evo-001`
+   —— 基线 + N 个 GraphSpec 变体（add/remove/merge/split 轮转）各跑一轮完整
+   research-live（同 seed 可比）；fitness = scienceScore/validRate；晋升走
+   runStrategyGeneration（2 次配对重复纪律）。开发模式晋升允许 medium/high/xhigh
+   （promotionPolicy 参数化），竞赛默认仍只认 xhigh。
+18. **探索节点 kind 注册表（#80）**：`config/node-registry.json`；Lead 可注册 14 种
+   内建词汇之外的探索 kind——图内合法、诚实降级（planner 角色 + EXPLORATORY 契约）、
+   永不满足 requiredStages/族验证器；`promoteNodeKind(kind, verifierProfile)` 记录
+   status+verifierProfile 谱系完成晋升。
+19. **族图模板激活（#82）**：`familyGraphSpec(family)` 把各族 requiredStages 链表达为
+   GraphSpec；新跑无 strategy.workGraph 时实例化本族模板（定量族含 data-audit、文献族
+   含 literature-search），与进化策略同一条校验管线。定量任务现在是 **11 节点**
+   （frame-question → value-assessment → hypothesis → data-audit → … → defense）。
+20. **竞赛 dataset 契约门禁（#82）**：竞赛任务书必须带 mission.dataset 且绑定 seed
+   （TS validateCompetitionMissionShape）；verdict 从任务书重导 dataset 指纹并与
+   环境捕获交叉核对（research_verdict.py）。
+21. **三层 Benchmark 聚合器（#65）**：`npm run research:benchmark -- --runs-root <dir>`
+   扫描 `<taskId>__rep<k>` 目录 → benchmark-report.json。诚实聚合：缺重复/不合格
+   计 0 且列出、绝不静默跳过；held-out 单独报告且仅在冻结后有意义。Stage-A 五任务
+   均绑定数据契约（quake_b seed=20260909 与 019/020 基线对齐）。
+22. **词法-语义 recall（#84）**：字符三元组余弦（确定性、无嵌入无网络）以 0.75 权重
+   融入 BM25-lite——形态变体（uncertainty/uncertainties）提升近匹配不挤掉精确命中。
+23. **roleBudgets 随窗口缩放（#84）**：角色上下文预算按 research_model.context_window
+   相对 600k 参考窗口等比缩放（钳制 4k..120k）。
+24. **diag 保留策略（#84）**：RSILAB_PROMPT_DIAG 目录自动清理 7 天前的 prompt_diag-*.jsonl，
+   `RSILAB_PROMPT_DIAG_KEEP=1` 可保留。
 11. **密钥纪律**：对话中出现过的 key 均视为泄露；冒烟结束后必须轮换 alsl key；
    注册表 `HKCU\Environment` 的 `GEILIAPI_API_KEY`（现值 sk-1c69...，疑似重新添加）
    需确认归属后清理。

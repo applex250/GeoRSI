@@ -107,6 +107,13 @@ async function main(): Promise<void> {
 		const template = familyGraphSpec(family);
 		check(`template ${family} validates + covers its family`, validateGraphSpec(template, WORK_NODE_KINDS).length === 0 && graphSpecCoverageIssues(template, STAGES[family]).length === 0);
 	}
+	const pinnedSpec = familyGraphSpec("quantitative", m.taskProfile.requiredStages);
+	check("mission-pinned stages override the template chain", pinnedSpec.stages.length === m.taskProfile.requiredStages.length && !pinnedSpec.stages.some((stage) => stage.id === "hypothesis"));
+	const pinnedInstantiated = instantiateGraphSpec(pinnedSpec, m, RESEARCH_LIKE_BUDGET);
+	check("pinned template instantiates to the smoke-019/020 parity graph", pinnedInstantiated.nodes.length === 7 && pinnedInstantiated.nodes[0]!.id === "01-quantitative-analysis");
+	let foreignStageRejected = false;
+	try { familyGraphSpec("quantitative", ["literature-search" as never]); } catch (error) { foreignStageRejected = String(error).includes("not part of"); }
+	check("stages foreign to the family are rejected", foreignStageRejected);
 	const familyInstantiated = instantiateGraphSpec(familyGraphSpec("quantitative"), m, RESEARCH_LIKE_BUDGET);
 	check("family template instantiates to a mission-valid graph", validateWorkGraphForMission(m, familyInstantiated).length === 0);
 	check("family template ids keep NN-kind format", familyInstantiated.nodes[0]!.id === "01-frame-question");
