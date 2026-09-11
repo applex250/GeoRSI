@@ -1,6 +1,8 @@
 /** One-component-at-a-time StrategyBundle edit policy for causal attribution. */
 import type { Scaffold } from "../scaffold.js";
-import type { WorkNodeKind } from "./contracts.js";
+import type { ResearchTaskFamily, WorkNodeKind } from "./contracts.js";
+import { STAGES } from "./task-profile.js";
+import { familyGraphSpec } from "./graph-spec.js";
 import { mutateAddStage, mutateMergeStages, mutateRemoveStage, mutateSplitStage, type GraphSpec } from "./graph-spec.js";
 import { strategyBundleFingerprint, validateStrategyBundle, type StrategyBundle, type ToolRecipe, type VerifierPolicy } from "./strategy-bundle.js";
 
@@ -18,7 +20,7 @@ export type StrategyEdit =
 	| { component: "workGraph"; op: "merge-stages"; keepId: string; mergeId: string }
 	| { component: "workGraph"; op: "split-stage"; id: string; copies?: number };
 
-export function applyStrategyEdit(bundle: StrategyBundle, edits: readonly StrategyEdit[], originRun?: string): StrategyBundle {
+export function applyStrategyEdit(bundle: StrategyBundle, edits: readonly StrategyEdit[], originRun?: string, family: ResearchTaskFamily = "quantitative"): StrategyBundle {
 	if (edits.length !== 1) throw new Error("a research challenger must change exactly one StrategyBundle component");
 	const edit = edits[0]!;
 	const next = structuredClone(bundle) as StrategyBundle;
@@ -53,16 +55,16 @@ export function applyStrategyEdit(bundle: StrategyBundle, edits: readonly Strate
 			next.communication.minimumDefenseQuestions = Math.floor(edit.value);
 			break;
 		case "add-stage":
-			next.workGraph = mutateAddStage(workGraphOrDefault(next), contextFor(), edit.afterId, edit.kind, edit.newId);
+			next.workGraph = mutateAddStage(workGraphOrDefault(next, family), contextFor(family), edit.afterId, edit.kind, edit.newId);
 			break;
 		case "remove-stage":
-			next.workGraph = mutateRemoveStage(workGraphOrDefault(next), contextFor(), edit.id);
+			next.workGraph = mutateRemoveStage(workGraphOrDefault(next, family), contextFor(family), edit.id);
 			break;
 		case "merge-stages":
-			next.workGraph = mutateMergeStages(workGraphOrDefault(next), contextFor(), edit.keepId, edit.mergeId);
+			next.workGraph = mutateMergeStages(workGraphOrDefault(next, family), contextFor(family), edit.keepId, edit.mergeId);
 			break;
 		case "split-stage":
-			next.workGraph = mutateSplitStage(workGraphOrDefault(next), contextFor(), edit.id, edit.copies ?? 2);
+			next.workGraph = mutateSplitStage(workGraphOrDefault(next, family), contextFor(family), edit.id, edit.copies ?? 2);
 			break;
 	}
 	next.lineage = { parentFingerprint: strategyBundleFingerprint(bundle), generation: bundle.lineage.generation + 1, changedComponent: edit.component, originRun };
@@ -76,12 +78,14 @@ export function applyStrategyEdit(bundle: StrategyBundle, edits: readonly Strate
 /** The canonical linear research pipeline used when a bundle has no explicit workGraph. */
 export const DEFAULT_RESEARCH_STAGES: readonly WorkNodeKind[] = ["quantitative-analysis", "sensitivity", "verification", "synthesis", "report", "presentation", "defense"];
 
-function workGraphOrDefault(bundle: StrategyBundle): GraphSpec {
-	return bundle.workGraph ?? { stages: DEFAULT_RESEARCH_STAGES.map((kind, index) => ({ id: kind, kind, dependsOn: index === 0 ? [] : [DEFAULT_RESEARCH_STAGES[index - 1]!] })) };
+function workGraphOrDefault(bundle: StrategyBundle, family: ResearchTaskFamily): GraphSpec {
+	// No explicit workGraph → the FAMILY template is the mutation baseline (#82), so
+	// graph edits operate on the same chain the live run would instantiate.
+	return bundle.workGraph ?? familyGraphSpec(family);
 }
 
-function contextFor(): { requiredStages: readonly string[] } {
+function contextFor(family: ResearchTaskFamily): { requiredStages: readonly string[] } {
 	// Structural mutations never drop required stages: remove-stage itself refuses protected
-	// kinds, and every operator re-validates against the full default stage set.
-	return { requiredStages: DEFAULT_RESEARCH_STAGES };
+	// kinds, and every operator re-validates against the family's full stage set.
+	return { requiredStages: STAGES[family] };
 }

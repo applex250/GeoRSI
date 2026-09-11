@@ -2,6 +2,7 @@
  * instantiation, and the four structural mutation operators (Phase-2 self-evolution). */
 import {
 	WORK_NODE_KINDS,
+	familyGraphSpec,
 	graphSpecCoverageIssues,
 	instantiateGraphSpec,
 	mutateAddStage,
@@ -12,7 +13,10 @@ import {
 	type GraphSpec,
 } from "./graph-spec.js";
 import { validateWorkGraphForMission } from "./work-graph.js";
-import { loadResearchMission } from "./live.js";
+import { loadResearchMission, validateCompetitionMissionShape } from "./live.js";
+import { STAGES } from "./task-profile.js";
+
+const RESEARCH_LIKE_BUDGET = { wallMs: 40 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
 
 let passed = 0;
 function check(label: string, condition: unknown): void {
@@ -92,6 +96,30 @@ async function main(): Promise<void> {
 	const split = mutateSplitStage(base, context, "sensitivity", 2);
 	check("split stage: two parallel passes", split.stages.filter((stage) => stage.id.startsWith("sensitivity")).length === 2 && split.stages.find((stage) => stage.id === "verification")!.dependsOn.filter((dependency) => dependency.startsWith("sensitivity")).length === 2);
 	check("split stage: still validates and covers", validateGraphSpec(split, WORK_NODE_KINDS).length === 0 && graphSpecCoverageIssues(split, REQUIRED).length === 0);
+
+	console.log("== family graph templates (#82) ==");
+	const quantTemplate = familyGraphSpec("quantitative");
+	const literatureTemplate = familyGraphSpec("literature-hypothesis");
+	check("quantitative template includes data-audit", quantTemplate.stages.some((stage) => stage.id === "data-audit"));
+	check("literature template includes literature-search", literatureTemplate.stages.some((stage) => stage.id === "literature-search"));
+	check("literature template omits data-audit", !literatureTemplate.stages.some((stage) => stage.id === "data-audit"));
+	for (const family of ["quantitative", "gis-remote-sensing", "literature-hypothesis", "capstone"] as const) {
+		const template = familyGraphSpec(family);
+		check(`template ${family} validates + covers its family`, validateGraphSpec(template, WORK_NODE_KINDS).length === 0 && graphSpecCoverageIssues(template, STAGES[family]).length === 0);
+	}
+	const familyInstantiated = instantiateGraphSpec(familyGraphSpec("quantitative"), m, RESEARCH_LIKE_BUDGET);
+	check("family template instantiates to a mission-valid graph", validateWorkGraphForMission(m, familyInstantiated).length === 0);
+	check("family template ids keep NN-kind format", familyInstantiated.nodes[0]!.id === "01-frame-question");
+
+	console.log("== competition dataset contract gate (#82) ==");
+	const competitionMission = structuredClone(m);
+	check("competition mission with dataset passes shape", validateCompetitionMissionShape(competitionMission).length === 0);
+	const noDataset = structuredClone(competitionMission);
+	delete (noDataset as { dataset?: unknown }).dataset;
+	check("competition mission without dataset is rejected", validateCompetitionMissionShape(noDataset).some((issue) => issue.includes("dataset contract")));
+	const noSeed = structuredClone(competitionMission);
+	delete (noSeed.dataset as { seed?: unknown }).seed;
+	check("competition dataset without seed is rejected", validateCompetitionMissionShape(noSeed).some((issue) => issue.includes("seed")));
 
 	console.log(`graph-spec selftest passed (${passed} checks)`);
 }

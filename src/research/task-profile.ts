@@ -13,7 +13,7 @@ export interface ResearchTaskProfileInput extends TaskProfileInput {
 	};
 }
 
-const STAGES: Record<ResearchTaskFamily, WorkNodeKind[]> = {
+export const STAGES: Record<ResearchTaskFamily, WorkNodeKind[]> = {
 	quantitative: ["frame-question", "value-assessment", "hypothesis", "data-audit", "quantitative-analysis", "sensitivity", "verification", "synthesis", "report", "presentation", "defense"],
 	"gis-remote-sensing": ["frame-question", "value-assessment", "hypothesis", "data-audit", "gis-analysis", "sensitivity", "verification", "synthesis", "report", "presentation", "defense"],
 	"literature-hypothesis": ["frame-question", "value-assessment", "literature-search", "hypothesis", "verification", "synthesis", "report", "presentation", "defense"],

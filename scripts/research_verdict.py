@@ -215,6 +215,14 @@ def evaluate(run_dir: Path) -> tuple[bool, dict]:
             runtime_issues.append("competition isolation/compute attestation is insufficient")
         if (policy or {}).get("thinking_evidence", "provider-observed") != "provider-observed":
             runtime_issues.append("competition requires provider-observed thinking evidence")
+        dataset = mission.get("dataset")
+        if not isinstance(dataset, dict) or not str(dataset.get("description", "")).strip() or dataset.get("seed") is None:
+            runtime_issues.append("competition mission must declare a dataset contract with a binding seed")
+        else:
+            dataset_fp = environment.get("evaluatorMetrics", {}).get("datasetFingerprint")
+            canonical = hashlib.sha256(json.dumps(dataset, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
+            if dataset_fp != canonical:
+                runtime_issues.append("competition dataset fingerprint mismatch between mission and environment capture")
     elif mode == "deterministic-demo":
         if compute.get("backend") != "deterministic-test-double":
             runtime_issues.append("deterministic demo has wrong compute backend")

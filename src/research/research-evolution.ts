@@ -49,13 +49,15 @@ export async function runStrategyGeneration(input: {
 	evaluator: StrategyEvaluationPort;
 	originRun?: string;
 	promotionPolicy?: import("./promotion.js").PromotionPolicy;
+	/** Mission family for the default graph template when candidates mutate a workGraph-less champion. */
+	family?: import("./contracts.js").ResearchTaskFamily;
 }): Promise<StrategyGenerationResult> {
 	const baselineOutcomes = await input.evaluator.evaluate(input.champion, "baseline", -1);
 	const seen = new Set<string>([strategyBundleFingerprint(input.champion)]);
 	const candidates: StrategyCandidateResult[] = [];
 	for (let index = 0; index < input.candidateEdits.length; index++) {
 		let bundle: StrategyBundle;
-		try { bundle = applyStrategyEdit(input.champion, input.candidateEdits[index]!, input.originRun); }
+		try { bundle = applyStrategyEdit(input.champion, input.candidateEdits[index]!, input.originRun, input.family); }
 		catch { continue; }
 		const fingerprint = strategyBundleFingerprint(bundle);
 		if (seen.has(fingerprint)) continue;

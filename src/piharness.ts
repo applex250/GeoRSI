@@ -18,7 +18,7 @@ import { AgentSession, createAgentSession, DefaultResourceLoader, SessionManager
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { basename, join } from "node:path";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync, statSync, rmSync } from "node:fs";
 import { TOKENS, currentModelRuntime } from "./provider.js";
 import { getProfile, resolveThinking, type ThinkingLevel } from "./models.js";
 import { createExchangeToolDefinitions } from "./workspace-tools.js";
@@ -214,6 +214,17 @@ export class PiHarness {
 		// redirects them out of the exchange workspace so failed-run evidence survives cleanup.
 		const diagDir = process.env.RSILAB_PROMPT_DIAG_DIR || this.opts.cwd;
 		this._diagPath = process.env.RSILAB_PROMPT_DIAG ? join(diagDir, `prompt_diag-${basename(this.opts.cwd)}-${process.pid}.jsonl`) : null;
+		if (this._diagPath && process.env.RSILAB_PROMPT_DIAG_KEEP !== "1") {
+			// #84: prune diag files older than 7 days unless retention is explicitly requested.
+			try {
+				const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+				for (const entry of readdirSync(diagDir)) {
+					if (!entry.startsWith("prompt_diag-") || !entry.endsWith(".jsonl")) continue;
+					const path = join(diagDir, entry);
+					try { if (statSync(path).mtimeMs < cutoff) rmSync(path, { force: true }); } catch { /* best-effort retention */ }
+				}
+			} catch { /* diag dir may not exist yet */ }
+		}
 		const thinkingLevel = resolveHarnessThinking(this.opts.model, this.opts.thinkingLevel);
 		this.effectiveThinkingLevel = thinkingLevel;
 		// Fully isolated resource loading: our system prompt only, no ambient

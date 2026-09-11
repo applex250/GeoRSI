@@ -104,7 +104,39 @@ function termFrequency(tokens: readonly string[]): Map<string, number> {
 	return counts;
 }
 
-/** Deterministic BM25-lite: same blocks + same query -> same ranking, always. */
+/** Character-trigram cosine between query and document text (P5 #84): deterministic
+ * lexical-semantic similarity that catches morphological variants the exact-term BM25
+ * misses ("uncertainty" vs "uncertainties", "re-verifying" vs "verify"). No embeddings,
+ * no network — the same text always yields the same vector. */
+export function trigramCosine(queryText: string, documentText: string): number {
+	const grams = (text: string): Map<string, number> => {
+		const counts = new Map<string, number>();
+		for (const word of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+			const padded = `%${word}%`;
+			for (let index = 0; index + 3 <= padded.length; index += 1) {
+				const gram = padded.slice(index, index + 3);
+				counts.set(gram, (counts.get(gram) ?? 0) + 1);
+			}
+		}
+		return counts;
+	};
+	const queryGrams = grams(queryText);
+	const docGrams = grams(documentText);
+	let queryNorm = 0;
+	let docNorm = 0;
+	let dot = 0;
+	for (const count of queryGrams.values()) queryNorm += count * count;
+	for (const [gram, count] of docGrams) {
+		docNorm += count * count;
+		const q = queryGrams.get(gram);
+		if (q) dot += q * count;
+	}
+	if (queryNorm === 0 || docNorm === 0) return 0;
+	return dot / Math.sqrt(queryNorm * docNorm);
+}
+
+/** Deterministic BM25-lite blended with trigram-cosine lexical-semantic similarity:
+ * same blocks + same query -> same ranking, always. */
 export function scoreBlocks(queryTokens: readonly string[], blocks: readonly ContextMemoryBlock[]): { block: ContextMemoryBlock; score: number }[] {
 	if (queryTokens.length === 0) return [];
 	const documentFrequency = new Map<string, number>();
@@ -127,6 +159,11 @@ export function scoreBlocks(queryTokens: readonly string[], blocks: readonly Con
 		}
 		return { block, score };
 	});
+	// P5 (#84): blend the exact-term BM25 with trigram cosine (both in a comparable
+	// 0..~few band; cosine is 0..1) — variants of query terms lift near-matches without
+	// displacing exact hits. Query text for the cosine is the token join.
+	const queryText = queryTokens.join(" ");
+	for (const item of scored) item.score += 0.75 * trigramCosine(queryText, item.block.text);
 	scored.sort((left, right) => right.score - left.score || left.block.nodeId.localeCompare(right.block.nodeId) || left.block.field.localeCompare(right.block.field) || left.block.evidenceId.localeCompare(right.block.evidenceId));
 	return scored.filter((item) => item.score > 0);
 }

@@ -15,7 +15,7 @@ import { requiredFamilyVerifierProfiles, validateModelCallReceipt, type FamilyVe
 import type { NodeExecutionResult, NodeVerificationResult } from "./scheduler.js";
 import type { StrategyBundle } from "./strategy-bundle.js";
 import type { ResearchContextMemory } from "./context-memory.js";
-import { validateStrategyBundle } from "./strategy-bundle.js";
+import { effectiveRoleBudgets, REFERENCE_CONTEXT_WINDOW,  validateStrategyBundle } from "./strategy-bundle.js";
 import { roleOutputCap } from "./token-policy.js";
 import type { ScientificToolReceipt, ScientificToolRegistry } from "./tool-registry.js";
 import type { ResearchNarrative } from "./deliverables.js";
@@ -354,10 +354,12 @@ export function buildResearchNodeContext(input: {
 	artifactContent?: (id: string) => string | undefined;
 	/** Optional metadata resolver for ids outside the relevant-evidence set (transitive grounding). */
 	artifactRef?: (id: string) => EvidenceRef | undefined;
+	/** Research model context window — scales role budgets off the 600k reference (#84). */
+	contextWindow?: number;
 }): ContextPack {
 	const { mission, strategy, node, graph, evidence } = input;
 	const role = researchNodeRole(node.kind);
-	const budget = strategy.context.roleBudgets[contextRole(role)];
+	const budget = effectiveRoleBudgets(strategy, input.contextWindow ?? REFERENCE_CONTEXT_WINDOW)[contextRole(role)];
 	if (!Number.isSafeInteger(budget) || budget! <= 0) throw new Error(`no context budget for research role ${role}`);
 	const directDependencies = graph.nodes.filter((candidate) => node.dependsOn.includes(candidate.id));
 	const relevantIds = new Set<string>([
@@ -547,6 +549,7 @@ export class ResearchNodeExecutor {
 			node,
 			graph,
 			evidence,
+			contextWindow: this.deps.modelPolicy.context_window,
 			artifactRef: (id) => this.deps.evidenceById(id),
 			artifactContent: (id) => {
 				try {
