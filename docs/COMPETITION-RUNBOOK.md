@@ -1,5 +1,11 @@
 # GeoRSI competition and long-horizon science runbook
 
+> **Scope（2026-09-11）**：本文覆盖 **agent 进化轨**（`npm run rsi` / TUI / 课程
+> 曲线）的运行规程。**科研流水线轨（主轨）** 的系统规范与操作（`research:live`
+> / `research:evolve` / `research:benchmark` / `research:gateway` / verdict）见
+> `docs/RESEARCH-COMPETITION.md` 与 README 的 quickstart。两轨共用模型网关层
+> （`research_gateways` + `research_model.gateway`）与诚实性基础设施。
+
 This document describes the highest-scoring **honest** operating mode currently
 supported by the repository. It is a runbook, not a promise of a leaderboard
 rank: model quality, gateway stability, task distribution, and judge variance
@@ -28,20 +34,21 @@ not establish scientific causality for a particular tip or knowledge node.
 
 ## 2. Recommended model routing
 
-Use the model profile as the source of truth and run a fresh cheap baseline
-before changing a route:
+**当前（2026-09-11）**：科研流水线轨为 Luna-only——唯一模型
+`gpt-5.6-luna` @ alsl 网关（`research_model.gateway=alsl`），全部角色
+（planner/节点执行/verifier 输入/报告/答辩）同模型；切换网关用
+`npm run research:gateway`。历史多模型路由（下表）仅适用于 agent 进化轨的
+旧配置，新 campaign 不得混用非 Luna 模型：
 
-| role | default recommendation | reason |
+| role（agent 轨历史） | route | reason |
 |---|---|---|
 | outer goal/proposal/critique | `hy3`, low/medium | fast structured hypothesis generation |
 | quantitative geology inner | `mimo-v2.5`, low/medium | verified long-context/tool-loop behavior |
-| quiz batches | `z-ai/glm-5.3-flash`, low or max | measured as a strong quiz candidate; establish a fresh baseline |
-| GIS/open analysis | `mimo-v2.5` or a fresh measured route | long tool loops need reliability more than raw speed |
-| temporary alternate | `mimo-v2.5-pro` via `RSILAB_EMOOO_API_KEY` | optional, environment-only, not the default |
+| quiz batches | `z-ai/glm-5.3-flash`, low or max | measured as a strong quiz candidate |
+| retired | `dsv4f` deep reasoning | harness fail-closed on unserializable `thinking_budget` — intentional |
 
-Do not use retired IDs. `dsv4f` deep reasoning is rejected by the TypeScript
-harness when its required `thinking_budget` cannot be serialized; this is
-intentional fail-closed behavior, not a quality downgrade hidden as success.
+完整模型档案（含 alsl/geili 网关事实与历史实测）见 `docs/MODELS.md`。
+Run a fresh cheap probe before changing a route: `python scripts/research_probe.py`.
 
 ## 3. Build a stratified curriculum
 

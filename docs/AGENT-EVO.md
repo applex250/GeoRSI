@@ -1,3 +1,5 @@
+> **状态：历史运行记录（agent 轨）。** 科研流水线轨（主轨）的现状见 `docs/RESEARCH-COMPETITION.md`。
+
 # Agent Evolution Status
 
 ## Historical Run

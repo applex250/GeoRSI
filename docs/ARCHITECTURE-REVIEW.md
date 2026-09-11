@@ -1,3 +1,5 @@
+> **状态：审计记录（2026-08）。** 所列整改项大部分已落地（policy seams、P1 关闭、诚实性门禁、两层记忆、GraphSpec 进化）。当前架构事实以 `docs/RESEARCH-COMPETITION.md` 与 `docs/HANDOFF.md` 为准。
+
 # GeoRSI 架构目标与审查
 
 ## 1. 系统要解决的问题

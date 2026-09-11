@@ -1,6 +1,6 @@
 # GeoRSI Handoff
 
-更新时间：2026-09-09（真实场景测试阶段）
+更新时间：2026-09-11（进化环/族图/Benchmark/小改进 + smoke-021c 基线）
 当前分支：`master`
 当前提交：见 `git log`（本文件随统一网关路由层提交更新）
 GitHub：`origin/master`

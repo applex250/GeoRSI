@@ -1,414 +1,171 @@
 # GeoRSI Lab
 
 Self-evolving geoscience research system on the **pi agent harness**
-(`@earendil-works/pi-coding-agent`). An outer evolution loop rewrites the
-strategy of an inner research agent; the inner agent does real quantitative
-geoscience (writes code, runs it, submits answers) and is scored against
-hidden truth. See `docs/DESIGN.md` for the original design rationale and
-`docs/ARCHITECTURE-REVIEW.md` for the current convergence target, audit
-findings, and generalization roadmap. The architecture is maintained as four
-focused Mermaid views in `docs/georsi-context.mmd`, `docs/georsi-runtime.mmd`,
-`docs/georsi-episode.mmd`, and `docs/georsi-security.mmd`; the older editable
-Drawio overview remains at `docs/georsi-architecture.drawio`. See
-`docs/ARCHITECTURE-VIEWS.md` for dependency rules.
+(`@earendil-works/pi-coding-agent`). GeoRSI has two tracks:
 
-## The research agent (pi chat + `/research`)
+1. **Research pipeline（科研流水线，主轨）** — a typed scientific mission is
+   executed as a dependency-checked WorkGraph: one bounded model session per
+   node, content-addressed evidence, deterministic family verifiers, an
+   event ledger, compute replay, and a three-layer scored package
+   (`report.md` + `presentation.md` + `defense.json`). Every claim is bound
+   to hashed evidence; every gate is auditable.
+2. **Agent evolution track（进化轨）** — the classic outer loop that rewrites
+   an inner agent's scaffold on a problem suite (`npm run rsi`, the `/research`
+   chat extension, the TUI dashboard).
 
-From ANY folder (Windows Terminal / VS Code terminal recommended):
+> **Status 2026-09-11** — the research pipeline runs end-to-end on real models:
+> `runs/luna-smoke-021c-host` = 7/7 nodes, `RESEARCH_VERDICT_OK issues: []`,
+> scienceScore **0.975**, all three deliverables node-authored. Execution
+> backend defaults to **`host-audit`** (direct host execution, honestly recorded
+> as `runMode=host-development` and **never competition-eligible**); the
+> Sandboxie strict backend is fully implemented and re-enabled explicitly with
+> `"execution_backend": "sandboxie"` (hardening iteration deferred, see
+> `docs/HANDOFF.md`).
 
-    F:\rsi-lab\agent.cmd          # (or agent.sh) — starts a NORMAL pi agent chat
+## Research pipeline quickstart
 
-You land in a regular pi coding-agent conversation. Then:
+```bash
+npm install --ignore-scripts
+npm run check                        # full free regression gate
 
-    /research start      scaffolds ./research/ in the current folder with
-                         template files + an explanation of what goes where
-                         (statement.md, data/, private_truth.txt, eval.py)
-    /research run        after you fill them in: solves YOUR problem with the
-                         lab's best strategy — progress streams into the chat
-    /research evolve 3   registers the problem in the lab and runs the full
-                         self-improvement loop on it (3 generations)
-    /research model      show current inner/outer models + supported list;
-                         /research model inner <id> or outer <id> switches
-    /research think      expand the collapsed thinking of the last run into
-                         the chat (white); /research think live toggles
-                         streaming thinking expanded for the next run
-    /research help
+# 1. free deterministic demo (no model calls, full 14-stage capstone package)
+npm run research:demo
+python scripts/research_verdict.py <run-name>
 
-**Asking the chat about the research**: the main agent has two tools —
-`research_status` (snapshot: active run, submissions/scores, recent events,
-log/workspace paths) and `research_control` (pause/resume/stop/feedback).
-Ask naturally ("研究进展如何？分析一下" / "让它先停一下" / "告诉它重点看稳健性")
-and the agent calls the tools; it can also read `stream.log` itself for deep
-analysis. All streaming stays in the bottom panel; the chat stays clean.
+# 2. real research run (Luna xhigh via the configured gateway)
+export GEORSI_RESEARCH_API_KEY=<key>          # environment only, never files
+npm run research:live --silent -- \
+  --config config/research-competition-luna.json \
+  --mission config/research-mission-quant-smoke.json \
+  --run-name luna-run-001
+python scripts/research_verdict.py luna-run-001
 
-While a run streams, **the chat stays fully interactive** — the engine runs
-detached from the command (pi awaits command handlers, so blocking would
-freeze the editor). Keep chatting with the pi agent while the monitor panel
-above the input box shows live research activity; thinking blocks collapse to
-one gray summary line each (`▸ [#N] thinking …`) which is an OSC 8 hyperlink —
-**click it to open the full stream.log in your editor**; tool calls
-(`⚙ name(args)` / `↳ result`) and narration show in full; system lines are
-red. Mid-run commands: `/research pause|resume|stop` (engine watches a
-control file), `/research feedback <text>` (read by the next generation),
-`/research status`.
+# interrupted? resume from the checkpoint (plan/executor/compute receipts)
+npm run research:live --silent -- --resume runs/luna-run-001
 
-Verified end-to-end: a fresh scaffolded problem (mean-magnitude estimation)
-solved by the engine subprocess in 31s with fitness 1.0000
-(`npm run extcheck` re-runs the whole flow).
+# 3. evolution loop: graph mutations as full mission runs, promotion on fitness
+npm run research:evolve -- --candidates 2 --run-prefix evo-001
 
-## Architecture
+# 4. three-layer benchmark aggregation over <taskId>__rep<k> run dirs
+npm run research:benchmark -- --runs-root runs/bench-001
 
-- [`docs/RESEARCH-COMPETITION.md`](docs/RESEARCH-COMPETITION.md) — Luna-only long-horizon research WorkGraph, evidence/replay, scoring, and competition runbook
-
-    outer loop (slow, evolves the agent — hy3)
-      goal gate -> propose (think-first, <=3 edits) -> critique panel
-      -> evaluate survivors on the training suite -> adversarial verify
-      -> champion snapshot (atomic) -> memory reflection -> board append
-
-    inner loop (fast, does the science — mimo-v2.5, a real pi agent session)
-      tools: read/write/edit/ls/grep + run_python + submit(public score)
-      stop: submission budget + patience + wall clock
-
-    problems/ (geoscience suite, ##SCORE## protocol)
-      quake_b (synthetic seismology) · quake_b_real (REAL USGS ComCat SoCal
-      catalog, 76k events 1990-2024) · flood_rp (hydrology) ·
-      climate_trend (climatology) · poro_perm (petrophysics, held-out)
-
-Synthetic/open-task private truths live OUTSIDE this tree (`../rsi-lab-private/`).
-External quiz gold and judge/reference assets may live under `problems/` on the
-trusted evaluator side, but are never copied to the exchange and the full
-repository is closed inside strict Sandboxie. Agents see only public reference/dev
-scores; the outer loop selects on private-only scores.
-
-On Windows, the default execution backend is **Sandboxie-Plus app-level
-isolation**. Each episode gets a fresh box and an absolute exchange workspace
-under `%TEMP%\\GeoRSI\\episodes\\<run-id>\\<episode-id>`. The repository,
-private-truth root, credential files/registry locations, and network are closed
-inside that box. `host-audit` is an explicit compatibility backend only; it is
-not an OS sandbox and is never an automatic fallback from strict mode.
-
-## Competition and long-horizon science runs
-
-For a stratified campaign, use `python scripts/make_curriculum.py` to create a fixed train/held-out config from public task metadata, then keep its `run-manifest.json` immutable. The full operating procedure, geology playbooks, model routing, and honest score-improvement priorities are in [`docs/COMPETITION-RUNBOOK.md`](docs/COMPETITION-RUNBOOK.md).
-
-
-
-Verified 2026-08-28 and pinned in `src/config.ts` (`SUPPORTED_MODELS`);
-`loadConfig` rejects anything else. Per-model reasoning-parameter quirks,
-vision bits and stability notes live in **`config/model-profiles.json`** —
-the machine-readable single source of truth consumed by `src/models.ts`
-(`resolveThinking` clamps/translates thinking levels per model) and by the
-Python side (`problems/_shared/model_client.py`). The human view with probe
-methodology and role assignments is **`docs/MODELS.md`**.
-
-| model | endpoint | route | API | ctx / max-out | role |
-|---|---|---|---|---|---|
-| `mimo-v2.5` | zen | direct | chat/completions | 1m / 128k | inner researcher; heavy fallback |
-| `mimo-v2.5-pro` | emooo (`api.emooo.cc`) | direct | chat/completions | 1m / 128k | temporary inner candidate; thinking minimal/low/medium/high/xhigh |
-| `hy3` | zen | direct | chat/completions | 256k / 128k | outer proposer (**default**) |
-| `z-ai/glm-5.3-flash` | openrouter | direct | chat/completions | 1m / 131k | current quiz/agent inner candidate; mandatory reasoning |
-| `minimax/minimax-m3:free` | openrouter | direct | chat/completions | 1m / 131k | free fallback; fast and multimodal |
-| `ox-alpha-free` / `stealth/ox-alpha` | retired | — | — | — | historical aliases; rejected at config load |
-| `muse-spark-1.2-contributor` | zen | **proxy** | **responses** | — | region-locked; auto-proxy via undici `EnvHttpProxyAgent` when selected |
-| `dsv4f` | **campus local** | direct | chat/completions | 256k / 64k | free local deepseek; server downtime is normal — preflighted at boot, fails fast with a switch hint |
-
-`mimo-v2.5-pro` is a temporary external provider route. Set
-`RSILAB_EMOOO_API_KEY` in the process environment before selecting it; the key
-is intentionally not stored in `config.json`, source, or benchmark files. The
-provider is configured with the live-tested `chat/completions` endpoint and
-z.ai-style request shape (`thinking: {type: "enabled", clear_thinking: false}`
-plus `reasoning_effort`; `off` sends `thinking: {type: "disabled"}`). A ready,
-non-secret temporary config is `config/emooo-mimo-pro.json`. It sets the inner and
-outer reasoning levels explicitly; valid config values are `off`, `minimal`,
-`low`, `medium`, `high`, `xhigh`, and `max` (the provider profile clamps or
-rejects unsupported values before a request is sent).
-
-```powershell
-$env:RSILAB_EMOOO_API_KEY="<temporary-key>"
-$env:RSILAB_REQUEST_MAX_TOKENS="8192"  # optional for long emooo turns
-npm run smoke -- --config config/emooo-mimo-pro.json
+# 5. gateway switching (atomic, validated, prints the policy fingerprint)
+npm run research:gateway -- --list
+npm run research:gateway -- alsl
 ```
 
-If a long model turn writes the canonical `solutions/<problem>.json` but ends
-before emitting `submit`, the driver can route that workspace-only candidate
-through the same public evaluator; the episode records this as
-`submissionRecovery: "candidate-file-driver"`. This does not read private truth
-or bypass the normal guard/cleanup path.
+A run directory contains the complete auditable package:
+`mission.json plan.json events.jsonl claims.json evidence-index.json
+environment.json runtime-attestation.json research-manifest.json replay.json
+research-score.json package-seal.json report.md presentation.md defense.json`
+(plus `compute_receipts.json` / `compute_requests.json` checkpoints that make
+replay resumable across process sessions). Raw scripts and downloads live in a
+content-addressed store under `%TEMP%/GeoRSI/evidence/<run>/`.
 
-Switch models at runtime from the research agent chat: `/research model`
-(shows current + list), `/research model inner z-ai/glm-5.3-flash`,
-`/research model outer hy3` — effective on the next run.
+The system spec — WorkGraph, verifier families, honest eligibility gates, the
+three-layer score, and promotion discipline — is
+[`docs/RESEARCH-COMPETITION.md`](docs/RESEARCH-COMPETITION.md).
 
-Local server: `local_base_url` in config.json (default
-`http://172.27.116.56:8080/v1`), key in `api_key_local.txt` (gitignored) or
-`RSILAB_LOCAL_API_KEY`. Selecting muse routes gateway traffic through the env
-proxy (`HTTPS_PROXY`, e.g. `http://127.0.0.1:7897`) while the local server
-always stays direct (noProxy) — node's `NODE_USE_ENV_PROXY` does NOT work
-here because importing pi replaces globalThis.fetch. Transient gateway
-`network_error` bursts are absorbed by pi auto-retry hardened to 6 attempts
-in the harness.
+## Model & gateway configuration
 
-## Long computations (hours)
+One config block owns every model fact; code stays provider-neutral:
 
-The inner agent has background jobs: `start_job(file)` spawns a script as a
-detached process (log → `jobs/<name>.log`, status → `jobs/<name>.status.json`);
-the EPISODE DRIVER waits for running jobs between turns — no turns burned, no
-watchdog risk — and wakes the agent with the finished summary. `job_status`
-and `kill_job` are available anytime; jobs are killed at episode end or when
-they exceed `job_timeout_s`. Knobs in config.json:
-
-    "script_timeout_s": 120,     // foreground run_python cap
-    "job_timeout_s": 14400,      // background job hard cap (4h default)
-    "episode_timeout_s": 900,    // raise this for long-job problems (e.g. 18000)
-    "job_poll_s": 30,             // driver poll interval while waiting
-    "execution_policy": "audit",         // source checks; not a sandbox
-    "execution_backend": "sandboxie",     // Windows strict backend
-    "sandboxie_start_path": "C:\\Program Files\\Sandboxie-Plus\\Start.exe",
-    "sandboxie_ini_path": "C:\\Program Files\\Sandboxie-Plus\\SbieIni.exe"
-
-### Sandboxie-Plus execution boundary
-
-`src/sandboxie.ts` is an adapter around the installed Sandboxie-Plus release;
-GeoRSI does not reimplement file virtualization, process injection, or network
-filtering. Before a strict episode starts it:
-
-- creates a fresh ASCII-only box with `ConfigLevel=10` and `Enabled=y`;
-- writes `ClosedFilePath` rules for the full repository/private roots and
-  credential locations, plus `ClosedKeyPath` credential rules;
-- opens only the expanded absolute exchange workspace for episode I/O;
-- sets `AllowNetworkAccess=n`, `NetworkEnableWFP=y`,
-  `NetworkAccess=*,Block`, then runs `Start.exe /reload`;
-- temporarily enables and verifies global `[GlobalSettings] NetworkEnableWFP=y`
-  when needed, then restores the exact pre-episode value during cleanup;
-- queries the rules back, starts the Python wrapper with `/box:<name>`, and
-  proves ownership with `/listpids` before allowing execution;
-- runs a real probe against an unlisted repository file, private root, and
-  `https://example.com`; any successful access fails closed;
-- terminates the box, deletes its contents, removes its config section, reloads,
-  and verifies the box is no longer enabled.
-
-Two Sandboxie CLI details are intentional. `SbieIni query /boxes *` is the
-valid enabled-box query; a bare `query /boxes` is not. The recurring
-`invalid sandbox name parameter DefaultBox` message means the named section is
-not active (`Enabled=y` is missing or not loaded), so strict code validates the
-box before launch rather than falling back to `DefaultBox`. Likewise,
-`delete_sandbox_silent` is a command token after `/box:<name>` and must **not**
-be slash-prefixed. `/fcp` is not put on GeoRSI's outer root launch: in
-Sandboxie's `Start.exe` parser that means “run the root outside and force only
-future children,” which defeats root isolation. Normal child propagation from
-the boxed root is retained; `/fcp` remains reserved for an explicitly
-unboxed helper scenario.
-
-`episode.json` records the backend, box name, exchange path, reload/read-back
-status, probe results, verified PIDs, and cleanup result. Sandboxie is
-**app-level isolation**, not a VM or a complete host-security boundary.
-
-### GIS Python runtime under strict Sandboxie
-
-GIS problems may override `python_cmd`, but strict Sandboxie accepts only an
-interpreter or virtual environment whose resolved path is outside both
-`F:/rsi-lab/` and `F:/rsi-lab-private/`. A repo-local `.gisenv/Scripts/python.exe`
-is rejected **before the box is created**. GeoRSI never falls back to host Python
-for this case: the episode fails closed. Install/copy the GIS venv to an
-external path and point `python_cmd` there, or explicitly select `host-audit`
-when compatibility with a repo-local venv is intentional; `host-audit` is not
-an OS sandbox.
-
-On Windows, an existing legacy venv can be copied once with:
-
-```powershell
-robocopy F:/rsi-lab/.gisenv F:/GeoRSI/venvs/gis /E /COPY:DAT /DCOPY:DAT
+```jsonc
+"research_model": {
+  "gateway": "alsl",                    // single switch field → research_gateways
+  "thinking_level": "high",             // competition policy pins xhigh
+  ...
+},
+"research_gateways": {
+  "alsl":   { "provider": "alsl",   "base_url": "https://ai.alsl.xyz/v1",
+              "api": "openai-responses", "thinking_evidence": "provider-observed", ... },
+  "geili":  { ... }
+}
 ```
 
-The benchmark builders also honor `GEORSI_GIS_PYTHON`; set it to the external
-`Scripts/python.exe` before regenerating benchmark `problem.json` files.
-## TUI dashboard (pi-tui)
+- `npm run research:gateway -- <name>` switches atomically (validate-then-write,
+  prints the canonical policy fingerprint).
+- `thinking_evidence: provider-observed` gateways show reasoning echoes in
+  receipts; `requested-only` routes are honestly recorded as not
+  competition-grade.
+- Credentials are environment-only (`GEORSI_RESEARCH_API_KEY`; per-gateway
+  `credential_env` entries name the slot). A key seen in a transcript,
+  argument, or log is exposed and must be revoked. There is no key-file
+  fallback.
+- Probe before a campaign: `python scripts/research_probe.py`.
 
-`npm run tui` starts a fullscreen dashboard (built on `@earendil-works/pi-tui`)
-and runs the evolution loop in the same process:
+The human-view model registry (capabilities, history, retired routes) is
+[`docs/MODELS.md`](docs/MODELS.md); the machine-readable profile lives in
+`config/model-profiles.json`.
 
-```
-┌ GeoRSI ─ rsi-20260827 · 1h23m │ inner z-ai/glm-5.3-flash / outer hy3
-│ gen 2/4 │ champion 0.8678 │ stag 0/3 │ tokens 14.1M │ heldout — │ running
-│ suite quake_b 0.960 │ flood_rp 0.950 │ climate_trend 0.700
-│ ⠋ gen 2: eval survivor 1/1 — inject canonical estimators
-├──────────────────────────────────────────────（scrolling event log）
-│   ✓ [method upgrade] Aki MLE + L-moments tips (q=4, expect +0.05)
-│   ★ NEW CHAMPION 0.7848 → 0.8678
-│   submit #2/6 → public 0.9100 (best 0.9100)
-├──────────────────────────────────────────────
-│ › type feedback + Enter │ /help /pause /resume /stop /status
-└ Ctrl+P pause · Ctrl+G help · Ctrl+C ×2 quit
-```
+## Agent evolution track
 
-- **feedback**: plain text + Enter appends to `runs/<name>/FEEDBACK.md`
-  (read by the next generation's proposals) — steer a running evolution
-- **Ctrl+P / /pause** halts the loop at the next safe point; **/stop** stops
-  gracefully after the current episode (`--resume` continues later)
-- quitting never loses state — all artifacts persist under `runs/<name>/`
-- **replay** (zero LLM cost): `npm run tui -- --replay runs/rsi-live`
-  renders a finished run's journal through the same dashboard
-  (`--replay-speed 100` to accelerate)
-- headless render tests: `npm run tuitest` (75 checks, no TTY needed); real-episode event-sink check: `npm run emitcheck`
-- requires an interactive terminal (Windows Terminal / VS Code recommended);
-  non-TTY starts are rejected with a hint to use `npm run rsi`
+From any folder, `F:\rsi-lab\agent.cmd` (or `agent.sh`) starts a normal pi chat
+with the `/research` extension (`extensions/georsi.ts`):
 
-## Quick start
+    /research start      scaffold ./research/ templates for YOUR problem
+    /research run        solve it with the lab's best strategy
+    /research evolve 3   register + run 3 self-improvement generations
+    /research model      show/switch inner/outer models
+    /research status     snapshot: active run, submissions, recent events
 
-    npm install --ignore-scripts          # pi packages (pinned 0.84.2)
-    python problems/<id>/gen.py --private ../rsi-lab-private   # (re)gen data
-    npm run check                         # aggregate free regression gate
-    npm run sandboxie:selftest             # real box + PID/path/network/lease/cleanup probe
-    npx tsx src/run.ts smoke               # one live episode on quake_b
-    npx tsx src/run.ts exam               # full suite exam -> RESULTS.md
-    npx tsx src/run.ts rsi --gens 4       # evolution run
-    npx tsx src/run.ts rsi --resume       # continue an interrupted run
+While a run streams, the chat stays interactive; thinking blocks collapse to
+clickable hyperlinks into `stream.log`; `/research pause|resume|stop|feedback`
+control the engine. `npm run extcheck` re-runs the verified end-to-end flow.
 
-External-benchmark suites ship **without** their `data/` (gigabytes,
-regenerable): rebuild any suite with the `scripts/*_build.py` commands above
-after placing the source banks under `benchmarks/` (gitignored). Strict
-Sandboxie requires GIS problems to use an interpreter/venv **outside** the
-repository (for example `F:\\GeoRSI\\venvs\\gis\\Scripts\\python.exe`).
-Repo-local `.gisenv/` overrides are rejected before box creation because the
-whole repository is closed. Use `host-audit` explicitly only when a repo-local
-venv is intentionally required; that mode is not an OS sandbox.
+Headless: `npx tsx src/run.ts smoke` (one episode), `npx tsx src/run.ts exam`
+(full suite), `npx tsx src/run.ts rsi --gens 4` (evolution), `npm run tui`
+(fullscreen dashboard), `npm run tui -- --replay runs/<name>` (zero-cost replay).
+Private truths live outside the tree (`../rsi-lab-private/`); public feedback
+drives the inner agent, private-only fitness drives selection.
 
-API key: `RSILAB_API_KEY` env var or `api_key.txt` (gitignored). Gateway and
-models are configured in `config.json`; the pi provider file is created with
-owner-only permissions in a random OS temp directory, consumed at startup,
-and immediately deleted. Legacy `config/pi-models.json` is no longer written.
+## Execution backends
 
-## External benchmarks (A/B-tier integration)
+- **`host-audit`（默认）** — direct host execution with the full path fence,
+  execution-policy scan, manifest, guard sweep, receipts, and replay. It is
+  honestly recorded as non-eligible; development and scoring run here.
+- **`sandboxie`** — Sandboxie-Plus app-level box: fresh box per episode,
+  closed repository/private/credential paths, network blocked with WFP
+  read-back, PID ownership proof, real probe, complete ordered cleanup. Any
+  failure fails closed (never a host fallback). See `src/sandboxie.ts` and
+  `npm run sandboxie:selftest`. GIS problems require an interpreter/venv
+  outside the repository under this backend.
 
-`scripts/quiz_build.py` converts external question banks into **quiz-mode**
-problems (one chunk = one problem; questions in `data/quiz.jsonl`, answers in
-`answers.private.jsonl` — never copied to the agent; submission =
-`answers.json` via the submit tool, eval_cap 2, unanswered = wrong). Public
-fitness uses only `dev=true` calibration questions; `private-only-v2` uses
-only `dev=false` questions, so calibration items cannot inflate selection or
-held-out results. Historical reports made before 2026-08-29 used an all-item
-private metric and are not directly comparable. Suite
-registers live in `config/<suite>.problems.json`; point `config.json`'s
-`problems_file` at one to run it whole:
+## Documentation map
 
-    python scripts/quiz_build.py --src earthse   --chunk 100 --suite earthse
-    python scripts/quiz_build.py --src k2        --chunk 100 --suite k2
-    python scripts/quiz_build.py --src mapqa     --chunk 60  --suite mapqa
-    python scripts/quiz_build.py --src gkmc      --chunk 100 --suite gkmc
-    python scripts/quiz_build.py --src stepgame  --chunk 100 --suite stepgame --limit 2000
-    python scripts/quiz_build.py --src mgq       --chunk 60  --suite mgq
+| doc | status | content |
+|---|---|---|
+| [`docs/RESEARCH-COMPETITION.md`](docs/RESEARCH-COMPETITION.md) | **current** | research pipeline system spec: WorkGraph, verifiers, scoring, eligibility |
+| [`docs/COMPETITION-RUNBOOK.md`](docs/COMPETITION-RUNBOOK.md) | **current** | operations: campaigns, benchmark protocol, model routing |
+| [`docs/MODELS.md`](docs/MODELS.md) | **current** | model registry: gateway policy, capability history |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md) | **current** | stage-by-stage chronology (25 entries) + onboarding steps |
+| [`docs/ARCHITECTURE-VIEWS.md`](docs/ARCHITECTURE-VIEWS.md) | **current** | dependency rules; Mermaid views (`docs/georsi-*.mmd`) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | design rationale | original architecture intent (sandbox default has since flipped — see banner) |
+| [`docs/ARCHITECTURE-REVIEW.md`](docs/ARCHITECTURE-REVIEW.md) | audit record | 2026-08 audit findings and remediations |
+| [`docs/QUALITY-PLAN.md`](docs/QUALITY-PLAN.md) | plan record | quality-first promotion design (largely implemented) |
+| [`docs/EVOLUTION-SCIENCE-AUDIT.md`](docs/EVOLUTION-SCIENCE-AUDIT.md) | audit record | evolution-loop scientific causality audit |
+| [`docs/RAG.md`](docs/RAG.md) | future design | retrieval layer v0.1 (anti-contamination rules) |
+| [`docs/AGENT-EVO.md`](docs/AGENT-EVO.md) | historical | agent-track evolution run status |
+| [`docs/SCOPE-PILOT.md`](docs/SCOPE-PILOT.md) | historical | scoped-tip routing pilot (metric caveats inside) |
+| [`docs/DOCKER.md`](docs/DOCKER.md) | ops | containerized evaluation environment |
 
-For a bounded routing pilot, `scripts/quiz_slice.py` creates deterministic
-small slices from an existing chunk. The completed 2026-08-27 seed/unscoped/
-scoped comparison is documented in [`docs/SCOPE-PILOT.md`](docs/SCOPE-PILOT.md).
+## Honesty infrastructure
 
-Judge/oracle problems (no quiz template; current GAB/GeoBenchX scores are
-**structural/judge proxy metrics**, not proof that produced GIS artifacts are
-scientifically correct):
+Non-negotiable invariants, enforced in code and re-checked by the independent
+Python verdict (`scripts/research_verdict.py`):
 
-    python scripts/gab_build.py --n 10          # GeoAnalystBench: oracle -> judge chain
-    python scripts/gbx_build.py --n-real 8 --n-reject 4   # GeoBenchX: tool-chain judge,
-                                                # correct rejection = deterministic 1.0
-
-`problems/_shared/judge.py` is the cached LLM judge (same submission → same
-score, disk cache keyed by model+prompt). Its credentials never reach the
-agent's python subprocesses (`solve.ts` strips `RSILAB_JUDGE*`). Per-problem
-knobs (max_turns, eval_cap, timeouts, judge, genre) live in each
-`problems/<id>/problem.json`. `npx tsx src/run.ts selftest` asserts suite
-structure, gold isolation and grader units (no LLM). See
-`benchmarks/ANALYSIS.md` for per-benchmark status, grading semantics and the
-honest boundaries (quiz fitness is knowledge-bounded; public-score probing
-risk is mitigated, not eliminated).
-
-Agent evolution coverage and the remaining `CRASHY/ESCALATE` boundary are
-tracked in [`docs/AGENT-EVO.md`](docs/AGENT-EVO.md).
-
-## Knowledge base (cross-run memory)
-
-`knowledge/nodes.jsonl` stores lessons tagged with the regions/genres they
-apply to; `src/knowledge.ts` routes active nodes to a deterministic,
-char-budgeted lesson set injected into the inner prompt. Newly accepted
-champion tips are staged as `probation` rather than silently becoming active.
-Usage stats (`uses`/historical `wins`/fitness) update only after an episode
-ends. `wins` means competent co-exposure, not causal credit for the node. Use
-`RSILAB_KB_INCLUDE_PROBATION=1` only for an explicit A/B pilot, and promote a
-probation node only with independent paired evidence:
-
-    python scripts/knowledge_add.py --promote <node-id> --evidence-file evidence.json
-
-The evidence file identifies the node, at least two independent groups, and a
-positive paired delta; `--force` remains an explicit operator override.
-
-## Honesty infrastructure (anti reward-hacking)
-
-GeoRSI now has two explicit Python backends:
-
-- **strict `sandboxie`** (the Windows default): the agent runs through
-  Sandboxie-Plus in a fresh per-episode box. The exchange workspace is outside
-  the repository; the full repository/private roots, credential locations, and
-  network are closed and checked by a real probe. If Sandboxie, `/reload`,
-  rule read-back, global-WFP lease, PID ownership, or the probe fails, the episode fails closed —
-  it never falls back to host Python. Strict episodes are serialized across
-  GeoRSI processes while the temporary global WFP setting is active.
-- **`host-audit`**: an explicit compatibility mode for environments without
-  Sandboxie. It keeps the existing path fence, execution-policy scan, manifest,
-  and post-episode guard, but is not an OS sandbox.
-
-Defense-in-depth remains enabled in both modes (`src/guard.ts`; asserted by
-`npm run selftest`):
-
-- **workspace fence**: `run_python`/`start_job` reject paths outside the
-  exchange workspace, and official pi `read`/`write`/`edit`/`ls`/`grep`
-  factories receive symlink-aware guarded operations;
-- **protected manifest**: eval-side files (eval.py, gold answers, hidden
-  references, and effective external private truth) are hashed before the
-  episode and rechecked before every public/private evaluator launch;
-- **post-episode sweep**: agent-written artifacts and tool-call text are
-  scanned for protected-path references; a breach marks the episode
-  compromised (fitness → null);
-- **credential stripping**: provider/judge credentials, proxy variables, and
-  Python/Node path-injection variables never reach strict agent Python wrappers;
-- **execution policy**: `execution_policy: "restricted"` blocks common
-  subprocess/network/native-extension imports before launch; `"audit"` records
-  warnings;
-- **process cleanup**: foreground timeouts, background jobs, normal completion,
-  uncaught/unhandled fatal errors, and the Node exit handler terminate the
-  Sandboxie box and remove its config. An external hard kill of the Node process
-  (`taskkill /F`, power loss, or kernel crash) cannot execute user-space cleanup;
-  after such a kill, inspect/terminate stale GeoRSI boxes, restore/read back
-  `Sandboxie.ini`, rerun the integration selftest, and only then remove
-  `%TEMP%\\GeoRSI\\sandboxie-global-wfp.lock`; strict execution never falls
-  back to the host while cleanup or the lease is uncertain.
-
-Sandboxie-Plus provides **app-level isolation**, not VM-level security. It does
-not replace host hardening, a VM, resource governance, or an independent
-trusted evaluator.
-
-## Per-problem overrides
-
-Each `problems/<id>/problem.json` may override config knobs for its suite
-mechanism: `type: quiz`, `judge: true` (LLM-judged private split),
-`python_cmd` (an external interpreter/venv is required by strict Sandboxie;
-repo-local `.gisenv/` paths are rejected), `execution_backend` (usually
-`sandboxie` or explicit `host-audit`), `execution_policy`,
-`eval_timeout_s`, `max_turns`, `eval_cap`, episode/job timeouts. Overrides merge
-over config.json and win; `npm run selftest` covers grader units, suite
-structure, gold isolation and the model/guard layers (no LLM needed).
-
-## Run artifacts (runs/<name>/)
-
-- `board.jsonl` append-only journal (source of truth; crash-safe)
-- `state.json` atomic snapshot (generation, champion, history, token count,
-  held-out finalization) — resume point; completed held-out gates are not rerun
-- `champion_scaffold.json` current champion
-- `variants/genN_vK.json` every proposal incl. pruned (audit)
-- `leaderboard.md`, `FINDINGS.md` human-readable reports (regenerable)
-- `episodes/<tag>/episode.json` and canonical submitted JSON are durable,
-  sanitized copies written only after strict cleanup/guard checks; arbitrary
-  agent scripts and logs remain in the external exchange temp tree
-- `memory/memory.jsonl`, `RESULTS.md`, `exam-report.json`, `FEEDBACK.md`
+- package validity is gated on unit tests, complete trace, verify + compute
+  replay, zero guard violations, verified cleanup, and matched model policy;
+- `host-audit` / `requested-only` thinking / failed isolation ⇒ `eligible=false`,
+  no overall score — recorded, never hidden;
+- model-declared artifact ids are untrusted: accepted artifacts must come from
+  the CAS store or a registered tool with verifiable metadata;
+- draft normalization (`src/research/draft-normalizer.ts`) repairs purely
+  formal mismatches in code and emits per-item coercion provenance; it never
+  fabricates content; rejection is reserved for substantive failures;
+- deterministic draft gates (report sections/citations, 8 slides, ≥12 grounded
+  defense items with category-relevant evidence) run at submission time.
 
 ## Legacy
 
-The original pure-Python prototype (custom reply/execute loop on the raw
-OpenAI SDK) is archived under `legacy/`.
+The original pure-Python prototype is archived under `legacy/`.

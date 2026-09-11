@@ -13,24 +13,42 @@ outside this MVP.
 
 ## Model policy
 
-New live campaigns are Luna-only and derive every model fact from one config block:
+New live campaigns are Luna-only and derive every model fact from one config
+block. The `research_gateways` registry carries the endpoint/protocol facts and
+ALL resilience parameters (probe attempts/backoff, session retries);
+`research_model.gateway` is the single switch field:
 
-```text
-research_model.provider            = geiliapi
-research_model.base_url            = https://sub.geiliapi.com/v1
-research_model.model               = gpt-5.6-luna
-research_model.api                 = openai-completions
-research_model.thinking_level      = xhigh
-research_model.max_tokens_field    = max_completion_tokens
-research_model.credential_env      = GEILIAPI_API_KEY
-research_model.fallback            = none
+```jsonc
+"research_model": { "gateway": "alsl", "model": "gpt-5.6-luna", "thinking_level": "high", ... },
+"research_gateways": {
+  "alsl":  { "provider": "alsl", "base_url": "https://ai.alsl.xyz/v1", "api": "openai-responses",
+             "max_tokens_field": "max_completion_tokens", "credential_env": "GEORSI_RESEARCH_API_KEY",
+             "fallback": "none", "thinking_evidence": "provider-observed",
+             "resilience": { "probe_attempts": 10, "session_retries": 10, ... } },
+  "geili": { "provider": "geiliapi", "base_url": "https://sub.geiliapi.com/v1", "api": "openai-completions",
+             "thinking_evidence": "requested-only", ... }
+}
 ```
 
-The credential is environment-only:
+Switch atomically (validate-then-write, prints the canonical policy
+fingerprint):
+
+```bash
+npm run research:gateway -- --list
+npm run research:gateway -- alsl
+```
+
+The credential is environment-only (per-gateway `credential_env` names the
+slot, currently `GEORSI_RESEARCH_API_KEY`):
 
 ```powershell
-$env:GEILIAPI_API_KEY="<rotated-key>"
+$env:GEORSI_RESEARCH_API_KEY="<rotated-key>"
 ```
+
+`thinking_evidence: provider-observed` gateways show reasoning echoes in
+receipts (independently checkable); `requested-only` routes are honestly
+recorded as not competition-grade. The active alsl policy fingerprint is
+`eccdf947cc216870b293280a`.
 
 A key shown in a transcript, terminal argument, screenshot, or log is exposed
 and must be revoked. GeoRSI has no key-file fallback. Switching the research
@@ -43,10 +61,11 @@ Before a live campaign:
 python scripts/research_probe.py
 ```
 
-The machine-readable model profile stays `unverified-geiliapi` until the OpenAI
-Completions catalog, xhigh thinking, tool-loop, usage, PiHarness, and Sandboxie
-probes pass. Competition packages persist the `modelPolicy` and its canonical
-fingerprint; the independent verdict re-validates receipts against that policy.
+The alsl route is production-verified end-to-end (catalog, tool loop, usage,
+provider-observed xhigh thinking, PiHarness): see
+`runs/luna-smoke-021c-host` (7/7 nodes, clean verdict, scienceScore 0.975).
+Competition packages persist the `modelPolicy` and its canonical fingerprint;
+the independent verdict re-validates receipts against that policy.
 
 The fixed task/weight/repetition protocol is declared in
 `config/research-benchmark-manifest.json` and mirrored by the typed
@@ -62,8 +81,9 @@ quality-first `0.01` score-band/token policy.
 
 `src/research/research-node-executor.ts` is the production WorkGraph adapter. It
 creates one bounded Pi session per node and fails closed unless the runtime
-matches `research_model` exactly (`provider/model/api`, currently
-`geiliapi/gpt-5.6-luna/openai-completions`) with requested/effective `xhigh`.
+matches the `research_model` policy exactly (`provider/model/api`,
+gateway-resolved — currently the `alsl` gateway:
+`alsl/gpt-5.6-luna/openai-responses`) with requested/effective thinking.
 It disables Pi built-in and exchange file tools; the model sees only explicit,
 TypeBox-bound `ScientificToolRegistry` adapters plus bounded artifact/submission
 capture tools. Context is node/dependency scoped and fingerprinted. Per-role
@@ -94,11 +114,34 @@ tool with verifiable CAS metadata. Quantitative, GIS, and literature verifier
 inputs are persisted before deterministic verification, and family
 attestations bind the sanitized input hash to canonical evidence hashes.
 
-`src/research/sandboxie-compute.ts` defines the fail-closed compute port used by
-Python/GIS tools. A valid receipt must prove the Sandboxie backend, PID
-ownership, expected network mode, zero exit, complete ordered cleanup, WFP
-restoration, and lease release. There is no host fallback. The deterministic
-selftest uses an injected fake port; it is not competition evidence.
+`src/research/sandboxie-compute.ts` defines the fail-closed compute port used
+by Python/GIS tools with two backends:
+
+- **`sandboxie`**: a valid receipt must prove the Sandboxie backend, PID
+  ownership, expected network mode, zero exit, complete ordered cleanup, WFP
+  restoration, and lease release. There is no host fallback.
+- **`host-audit`（默认）**: direct host execution behind the same path fence and
+  policy scan; receipts honestly record `networkIsolationEnforced=false` and
+  the package is never competition-eligible. The deterministic selftest uses
+  an injected fake port; it is not competition evidence.
+
+Compute replay re-runs recorded scripts deterministically and compares
+exit/stdout/stderr/result (figure bytes are excluded). The request map is
+checkpointed to `compute_requests.json` so replay after a `--resume` can
+re-run scripts recorded by earlier process sessions; failed attempts (the
+model's self-correction loop) stay in the ledger as history but are excluded
+from the replay set — package integrity is defined by the successful computes.
+
+### Draft normalization and deliverable provenance
+
+`src/research/draft-normalizer.ts` applies deterministic coercions (rename,
+unwrap, renumber, re-derive) to model drafts BEFORE validation: purely formal
+mismatches (field names, slide markers, container shapes) are repaired by code
+with per-item coercion provenance in the ledger; coercion may never fabricate
+questions, answers, or evidence ids. Rejection is reserved for substantive
+failures. Packaged deliverables prefer the communication nodes' own artifacts
+when they pass the same gates; the `deliverable-sources` ledger event records
+`node|template` provenance per deliverable.
 
 ## Network claim
 
@@ -119,23 +162,54 @@ After rotating the credential and exporting it only in the process environment,
 run:
 
 ```bash
-npm run research:live -- --config config/research-competition-luna.json \
+npm run research:live --silent -- --config config/research-competition-luna.json \
   --mission path/to/mission.json [--plan path/to/plan.json] \
-  --run-name luna-run-001
+  [--resume runs/<previous-run>] --run-name luna-run-001
 ```
+
+Diagnostics (optional): `RSILAB_PROMPT_DIAG=1` writes per-node session JSONL
+to `RSILAB_PROMPT_DIAG_DIR` (auto-pruned after 7 days unless
+`RSILAB_PROMPT_DIAG_KEEP=1`).
 
 The command first runs the deterministic `npm run check` preflight, then
 resolves and authenticates the Luna provider. If the build, key, model identity,
-xhigh setting, Sandboxie backend, network mode, mission, or plan is invalid, it
-exits before scheduling a research node. `--plan` is optional; a validated linear graph is generated from
-the mission's required stages when omitted. A non-eligible or failed package
-returns a nonzero exit code and must be inspected with `scripts/research_verdict.py`.
+thinking setting, backend, network mode, mission, or plan is invalid, it
+exits before scheduling a research node. `--plan` is optional; without it the
+graph is instantiated from the **family GraphSpec template**
+(`familyGraphSpec(family, requiredStages)`): a mission's embedded
+`requiredStages` pin the chain (the quant-smoke mission pins the 7 core
+stages), otherwise the full family chain applies (quantitative includes
+`data-audit`; literature includes `literature-search`). Communication stages
+carry `budgetScale 2` (wall is a cap, not a target). `--resume <runDir>`
+restores the persisted plan/executor state/compute receipts and re-registers
+recorded compute requests for cross-session replay. A non-eligible or failed
+package returns a nonzero exit code and must be inspected with
+`scripts/research_verdict.py`.
+
+### Evolution and benchmark tooling
+
+```bash
+npm run research:evolve -- --candidates 2 --run-prefix evo-001
+# baseline + graph-mutation candidates (add/remove/merge/split) as full runs on
+# the same seed; fitness = scienceScore/validRate; promotion via paired
+# repetitions (host-development policy allows medium/high/xhigh; competition
+# stays xhigh-only)
+
+npm run research:benchmark -- --runs-root runs/bench-001
+# aggregates <taskId>__rep<k> run dirs into benchmark-report.json; missing
+# repetitions and ineligible runs count as ZERO and are listed — never skipped
+```
+
+The task-level data contracts (fixed seed/params per Stage-A task) live in
+`config/research-benchmark-manifest.json`; competition missions must declare a
+matching `mission.dataset` with a binding seed (TS gate + verdict
+fingerprint cross-check).
 
 ## Free end-to-end demonstration
 
 ```bash
-npm run research:demo -- --run-name research-demo-001
-python scripts/research_verdict.py research-demo-001
+npm run research:demo
+python scripts/research_verdict.py <demo-run-name>
 ```
 
 The deterministic demo makes no model call. It exercises all 14 capstone

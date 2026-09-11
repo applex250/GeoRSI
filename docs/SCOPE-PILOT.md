@@ -1,3 +1,5 @@
+> **状态：历史试点存档。**
+
 # Scope Tip Pilot
 
 > **Metric-version caveat (2026-08-29):** this historical pilot ran with the legacy quiz private metric that scored all five items, including the two public dev items, despite the intended 2/3 terminology below. Current `private-only-v2` scores only `dev=false`; do not compare these values directly with new runs.

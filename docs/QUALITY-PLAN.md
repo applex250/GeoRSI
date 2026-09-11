@@ -1,3 +1,5 @@
+> **状态：设计记录。** 质量优先晋升纪律（配对重复、0.01 分带、单组件归因）已在 `src/research/promotion.ts` + `research:evolve` 落地；host-development 晋升策略已参数化（允许 medium/high/xhigh，竞赛仍 xhigh-only）。
+
 # GeoRSI quality remediation plan
 
 Status: second optimization round implemented; final validation in progress

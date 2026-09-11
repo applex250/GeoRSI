@@ -1,19 +1,26 @@
 # 模型能力档案与统一调用层
 
-> 实测日期 2026-08-28。探针：`scripts/model_probe.py`（稳定性/文本）、`scripts/model_probe2.py`（真图视觉/扩展等级）。
-> 测量条件声明：部分数据在演化 run 并发压网关时采集；旧 `stealth/ox-alpha` alias 于 2026-08-27 返回 HTTP 404，已停止使用。
-> **机器可读单一事实源：`config/model-profiles.json`** —— TS（`src/models.ts`）与 Python（`problems/_shared/model_client.py`）两侧适配器都从它读取；本文档是 human view。
+> **当前现实（2026-09-11）**：科研流水线唯一模型 `gpt-5.6-luna` @ **alsl 网关**
+> （`https://ai.alsl.xyz/v1`，`openai-responses`，`thinking_evidence=provider-observed`）。
+> 网关事实与全部弹性参数由 `config/*.json` 的 `research_gateways` 登记表承载，
+> `research_model.gateway` 单字段切换（`npm run research:gateway -- <name>`）。
+> 端到端真机验证：`runs/luna-smoke-021c-host`（7/7 节点、干净 verdict、scienceScore 0.975）。
+> 凭据只从环境槽 `GEORSI_RESEARCH_API_KEY` 读取；对话/命令行/日志中出现的 key 视为泄露必须轮换。
+> 统一探针：`python scripts/research_probe.py`。
+> 机器可读档案：`config/model-profiles.json`（`src/models.ts` 与 `problems/_shared/model_client.py` 双侧消费）；本文档是 human view。
 
 | 模型 | 端点 / 协议 | 推理 | 当前角色 |
 |---|---|---|---|
-| **gpt-5.6-luna** | geiliapi / chat-completions（`research_model` 单一配置） | 竞赛固定 `xhigh`；live 生效性仍需 probe | 唯一获准的新模型调用；inner/outer/planner/verifier/报告 |
+| **gpt-5.6-luna** | **alsl / openai-responses**（`research_model.gateway=alsl`） | 竞赛固定 `xhigh`；开发模式 medium/high 可（晋升策略显式允许） | 唯一获准模型；planner/节点执行/verifier 输入/报告/答辩 |
+| geili（备用路由） | geiliapi / chat-completions | requested-only（无回显 → 诚实记录不可竞赛） | 登记表备用路由；`thinking_evidence=requested-only` |
 | hy3 | zen / chat-completions | low..xhigh | 历史配置；Luna-only campaign 禁止调用 |
 | mimo-v2.5 | zen / chat-completions | low..high | 历史配置；Luna-only campaign 禁止调用 |
 | GLM-5.3 Flash | OpenRouter / chat-completions | mandatory | 历史配置；Luna-only campaign 禁止调用 |
 | dsv4f | local / chat-completions | effort/budget | 历史配置；Luna-only campaign 禁止调用 |
 | muse-spark | zen / Responses API | 不支持 reasoning 参数 | 历史配置；Luna-only campaign 禁止调用 |
 
-> Luna 的 provider 配置来自 `config` 的 `research_model` 块（当前 geiliapi / OpenAI Completions / `max_completion_tokens`）；在 catalog、tool-loop、usage 和 provider-observed `xhigh` probe 完成前，档案保持 `unverified-geiliapi`。任何出现在对话、命令行或日志中的 key 都必须撤销。新 key 只从 `GEILIAPI_API_KEY` 读取，项目不支持 key 文件 fallback。统一探针：`python scripts/research_probe.py`。
+> 以下为 2026-08-28 的历史能力实测记录（探针 `scripts/model_probe.py`/`model_probe2.py`），
+> 对当前 alsl/Luna 路由不再描述现状，仅作模型能力评估方法论存档。
 
 ## 一、历史能力总览矩阵
 

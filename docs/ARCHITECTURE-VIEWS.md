@@ -5,6 +5,8 @@ security boundaries at once. That made dependencies look like a single graph
 and hid the trust boundary. The Mermaid files in this directory are now the
 maintained source views:
 
+- `georsi-research.mmd` — the research pipeline (primary track): mission/policy
+  config → orchestration → node execution → evidence/verification → package.
 - `georsi-architecture.mmd` — compact top-level loop.
 - `georsi-context.mmd` — system context and external dependencies.
 - `georsi-runtime.mmd` — stable runtime/container dependencies.

@@ -1,0 +1,63 @@
+%% Research pipeline view (primary track) — current as of smoke-021c (2026-09-11)
+flowchart TB
+    subgraph config["Config plane"]
+        mission["Scientific mission\nconfig/research-mission-*.json\n(dataset contract: seed/params)"]
+        policy["research_model policy\nconfig/research-competition-luna.json\nresearch_gateways registry"]
+        manifest["Benchmark manifest\nconfig/research-benchmark-manifest.json\n(per-task dataset contracts)"]
+    end
+
+    subgraph orchestration["Research orchestration"]
+        live["research:live\nsrc/research/live.ts"]
+        orch["ResearchOrchestrator\nsrc/research/orchestrator.ts"]
+        graphspec["GraphSpec\nsrc/research/graph-spec.ts\nfamily templates + 4 mutators"]
+        evolve["research:evolve\nevolution-driver + promotion"]
+        bench["research:benchmark\naggregation (honest zeros)"]
+    end
+
+    subgraph execution["Node execution"]
+        executor["ResearchNodeExecutor\nsrc/research/research-node-executor.ts"]
+        harness["PiHarness (one bounded session per node)"]
+        roles["ROLE_CONTRACTS + deliverable contracts\n+ budget discipline"]
+        normalizer["draft-normalizer\nformal coercions, zero fabrication"]
+        memory["ContextMemory L1/L2/L3\n+ trigram-lexical-semantic recall"]
+        compute["Compute port\nhost-audit (default) / sandboxie"]
+    end
+
+    subgraph evidence["Evidence and verification"]
+        cas["CAS evidence store\n%TEMP%/GeoRSI/evidence/run"]
+        ledger["Hash-chained event ledger\ncompute_requests checkpoint"]
+        verifiers["Family verifiers\nquantitative-v1 / gis-v1 / literature-v1"]
+        replay["Deterministic replay\nverify + compute (cross-session)"]
+    end
+
+    subgraph package["Research package"]
+        deliverables["report.md / presentation.md / defense.json\nnode-authored (deliverable-sources)"]
+        score["Three-layer score\nresearch-score.json"]
+        seal["research-manifest + package-seal"]
+        verdict["Independent verdict\nscripts/research_verdict.py"]
+    end
+
+    mission --> live
+    policy --> live
+    live --> orch
+    graphspec --> orch
+    orch --> executor
+    executor --> harness
+    roles --> harness
+    harness --> memory
+    executor --> compute
+    compute --> cas
+    executor --> ledger
+    executor --> normalizer
+    cas --> verifiers
+    verifiers --> orch
+    orch --> deliverables
+    orchestrator_done["package"] --> score
+    score --> seal
+    ledger --> replay
+    cas --> replay
+    replay --> verdict
+    seal --> verdict
+    evolve --> graphspec
+    evolve --> live
+    bench --> verdict

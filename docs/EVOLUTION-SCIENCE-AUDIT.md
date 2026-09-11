@@ -1,3 +1,5 @@
+> **状态：审计记录。** 进化环 driver 已落地（`npm run research:evolve`，#79）；本文的因果性纪律仍适用。
+
 # Self-evolution / AI-for-science / geology quality audit
 
 Date: 2026-08-30
