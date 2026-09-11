@@ -69,7 +69,10 @@ export function loadResearchGraph(path: string, mission: ResearchMission): Resea
 }
 
 /** Base per-node budget envelope (Phase-2 GraphSpec scales this per stage). */
-export const RESEARCH_NODE_BUDGET: WorkNodeBudget = { wallMs: 40 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
+/** Wall is a CAP, not a target: 60 min accommodates communication nodes that render
+ * figures before submitting (smoke-021b: the 40 min cap killed report attempts that
+ * were still productively working). */
+export const RESEARCH_NODE_BUDGET: WorkNodeBudget = { wallMs: 60 * 60 * 1000, maxModelCalls: 56, maxToolCalls: 48, maxOutputTokens: 131_072, maxAttempts: 2 };
 
 export function createLinearResearchGraph(mission: ResearchMission, now = new Date()): ResearchWorkGraph {
 	// Family template activation (#82): the linear family graph IS the family GraphSpec

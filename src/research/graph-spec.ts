@@ -43,7 +43,16 @@ export function familyGraphSpec(family: ResearchTaskFamily, requiredStages?: rea
 	for (const kind of kinds) {
 		if (!allowed.has(kind)) throw new Error(`stage ${kind} is not part of the ${family} family template`);
 	}
-	return { stages: kinds.map((kind, index) => ({ id: kind, kind, dependsOn: index === 0 ? [] : [kinds[index - 1]!] })) };
+	return {
+		stages: kinds.map((kind, index) => ({
+			id: kind,
+			kind,
+			dependsOn: index === 0 ? [] : [kinds[index - 1]!],
+			// Communication stages legitimately need more wall time (figures + long
+			// deliverables); the budget is a cap and only binds when productively working.
+			budgetScale: kind === "report" || kind === "presentation" || kind === "defense" ? 2 : undefined,
+		})),
+	};
 }
 
 /** Structural validation independent of any mission. */
