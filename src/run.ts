@@ -115,6 +115,50 @@ async function main() {
 		process.exit(generation.acceptedCandidate !== null ? 0 : 2);
 	}
 
+	if (cmd === "research-benchmark") {
+		// Three-layer benchmark aggregator (#65): scan a runs root following the
+		// <taskId>__rep<k> convention, read each run's artifacts, aggregate honestly.
+		const { aggregateBenchmarkRuns, benchmarkRecordFromArtifacts, RESEARCH_BENCHMARK_MANIFEST, validateResearchBenchmarkManifest } = await import("./research/benchmark.js");
+		const { readdirSync } = await import("node:fs");
+		const runsRoot = args["runs-root"] ? String(args["runs-root"]) : "";
+		if (!runsRoot) {
+			console.error("research-benchmark requires --runs-root <dir with <taskId>__rep<k> subdirs>");
+			process.exit(1);
+		}
+		const manifest = RESEARCH_BENCHMARK_MANIFEST;
+		const manifestIssues = validateResearchBenchmarkManifest(manifest);
+		if (manifestIssues.length > 0) {
+			console.error(`invalid benchmark manifest: ${manifestIssues.join("; ")}`);
+			process.exit(1);
+		}
+		const taskIndex = new Map<string, { stage: "stage-a" | "stage-b" | "held-out" }>();
+		for (const [stage, tasks] of Object.entries(manifest.stages)) for (const task of tasks) taskIndex.set(task.id, { stage: stage as "stage-a" | "stage-b" | "held-out" });
+		const records: ReturnType<typeof import("./research/benchmark.js").benchmarkRecordFromArtifacts>[] = [];
+		let entries: { name: string; isDirectory: () => boolean }[];
+		try {
+			entries = readdirSync(runsRoot, { withFileTypes: true }).filter((item) => item.isDirectory());
+		} catch {
+			console.error(`runs root not found or unreadable: ${runsRoot}`);
+			process.exit(1);
+		}
+		for (const entry of entries) {
+			const match = /^(.+)__rep(\d+)$/.exec(entry.name);
+			if (!match) continue;
+			const [, taskId, repetition] = match;
+			const registered = taskIndex.get(taskId!);
+			if (!registered) continue;
+			records.push(benchmarkRecordFromArtifacts(taskId!, registered.stage, Number(repetition), join(runsRoot, entry.name!), (path) => JSON.parse(readFileSync(path, "utf8")) as unknown));
+		}
+		if (records.length === 0) {
+			console.error(`no benchmark run dirs matching <taskId>__rep<k> under ${runsRoot}`);
+			process.exit(1);
+		}
+		const aggregate = aggregateBenchmarkRuns(manifest, records);
+		const reportPath = join(runsRoot, "benchmark-report.json");
+		writeFileSync(reportPath, JSON.stringify(aggregate, null, "	"));
+		console.log(`RESEARCH_BENCHMARK_DONE developmentOverall=${aggregate.developmentOverall ?? "n/a"} stageA=${aggregate.stages["stage-a"].weightedScienceScore.toFixed(4)} stageB=${aggregate.stages["stage-b"].weightedScienceScore.toFixed(4)} missing=${aggregate.stages["stage-a"].missingRepetitions.length + aggregate.stages["stage-b"].missingRepetitions.length} issues=${aggregate.issues.length} report=${reportPath}`);
+	}
+
 	if (cmd === "research-live") {
 		const missionPath = args.mission ? String(args.mission) : "";
 		if (!missionPath) {
