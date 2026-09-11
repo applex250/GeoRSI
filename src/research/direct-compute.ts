@@ -35,6 +35,17 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 		mkdirSync(options.workspace, { recursive: true });
 	}
 
+	/** Persisted-compute requests for WorkGraph resume (#83): replay after a resume must
+	 * be able to re-run scripts recorded by EARLIER process sessions, so the checkpoint
+	 * exports this map and the resumed port re-primes it. Abort signals are stripped. */
+	exportRequests(): { id: string; request: SandboxieComputeRequest }[] {
+		return [...this.requests.entries()].map(([id, request]) => ({ id, request: { ...request, signal: undefined } }));
+	}
+
+	primeRequests(entries: readonly { id: string; request: SandboxieComputeRequest }[]): void {
+		for (const { id, request } of entries) this.requests.set(id, { ...request, signal: undefined });
+	}
+
 	async run(request: SandboxieComputeRequest): Promise<SandboxieComputeRunReceipt> {
 		if (request.signal?.aborted) throw new Error(`host-audit compute ${request.nodeId} aborted before launch`);
 		const id = `${request.nodeId}-${++this.counter}-${randomId()}`;

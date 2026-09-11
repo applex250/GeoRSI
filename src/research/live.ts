@@ -288,6 +288,14 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		if (existsSync(computePath)) {
 			for (const receipt of JSON.parse(readFileSync(computePath, "utf8")) as SandboxieComputeRunReceipt[]) computeReceipts.push(receipt);
 		}
+		// Replay after resume (#83): re-register the recorded compute requests so the
+		// deterministic replay can re-run scripts from EARLIER process sessions too.
+		const requestsPath = join(runDir, "compute_requests.json");
+		if (existsSync(requestsPath) && isolation === "host-audit") {
+			const entries = JSON.parse(readFileSync(requestsPath, "utf8")) as { id: string; request: import("./sandboxie-compute.js").SandboxieComputeRequest }[];
+			if (computePort instanceof DirectHostComputePort) computePort.primeRequests(entries);
+			log(`[research] resume: ${entries.length} compute requests re-registered for replay`);
+		}
 		// Always rebuild from the CAS store first (exact ids/integrity), then overlay any persisted
 		// executor snapshot — a partial snapshot from an earlier broken resume must never shrink it.
 		for (const reference of evidenceStore.listContents()) evidenceById.set(reference.id, reference);
@@ -334,10 +342,11 @@ const startedAt = now().getTime();
 					// successful model receipts, tool receipts, and the evidence-by-id map.
 					persistJson("executor_state.json", { version: 1, missionId: options.mission.id, executor: executor.exportNodeState(), evidence: [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)) });
 					persistJson("compute_receipts.json", computeReceipts);
+					if (isolation === "host-audit" && computePort instanceof DirectHostComputePort) persistJson("compute_requests.json", computePort.exportRequests());
 				},
 				currentEvidence: () => [...evidenceById.values()].sort((left, right) => left.id.localeCompare(right.id)),
 				communicationDrafts: () => {
-				const drafts: { reportMarkdown?: string; presentationMarkdown?: string; defenseItems?: unknown } = {};
+				const drafts: { reportMarkdown?: string; presentationMarkdown?: string; defenseItems?: unknown; claimIds?: readonly string[] } = {};
 				const wanted = [
 					{ kind: "report", key: "reportMarkdown" as const, match: (name: string) => name.endsWith("report.md") },
 					{ kind: "presentation", key: "presentationMarkdown" as const, match: (name: string) => name.endsWith("presentation.md") },
@@ -352,12 +361,19 @@ const startedAt = now().getTime();
 							const reference = evidenceById.get(id);
 							if (!reference || !target.match(reference.logicalName)) continue;
 							try {
-								const content = evidenceStore.read(reference).toString("utf8");
-								drafts[target.key] = target.key === "defenseItems" ? JSON.parse(content) : content;
-							} catch { /* invalid draft falls back to the deterministic template */ }
+								// The defense draft is handed over RAW: the normalizer owns lenient parsing
+								// (fences, wrappers, plain strings), so a JSON.parse strictness failure must
+								// never be the reason a node's own deliverable is discarded.
+								drafts[target.key] = evidenceStore.read(reference).toString("utf8");
+							} catch { /* unreadable draft falls back to the deterministic template */ }
 						}
 					}
 				}
+				// Let the normalizer prune defense claimIds against the claims that actually exist,
+				// so a stale claim id is a coercion instead of a rejection.
+				const synthesisNode = options.graph.nodes.find((graphNode) => graphNode.kind === "synthesis");
+				const synthesisSubmission = synthesisNode ? executor.researchSubmission(synthesisNode.id) : undefined;
+				if (synthesisSubmission?.claims?.length) drafts.claimIds = synthesisSubmission.claims.map((claim) => claim.id);
 				return drafts;
 			},
 			synthesize: async (graph, evidence) => {
@@ -370,7 +386,12 @@ const startedAt = now().getTime();
 				runtimeAttestation: () => {
 					const submissions = options.graph.nodes.map((node) => executor.researchSubmission(node.id)).filter((submission): submission is ResearchNodeSubmission => !!submission);
 					const contraryEvidenceLinks = submissions.flatMap((submission) => submission.contraryEvidenceLinks ?? []).filter((link, index, links) => links.findIndex((candidate) => candidate.sourceEvidenceId === link.sourceEvidenceId && candidate.claimId === link.claimId) === index);
-					const receiptsValid = computeReceipts.length > 0 && computeReceipts.every((receipt) => validateComputeReceipt(receipt, networkMode).length === 0 && (isolation === "host-audit" || sandboxieCleanupComplete(receipt.cleanup)));
+					// Failed compute ATTEMPTS (the model's self-correction loop) are honest history in
+				// the ledger, but package integrity is defined by the SUCCESSFUL computes: each
+				// must validate, and each failure must carry its recorded error (no silent drops).
+				const receiptsValid = computeReceipts.length > 0 && computeReceipts.every((receipt) => receipt.exitCode === 0
+					? validateComputeReceipt(receipt, networkMode).length === 0 && (isolation === "host-audit" || sandboxieCleanupComplete(receipt.cleanup))
+					: typeof receipt.error === "string" && receipt.error.length > 0);
 					const cleanupPassed = exchangeCleaned && receiptsValid;
 					const modelReceiptsList = executor.modelReceipts();
 					const thinkingOverrides: Record<string, string> = {};
@@ -389,8 +410,14 @@ const startedAt = now().getTime();
 				readDeliverable: (path) => readFileSync(safeOutputPath(runDir, path)),
 					computeReplay: async () => {
 						let replay: ComputeReplayAttestation = isolation === "sandboxie" ? { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false } : { passed: false, backend: "host-audit", processOwnershipVerified: false };
+						// Replay re-runs the computes that CONTRIBUTED to the package: successful
+						// receipts only. Failed attempts (exit != 0) never registered evidence, and
+						// their stderr embeds per-session workspace paths that cannot match.
+						const replayableReceipts = computeReceipts.filter((receipt) => receipt.exitCode === 0 && !receipt.error);
 						try {
-							replay = await attestComputeReplay(computePort, computeReceipts, networkMode);
+							replay = replayableReceipts.length === 0
+								? { ...replay, detail: "no successful compute receipts to replay" }
+								: await attestComputeReplay(computePort, replayableReceipts, networkMode);
 						} catch (error) {
 							guardViolations.push(`compute-replay:${error instanceof Error ? error.message : String(error)}`);
 						}

@@ -334,5 +334,9 @@ export async function attestComputeReplay(port: SandboxieResearchComputePort, re
 	}
 	const attestation = await port.replay(receipts, signal);
 	const backendOk = hostBackend ? attestation.backend === "host-audit" : attestation.backend === "sandboxie-app-level";
-	return backendOk && attestation.processOwnershipVerified ? attestation : failedAttestation;
+	// Preserve the port's honest failure detail (e.g. which compute id mismatched) instead
+	// of replacing it with the bare attestation — verdicts must say WHY a replay failed.
+	if (!backendOk) return failedAttestation;
+	if (!attestation.processOwnershipVerified) return { ...failedAttestation, detail: attestation.detail };
+	return attestation;
 }
