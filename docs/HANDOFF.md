@@ -86,6 +86,20 @@ GitHub：`origin/master`
    相对 600k 参考窗口等比缩放（钳制 4k..120k）。
 24. **diag 保留策略（#84）**：RSILAB_PROMPT_DIAG 目录自动清理 7 天前的 prompt_diag-*.jsonl，
    `RSILAB_PROMPT_DIAG_KEEP=1` 可保留。
+
+### smoke-021c 基线（2026-09-11，当前最优）
+
+`runs/luna-smoke-021c-host`：**7/7 节点 + RESEARCH_VERDICT_OK issues=[]，scienceScore 0.975**
+（019=0.75 → 021b=0.806 → 021c=0.975，同 seed=20260909 可比）。关键事实：
+
+- **三项交付物全部 node 来源**（deliverable-sources: report/presentation/defense = node/node/node），
+  #5(a) 决策实战生效；13 处 [evidence:] 引用、7/7 节段、13 条答辩项。
+- replay PASS + computeReplay PASS + ownership verified；76 模型回执 0 失败；cleanup ✓。
+- 修复链（当晚）：族模板尊重任务书 pinned requiredStages（021 首跑教训）、沟通节点墙钟
+  60min+budgetScale 2、预算纪律合同（report 先交、图表可选）、跨会话 replay
+  （compute_requests.json checkpoint）、失败计算尝试不进重放集。
+- eligible=false（host-development 诚实记录；沙盒隔离未启用）。
+- 进化环基线就位：021c 可作为 champion 基线，fitness=scienceScore。
 11. **密钥纪律**：对话中出现过的 key 均视为泄露；冒烟结束后必须轮换 alsl key；
    注册表 `HKCU\Environment` 的 `GEILIAPI_API_KEY`（现值 sk-1c69...，疑似重新添加）
    需确认归属后清理。
