@@ -35,17 +35,32 @@ export function workspaceModel(policy: ResearchModelConfig, hooks: WorkspaceMode
 hooks.onRetry?.(attempt, retries, wait, lastError instanceof Error ? lastError.message : String(lastError));
         await sleep(wait, signal);
       }
+      // Streaming timeout policy: a long generation is fine as long as BYTES KEEP
+      // FLOWING — abort only after 120s of stream silence (provider hiccup), with a
+      // 15-minute hard ceiling. The previous flat 240s cap killed legitimate
+      // 4+ minute high-effort generations mid-stream.
+      const idleController = new AbortController();
+      let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      const armIdle = (): void => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => idleController.abort(new Error("Research gateway stream idle for 120s")), 120_000);
+      };
+      const signals: AbortSignal[] = [idleController.signal, AbortSignal.timeout(900_000)];
+      if (signal) signals.unshift(signal);
       try {
         const response = await fetch(policy.base_url.replace(/\/$/, "") + "/responses", {
           method: "POST", dispatcher,
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "text/event-stream" },
           body: JSON.stringify({ model: policy.model, reasoning: { effort: policy.thinking_level }, input, tools, max_output_tokens: Math.min(policy.max_output, 10000), store: false, prompt_cache_key: promptCacheKey, stream: true }),
-          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(240000)]) : AbortSignal.timeout(240000),
+          signal: AbortSignal.any(signals),
         });
+        armIdle();
         if (response.ok) {
-          const reply = await readStreamedResponse(response);
-          if (reply.model && reply.model !== policy.model) throw new Error("Gateway returned an unexpected model");
-          return reply;
+          try {
+            const reply = await readStreamedResponse(response, armIdle);
+            if (reply.model && reply.model !== policy.model) throw new Error("Gateway returned an unexpected model");
+            return reply;
+          } finally { if (idleTimer) clearTimeout(idleTimer); }
         }
         const retryAfter = Number(response.headers.get("retry-after"));
         await response.body?.cancel();
@@ -70,7 +85,7 @@ hooks.onRetry?.(attempt, retries, wait, lastError instanceof Error ? lastError.m
  * response. Streaming is not an optimization here — sync-mode relays give up on
  * long generations (504) while the upstream keeps billing; with stream:true the
  * first bytes arrive early and the gateway never idle-times-out the request. */
-export async function readStreamedResponse(response: Awaited<ReturnType<typeof fetch>>): Promise<ModelReply> {
+export async function readStreamedResponse(response: Awaited<ReturnType<typeof fetch>>, touch: () => void = () => {}): Promise<ModelReply> {
   const body = response.body;
   if (!body) throw new Error("Research gateway returned no stream body");
   const decoder = new TextDecoder();
@@ -79,6 +94,7 @@ export async function readStreamedResponse(response: Awaited<ReturnType<typeof f
   // items ourselves from the per-item done events (they carry full items).
   const items: Array<{ output_index: number; item: Record<string, unknown> }> = [];
   for await (const chunk of body) {
+    touch();
     buffer += decoder.decode(chunk, { stream: true });
     let index: number;
 		while ((index = buffer.indexOf("\n")) >= 0) {
