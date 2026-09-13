@@ -72,6 +72,25 @@ services:
       retries: 3
       start_period: 30s
 
+  # HTTP API 服务，供前端调用。与默认 CLI 任务容器分开运行。
+  georsi-api:
+    extends: georsi
+    container_name: georsi-api
+    restart: unless-stopped
+    tty: false
+    stdin_open: false
+    command: ["npx", "tsx", "src/api/server.ts"]
+    environment:
+      - GEORSI_API_PORT=8787
+    ports:
+      - "8792:8787"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8787/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   # 可选工具容器: 一次性任务 (selftest / smoke / exam)
   # 用法: docker compose --profile tools run --rm georsi-tools selftest
   georsi-tools:

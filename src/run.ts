@@ -169,14 +169,28 @@ async function main() {
 		const resumeDir = args.resume ? String(args.resume) : undefined;
 		const runName = args["run-name"] ? String(args["run-name"]) : `research-live-${Date.now()}`;
 		const runDir = resumeDir ?? join(ROOT, "runs", runName);
-		const result = await runLunaResearchMissionFromFiles({
-			cfg,
-			missionPath,
-			planPath: args.plan ? String(args.plan) : undefined,
-			resumeDir,
-			runDir: resumeDir ?? runDir,
-			log: (message) => console.log(message),
-		});
+		// Expose the same cooperative stop channel used by RSI when this mode is
+		// launched from the local API.  The research scheduler checks the callback
+		// between work-graph operations and exits cleanly before finalization.
+		const { RunController } = await import("./loopctl.js");
+		const controller = new RunController((m) => console.log(`SYS|${m}`));
+		const controlPath = args.control ? String(args.control) : join(runDir, "control.json");
+		mkdirSync(join(controlPath, ".."), { recursive: true });
+		controller.attachControlFile(controlPath);
+		let result;
+		try {
+			result = await runLunaResearchMissionFromFiles({
+				cfg,
+				missionPath,
+				planPath: args.plan ? String(args.plan) : undefined,
+				resumeDir,
+				runDir: resumeDir ?? runDir,
+				stopRequested: () => controller.stopRequested,
+				log: (message) => console.log(message),
+			});
+		} finally {
+			controller.detachControlFile();
+		}
 		console.log(`RESEARCH_LIVE_DONE eligible=${result.competitionScore.eligible} overall=${result.competitionScore.overall ?? "null"} replay=${result.replay.passed ? "PASS" : "FAIL"} computeReplay=${result.computeReplay.passed ? "PASS" : "FAIL"} artifacts=${runDir}`);
 		process.exit(result.competitionScore.eligible ? 0 : 2);
 	}

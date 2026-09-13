@@ -135,6 +135,7 @@ drives the inner agent, private-only fitness drives selection.
 
 | doc | status | content |
 |---|---|---|
+| [`docs/API.md`](docs/API.md) | **current** | frontend integration: HTTP endpoints, request/response contracts, SSE, mode limitations |
 | [`docs/RESEARCH-COMPETITION.md`](docs/RESEARCH-COMPETITION.md) | **current** | research pipeline system spec: WorkGraph, verifiers, scoring, eligibility |
 | [`docs/COMPETITION-RUNBOOK.md`](docs/COMPETITION-RUNBOOK.md) | **current** | operations: campaigns, benchmark protocol, model routing |
 | [`docs/MODELS.md`](docs/MODELS.md) | **current** | model registry: gateway policy, capability history |

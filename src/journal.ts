@@ -66,13 +66,28 @@ export class Journal {
 export function atomicWriteJson(path: string, obj: unknown): void {
 	const tmp = path + ".tmp";
 	writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
-	renameSync(tmp, path);
+	try {
+		renameSync(tmp, path);
+	} catch (error) {
+		// Windows can briefly hold the destination open (notably when a local
+		// watcher/AV scans the file). Keep the write durable instead of failing
+		// the entire research run; the temp file is complete JSON already.
+		if (process.platform !== "win32") throw error;
+		try { unlinkSync(path); } catch { /* destination may not exist */ }
+		renameSync(tmp, path);
+	}
 }
 
 export function writeTextAtomic(path: string, text: string): void {
 	const tmp = path + ".tmp";
 	writeFileSync(tmp, text, "utf8");
-	renameSync(tmp, path);
+	try {
+		renameSync(tmp, path);
+	} catch (error) {
+		if (process.platform !== "win32") throw error;
+		try { unlinkSync(path); } catch { /* destination may not exist */ }
+		renameSync(tmp, path);
+	}
 }
 
 export function saveRunState(dir: string, state: RunState): void {
