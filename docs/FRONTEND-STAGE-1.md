@@ -43,6 +43,19 @@ Libraries: React Flow + Dagre for graph rendering/layout, SWR for server state,
 react-dropzone for file selection, react-markdown + remark-gfm for reports,
 and the existing Lucide icon set. No authentication or model/depth controls.
 
+The interaction pass adds Radix UI Dialog (mobile sheets with focus trapping,
+Escape/outside dismissal and focus restoration), Tabs (keyboard navigation),
+Tooltip and Progress. Framer Motion animates desktop panel widths, task changes,
+node state transitions, activity updates, supplemental messages and button press
+feedback. CSS handles Radix sheet exit animations. Reduced-motion preferences
+disable spatial/looping effects. The graph refits after panel resizing.
+
+For this pass, review sidebar/report opening and closing, keyboard navigation
+between activity/log tabs, clicking graph nodes, replaying the demo, and sending
+demo supplements. Mobile sheets should close on Escape or backdrop click and
+return focus to their trigger. These are user acceptance steps, not claims of
+automated browser verification.
+
 Per the requested staged review process, browser visual validation belongs to
 the user. Container build/type checking, health and HTTP checks are performed
 before each handoff; no browser-based acceptance is claimed.
