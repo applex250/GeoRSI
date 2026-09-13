@@ -265,6 +265,9 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
         checkpoint: (g) => { graph = g; atomicWriteJson(join(runDir, "plan.json"), g); },
         onEvent: (e) => event(e.type, e.detail, e.nodeId),
         execute: async (node, _graph, signal) => {
+          // Stop must cut off the CURRENT node's activity immediately — in-flight
+          // fetches, backoff sleeps, and Python computes, not just model calls.
+          const nodeSignal = signal ? AbortSignal.any([signal, stopController.signal]) : stopController.signal;
           const before = state.modelCalls; let toolCount = 0; let outputTokens = 0;
           const currentDirections = directions();
           const conversation: unknown[] = [{ role: "developer", content: instructions }, { role: "user", content: `Question: ${input.question}\nUser directions: ${currentDirections}\nNode: ${node.title} (${node.kind})\nObjective: ${node.expectedOutputs.join("\n")}\nUploads: ${fileNotes.join("\n").slice(0, 40000)}\nExisting research:\n${[...outputs].map(([id, text]) => `${id}: ${text}`).join("\n").slice(-90000)}\nReal evidence index: ${JSON.stringify(evidence.map((e) => ({ id: e.id, name: e.logicalName, url: e.sourceUrl }))).slice(-24000)}${toolFindings.length ? `\n已完成检索发现（可复用，勿重复检索）：\n${toolFindings.slice(-10).join("\n").slice(-5000)}` : ""}\n预算纪律：本节点工具调用上限 ${budget.maxToolCalls} 次、对话 12 轮。证据足以支撑结论后立即输出最终 Markdown 结果；检索是手段不是目标。\n${node.kind === "report" ? "Write the complete final Chinese Markdown report now, grounded in the research above. Include limitations, uncertainty and linked sources. Do not output JSON." : "Execute this node with tools as needed, then return a concise grounded Markdown result for downstream nodes."}` }];
@@ -285,6 +288,7 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
               return { artifactIds: [ref.id], usage: { modelCalls: state.modelCalls - before, toolCalls: toolCount, outputTokens } };
             }
             for (const call of calls) {
+              if (stopController.signal.aborted || nodeSignal.aborted) throw new Error("Research stopped by user");
               if (++toolCount > budget.maxToolCalls) throw new Error("Node tool budget reached");
               event("tool-start", { name: call.name }, node.id);
               let result: string;
@@ -293,16 +297,16 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
                 if (call.name === "search_literature") {
                   // GEORSI_CROSSREF_MAILTO opts into Crossref's polite pool (far fewer 429s).
                   const polite = process.env.GEORSI_CROSSREF_MAILTO ? `&mailto=${encodeURIComponent(process.env.GEORSI_CROSSREF_MAILTO)}` : "";
-                  result = await fetchSource("https://api.crossref.org/works?rows=5&query=" + encodeURIComponent(String(args.query).slice(0, 500)) + polite, node.id, signal);
+                  result = await fetchSource("https://api.crossref.org/works?rows=5&query=" + encodeURIComponent(String(args.query).slice(0, 500)) + polite, node.id, nodeSignal);
                 }
-                else if (call.name === "fetch_source") result = await fetchSource(String(args.url), node.id, signal);
+                else if (call.name === "fetch_source") result = await fetchSource(String(args.url), node.id, nodeSignal);
                 else if (call.name === "python_analysis") {
                   const script = String(args.script);
                   if (scanPythonExecutionPolicy(script).length || scanTextForBreaches(script).length) throw new Error("Python script violates workspace execution policy");
                   // Also expose original basenames in each bounded compute cwd;
                   // ordinary pd.read_csv('upload.csv') should work without a retry.
                   const prefix = `import json, shutil\nINPUT_FILES=json.loads(${JSON.stringify(JSON.stringify(files))})\nfor _name, _path in INPUT_FILES.items():\n    shutil.copyfile(_path, _name)\n`;
-                  const receipt = await compute.run({ missionId: runId, nodeId: node.id, purpose: String(args.purpose), script: prefix + script, timeoutMs: 90000, networkMode: "open", signal });
+                  const receipt = await compute.run({ missionId: runId, nodeId: node.id, purpose: String(args.purpose), script: prefix + script, timeoutMs: 90000, networkMode: "open", signal: nodeSignal });
                   const ref = remember(JSON.stringify(receipt), `${node.id}-compute.json`, node.id);
                   const figures = (receipt.figureFiles ?? []).map((figure) => remember(Buffer.from(figure.base64, "base64"), figure.filename, node.id, "figure"));
                   atomicWriteJson(join(runDir, "compute_requests.json"), compute.exportRequests());
