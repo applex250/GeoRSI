@@ -298,6 +298,13 @@ function sweepOrphanedRuns(): void {
 	if (!existsSync(RUNS_ROOT)) return;
 	for (const record of listRecords()) {
 		if (record.status !== "queued" && record.status !== "running" && record.status !== "pausing" && record.status !== "stopping") continue;
+		// A research-agent run may have finished writing its final state before the
+		// server died; trust the durable workspace phase over the lost handle.
+		if (record.mode === "research-agent") {
+			const phase = readJsonFile<WorkspaceState>(join(runDir(record.id), "workspace-state.json"))?.phase;
+			if (phase === "completed") { record.status = "completed"; record.exitCode = record.exitCode ?? 0; record.finishedAt = record.finishedAt ?? new Date().toISOString(); record.updatedAt = record.finishedAt; writeMetadata(record); continue; }
+			if (phase === "cancelled") { record.status = "cancelled"; record.finishedAt = record.finishedAt ?? new Date().toISOString(); record.updatedAt = record.finishedAt; writeMetadata(record); continue; }
+		}
 		if (pidAlive(record.pid)) {
 			const note = "unmanaged: API server restarted while this run was active";
 			if (record.error !== note) {
@@ -372,6 +379,9 @@ function startRun(record: RunRecord, args: string[]): void {
 		writeFileSync(controlPath, "", "utf8");
 		args = [...args, "--control", controlPath];
 	}
+	// research-agent reads control.json directly from its run dir; clear any stale
+	// stop flag so a fresh start does not instantly abort.
+	if (record.mode === "research-agent") writeFileSync(controlPath, "", "utf8");
 	record.status = "running";
 	delete record.finishedAt;
 	delete record.exitCode;
@@ -713,7 +723,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	if (tail === "request" && req.method === "GET") {
 		const value = readJsonFile<{ question: string; uploadIds: string[] }>(join(runDir(id), "request.json"));
 		if (!value) return errorResponse(res, 404, "REQUEST_NOT_FOUND", "request is not available for this mode");
-		json(res, 200, { question: value.question, files: value.uploadIds.map(getUpload) }); return;
+		// An upload can disappear from the temp store after the fact; the request
+		// view must stay readable instead of 500-ing on one missing file.
+		const files = value.uploadIds.map((uploadId) => { try { return { available: true, ...getUpload(uploadId) }; } catch { return { id: uploadId, available: false, name: null, bytes: null }; } });
+		json(res, 200, { question: value.question, files }); return;
 	}
 	if (tail === "logs" && req.method === "GET") {
 		const file = join(runDir(id), "api-stream.log");

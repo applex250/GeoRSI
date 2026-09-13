@@ -17,14 +17,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
+  const route_ = path.join("/");
   if (path.some((part) => !/^[a-zA-Z0-9_.:-]+$/.test(part) || part === "..")) {
     return Response.json({ error: { message: "Invalid resource" } }, { status: 400 });
   }
   const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";
   const prefix = path[0] === "healthz" ? "/" : "/api/v1/";
+  // SSE streams (…/events) live for the whole run; a fixed timeout would cut them
+  // every few seconds. Everything else stays on a short timeout.
+  const isEventStream = route_ === "events" || path[path.length - 1] === "events";
+  const signal = isEventStream ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(12000)]);
   try {
     const response = await fetch(`${origin}${prefix}${path.map(encodeURIComponent).join("/")}${request.nextUrl.search}`, {
-      cache: "no-store", signal: AbortSignal.timeout(12000),
+      cache: "no-store", signal,
     });
     return new Response(response.body, {
       status: response.status,

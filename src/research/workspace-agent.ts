@@ -91,7 +91,7 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
   const outputs = new Map<string, string>();
   const exchange = join(tmpdir(), "GeoRSI", "workspace", runId);
   mkdirSync(join(exchange, "files"), { recursive: true });
-  const compute = new DirectHostComputePort({ pythonCmd: process.env.GEORSI_PYTHON ?? "python3", workspace: exchange, repoRoot: ROOT, privateRoot: resolve(ROOT, cfg.private_truth_dir), log: console.log });
+  const compute = new DirectHostComputePort({ pythonCmd: process.env.GEORSI_PYTHON ?? (process.platform === "win32" ? "python" : "python3"), workspace: exchange, repoRoot: ROOT, privateRoot: resolve(ROOT, cfg.private_truth_dir), log: console.log });
   const state: WorkspaceState = { phase: "planning", iteration: 1, iterations: [], appliedDirectionIds: [], modelCalls: 0, totalTokens: 0 };
   const saveState = (): void => atomicWriteJson(join(runDir, "workspace-state.json"), state);
   const event = (type: string, payload: unknown, nodeId?: string): void => { ledger.append({ missionId: runId, episodeId: runId, nodeId, actor: type.includes("tool") ? "tool" : "controller", type, status: "progress", payload }); console.log(`[research] ${type}${nodeId ? ` ${nodeId}` : ""}`); };
@@ -156,7 +156,7 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
       copyFileSync(uploadPath(file), destination); files[file.name] = destination;
       const ref = remember(readFileSync(destination), file.name, "uploads", "dataset");
       let preview = "Preview unavailable; inspect with python_analysis.";
-      try { preview = execFileSync(process.env.GEORSI_PYTHON ?? "python3", [join(ROOT, "scripts", "workspace_file_summary.py"), destination], { encoding: "utf8", timeout: 30000, maxBuffer: 100000, env: sanitizeExecutionEnvironment(), stdio: ["ignore", "pipe", "pipe"] }); } catch { /* retain original file for tools */ }
+      try { preview = execFileSync(process.env.GEORSI_PYTHON ?? (process.platform === "win32" ? "python" : "python3"), [join(ROOT, "scripts", "workspace_file_summary.py"), destination], { encoding: "utf8", timeout: 30000, maxBuffer: 100000, env: sanitizeExecutionEnvironment(), stdio: ["ignore", "pipe", "pipe"] }); } catch { /* retain original file for tools */ }
       fileNotes.push(`${file.name} (${file.bytes} bytes), evidenceId=${ref.id}: ${preview}`);
     }
     let revision = "";
