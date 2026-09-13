@@ -232,7 +232,19 @@ function missionTemplate(id: string): { name: string; mission: ResearchMission }
 }
 
 function validateMission(mission: ResearchMission | null): string[] {
-	if (!mission) return ["mission file is not valid JSON"];
+	if (!mission || typeof mission !== "object") return ["mission must be a JSON object"];
+	// Shape pre-check first: validateResearchMission assumes the top-level fields
+	// exist, so client garbage must be answered with named issues, not the raw
+	// text of a TypeError from undefined property access.
+	const required: [keyof ResearchMission, string][] = [["id", "string"], ["question", "string"], ["scope", "string"], ["estimands", "array"], ["units", "array"], ["successCriteria", "array"], ["requiredDeliverables", "array"]];
+	const issues: string[] = [];
+	for (const [field, kind] of required) {
+		const value = (mission as unknown as Record<string, unknown>)[field as string];
+		if (value === undefined || value === null) issues.push(`mission.${field} is required`);
+		else if (kind === "string" && typeof value !== "string") issues.push(`mission.${field} must be a string`);
+		else if (kind === "array" && !Array.isArray(value)) issues.push(`mission.${field} must be an array`);
+	}
+	if (issues.length > 0) return issues;
 	try { return validateResearchMission(mission); } catch (error) { return [error instanceof Error ? error.message : "mission shape is invalid"]; }
 }
 
