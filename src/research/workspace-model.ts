@@ -13,6 +13,10 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((
 export function workspaceModel(policy: ResearchModelConfig): ResearchModelCall {
   const key = process.env[policy.credential_env];
   if (!key) throw new Error("Research API credential is not configured");
+  // Cache affinity: node tool loops resend an identical conversation prefix; the
+  // Responses API prompt_cache_key pins routing so providers that implement
+  // prefix caching can actually hit it instead of re-prefilling ~60k tokens.
+  const promptCacheKey = `georsi-workspace-${process.pid}`;
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   const dispatcher = proxy ? new ProxyAgent(proxy) : undefined;
   // Same resilience contract as the research engine: the gateway registry carries
@@ -33,7 +37,7 @@ export function workspaceModel(policy: ResearchModelConfig): ResearchModelCall {
         const response = await fetch(policy.base_url.replace(/\/$/, "") + "/responses", {
           method: "POST", dispatcher,
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: policy.model, reasoning: { effort: policy.thinking_level }, input, tools, max_output_tokens: Math.min(policy.max_output, 10000), store: false }),
+          body: JSON.stringify({ model: policy.model, reasoning: { effort: policy.thinking_level }, input, tools, max_output_tokens: Math.min(policy.max_output, 10000), store: false, prompt_cache_key: promptCacheKey }),
           signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(180000)]) : AbortSignal.timeout(180000),
         });
         if (response.ok) {

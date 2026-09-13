@@ -34,7 +34,9 @@ export interface LedgerVerification {
 	tornTail: boolean;
 }
 
-const SECRET_KEY = /(?:api[_-]?key|token|authorization|password|passwd|secret|private[_-]?key|credential|cookie|signature)/i;
+// "token" must NOT match usage counters (input_tokens / cached_tokens / …) whose
+// VALUES are plain numbers — the lookahead only skips the plural counter form.
+const SECRET_KEY = /(?:api[_-]?key|token(?!s)|authorization|password|passwd|secret|private[_-]?key|credential|cookie|signature)/i;
 const SECRET_TEXT = /(?:Bearer\s+[A-Za-z0-9._~+\/-]{12,}|sk-[A-Za-z0-9_-]{20,})/gi;
 const SENSITIVE_QUERY_KEY = /(?:key|token|auth|authorization|credential|signature|password|secret|cookie)/i;
 
