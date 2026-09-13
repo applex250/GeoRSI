@@ -1,6 +1,6 @@
 {
   "research_model": {
-    "gateway": "alsl"
+    "gateway": "ai-pixel"
   },
   "inner_model": "gpt-5.6-luna",
   "inner_thinking_level": "high",
@@ -102,6 +102,29 @@
       "resilience": {
         "probe_attempts": 10,
         "probe_timeout_ms": 60000,
+        "probe_backoff_ms": 3000,
+        "probe_backoff_cap_ms": 20000,
+        "session_retries": 10
+      }
+    },
+    "ai-pixel": {
+      "provider": "ai-pixel",
+      "base_url": "https://ai-pixel.online/v1",
+      "model": "gpt-5.6-luna",
+      "api": "openai-responses",
+      "thinking_level": "high",
+      "thinking_evidence": "provider-observed",
+      "credential_env": "GEORSI_AIPIXEL_API_KEY",
+      "max_tokens_field": "max_completion_tokens",
+      "context_window": 600000,
+      "max_output": 128000,
+      "supports_developer_role": true,
+      "supports_reasoning_effort": true,
+      "supports_usage": true,
+      "supports_tool_loop": true,
+      "resilience": {
+        "probe_attempts": 10,
+        "probe_timeout_ms": 90000,
         "probe_backoff_ms": 3000,
         "probe_backoff_cap_ms": 20000,
         "session_retries": 10
