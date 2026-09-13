@@ -10,7 +10,7 @@
  *    journal tail; a missing snapshot replays from the journal alone.
  */
 import { createHash } from "node:crypto";
-import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, copyFileSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Scaffold } from "./scaffold.js";
 
@@ -63,31 +63,34 @@ export class Journal {
 }
 
 /** Atomic JSON write: tmp file + rename. Never leaves a half-written file. */
+/** Windows rename resilience: a watcher/AV can briefly hold the destination,
+ * which fails renameSync. Retry briefly, then fall back to copy+unlink — copy
+ * succeeds where rename is blocked by share modes, and unlike unlink+rename it
+ * never leaves a window where the destination does not exist. Readers always
+ * see either the old or the new complete JSON. */
+function renameDurable(tmp: string, path: string): void {
+	try { renameSync(tmp, path); return; }
+	catch (error) {
+		if (process.platform !== "win32") throw error;
+		let last = error;
+		for (let attempt = 0; attempt < 5; attempt += 1) {
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+			try { renameSync(tmp, path); return; } catch (retry) { last = retry; }
+		}
+		try { copyFileSync(tmp, path); unlinkSync(tmp); return; } catch { throw last; }
+	}
+}
+
 export function atomicWriteJson(path: string, obj: unknown): void {
 	const tmp = path + ".tmp";
 	writeFileSync(tmp, JSON.stringify(obj, null, 2), "utf8");
-	try {
-		renameSync(tmp, path);
-	} catch (error) {
-		// Windows can briefly hold the destination open (notably when a local
-		// watcher/AV scans the file). Keep the write durable instead of failing
-		// the entire research run; the temp file is complete JSON already.
-		if (process.platform !== "win32") throw error;
-		try { unlinkSync(path); } catch { /* destination may not exist */ }
-		renameSync(tmp, path);
-	}
+	renameDurable(tmp, path);
 }
 
 export function writeTextAtomic(path: string, text: string): void {
 	const tmp = path + ".tmp";
 	writeFileSync(tmp, text, "utf8");
-	try {
-		renameSync(tmp, path);
-	} catch (error) {
-		if (process.platform !== "win32") throw error;
-		try { unlinkSync(path); } catch { /* destination may not exist */ }
-		renameSync(tmp, path);
-	}
+	renameDurable(tmp, path);
 }
 
 export function saveRunState(dir: string, state: RunState): void {
