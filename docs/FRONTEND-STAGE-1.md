@@ -1,6 +1,11 @@
 # Frontend stage 1 — workspace visual review
 
-Start in Docker with `powershell -File scripts/start-workspace.ps1`, or
+On Windows, double-click **start-workspace.cmd** in the repository root.
+It builds and starts the API and frontend, waits for healthy containers, checks
+the HTTP endpoints and prints the addresses. Docker Desktop must be running.
+The script automatically retries with a temporary public-image configuration
+if the Docker Desktop credential helper fails; global configuration is preserved.
+For command-line use: `powershell -File scripts/start-workspace.ps1`, or
 `docker compose up -d --build georsi-api georsi-web`.
 Open `http://localhost:3000/workspace`; the existing home page also links here.
 
