@@ -102,6 +102,9 @@ services:
     command: ["npx", "tsx", "src/api/server.ts"]
     environment:
       - GEORSI_API_PORT=8787
+      - GEORSI_API_DEFAULT_CONFIG=research-competition-luna
+      - HTTP_PROXY=${GEORSI_HTTP_PROXY:-}
+      - HTTPS_PROXY=${GEORSI_HTTPS_PROXY:-}
     ports:
       - "8792:8787"
     healthcheck:

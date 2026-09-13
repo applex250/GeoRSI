@@ -1,4 +1,7 @@
 node_modules/
+.env
+.env.*
+!.env.example
 config/pi-models.json
 api_key.txt
 runs/

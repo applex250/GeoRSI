@@ -48,6 +48,14 @@ npm run api
 
 Docker 单独启动 API：`docker compose up -d --build georsi-api`，宿主机访问 `http://localhost:8792`（映射至容器 `8787`）。前端开发地址与 API 地址分开配置，例如 `NEXT_PUBLIC_GEORSI_API_URL=http://localhost:8787`；该变量是前端接入建议，当前前端尚未接入它。
 
+Docker API 的默认配置由 `GEORSI_API_DEFAULT_CONFIG` 指定，当前为
+`research-competition-luna`（ALSL、`gpt-5.6-luna`、`high`）。创建任务时显式传入
+`config` 仍可覆盖默认值；所选配置会保存到任务记录。密钥从本地 `.env` 中的
+`GEORSI_RESEARCH_API_KEY` 注入，不提交到 Git。
+如宿主机代理监听 7897，容器可通过 `.env` 设置
+`GEORSI_HTTP_PROXY=http://host.docker.internal:7897` 和同值的
+`GEORSI_HTTPS_PROXY`；不使用代理时留空。
+
 离线接口自检：`npm run api:selftest`。自检启动随机本地端口并执行确定性 demo，不调用付费模型；测试记录保留在 Git 忽略的 `runs/` 中。
 
 也可以通过环境变量修改端口：

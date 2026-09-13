@@ -463,7 +463,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			const body = (await readJson(req)) as CreateRunBody;
 			const mode = body.mode ?? "research-live";
 			if (!isRunMode(mode)) throw new Error("mode must be research-live, research-demo, rsi, or evolve");
-			const rawConfigName = body.config === undefined ? undefined : String(body.config);
+			const rawConfigName = body.config === undefined ? process.env.GEORSI_API_DEFAULT_CONFIG : String(body.config);
 			configPath(rawConfigName);
 			const configName = rawConfigName?.endsWith(".json") ? rawConfigName.slice(0, -5) : rawConfigName;
 			const gens = parseGens(body.gens);
