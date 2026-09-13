@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const route = path.join("/");
-  if (!/^(uploads|research-requests|research-runs\/[A-Za-z0-9_-]+\/(feedback|actions|start))$/.test(route)) return Response.json({ error: { message: "Unsupported action" } }, { status: 404 });
+  if (!/^(uploads|research-requests|gateways\/select|research-runs\/[A-Za-z0-9_-]+\/(feedback|actions|start))$/.test(route)) return Response.json({ error: { message: "Unsupported action" } }, { status: 404 });
   const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";
   try {
     const response = await fetch(`${origin}/api/v1/${route}${request.nextUrl.search}`, {
