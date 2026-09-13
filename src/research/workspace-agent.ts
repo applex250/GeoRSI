@@ -134,7 +134,7 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
     const effectiveSignal = signal ? AbortSignal.any([signal, stopController.signal]) : stopController.signal;
     const reply = await callModel(messages, tools, effectiveSignal);
     state.totalTokens += (reply.usage?.input_tokens ?? 0) + (reply.usage?.output_tokens ?? 0);
-    event("model-call-completed", { model: cfg.research_model!.model, thinking: cfg.research_model!.thinking_level, usage: reply.usage }); saveState(); return reply;
+    event("model-call-completed", { model: cfg.research_model!.model, thinking: cfg.research_model!.thinking_level, status: reply.status ?? "ok", usage: reply.usage }); saveState(); return reply;
   };
   const files: Record<string, string> = {};
   const fileNotes: string[] = [];

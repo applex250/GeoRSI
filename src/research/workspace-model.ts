@@ -1,7 +1,7 @@
 import { fetch, ProxyAgent } from "undici";
 import type { ResearchModelConfig } from "../config.js";
 
-export interface ModelReply { output?: Array<Record<string, unknown>>; usage?: { input_tokens?: number; output_tokens?: number }; status?: string; model?: string }
+export interface ModelReply { output?: Array<Record<string, unknown>>; usage?: { input_tokens?: number; output_tokens?: number }; status?: string; model?: string; error?: unknown }
 export type ResearchModelCall = (input: unknown[], tools: unknown[], signal?: AbortSignal) => Promise<ModelReply>;
 /** Uses the same authoritative gateway policy as the research engine. */
 const sleep = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
@@ -28,54 +28,64 @@ export function workspaceModel(policy: ResearchModelConfig, hooks: WorkspaceMode
   const backoffCap = Math.max(backoffMs, policy.resilience?.probe_backoff_cap_ms ?? 20000);
   return async (input, tools, signal) => {
     let lastError: unknown;
+    let retryAfterHintMs = 0;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       if (attempt > 0) {
-        const wait = Math.min(backoffMs * 2 ** (attempt - 1), backoffCap);
-        console.log(`[research] gateway retry ${attempt}/${retries} after ${wait}ms (last: ${lastError instanceof Error ? lastError.message : String(lastError)})`);
-hooks.onRetry?.(attempt, retries, wait, lastError instanceof Error ? lastError.message : String(lastError));
+        // Gateway Retry-After and our exponential backoff merge into ONE wait.
+        const wait = Math.max(Math.min(backoffMs * 2 ** (attempt - 1), backoffCap), retryAfterHintMs);
+        retryAfterHintMs = 0;
+        const message = lastError instanceof Error ? lastError.message : String(lastError);
+        console.log(`[research] gateway retry ${attempt}/${retries} after ${wait}ms (last: ${message})`);
+        hooks.onRetry?.(attempt, retries, wait, message);
         await sleep(wait, signal);
       }
       // Streaming timeout policy: a long generation is fine as long as BYTES KEEP
-      // FLOWING — abort only after 120s of stream silence (provider hiccup), with a
-      // 15-minute hard ceiling. The previous flat 240s cap killed legitimate
-      // 4+ minute high-effort generations mid-stream.
+      // FLOWING. First byte gets a generous window (relays may buffer); after that,
+      // 120s of stream silence means the provider hiccuped — abort and retry. Hard
+      // ceiling 15 minutes. The old flat 240s cap killed legitimate 4+ minute
+      // high-effort generations mid-stream.
       const idleController = new AbortController();
       let idleTimer: ReturnType<typeof setTimeout> | null = null;
+      let firstByte = true;
       const armIdle = (): void => {
         if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => idleController.abort(new Error("Research gateway stream idle for 120s")), 120_000);
+        idleTimer = setTimeout(() => idleController.abort(new Error(`Research gateway stream idle for ${firstByte ? 300 : 120}s`)), firstByte ? 300_000 : 120_000);
+        firstByte = false;
       };
       const signals: AbortSignal[] = [idleController.signal, AbortSignal.timeout(900_000)];
       if (signal) signals.unshift(signal);
       try {
+        armIdle();
         const response = await fetch(policy.base_url.replace(/\/$/, "") + "/responses", {
           method: "POST", dispatcher,
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "text/event-stream" },
-          body: JSON.stringify({ model: policy.model, reasoning: { effort: policy.thinking_level }, input, tools, max_output_tokens: Math.min(policy.max_output, 10000), store: false, prompt_cache_key: promptCacheKey, stream: true }),
+          body: JSON.stringify({ model: policy.model, reasoning: { effort: policy.thinking_level }, input, tools, max_output_tokens: Math.min(policy.max_output, 16000), store: false, prompt_cache_key: promptCacheKey, stream: true }),
           signal: AbortSignal.any(signals),
         });
-        armIdle();
         if (response.ok) {
-          try {
-            const reply = await readStreamedResponse(response, armIdle);
-            if (reply.model && reply.model !== policy.model) throw new Error("Gateway returned an unexpected model");
-            return reply;
-          } finally { if (idleTimer) clearTimeout(idleTimer); }
+          const reply = await readStreamedResponse(response, armIdle);
+          if (reply.status === "failed") throw new Error(`Research gateway response failed: ${JSON.stringify(reply.error ?? {}).slice(0, 150)}`);
+          if (reply.model && reply.model !== policy.model) {
+            // Deterministic misconfiguration — retrying 10 times is pure waste.
+            throw Object.assign(new Error("Gateway returned an unexpected model"), { nonRetryable: true });
+          }
+          return reply;
         }
         const retryAfter = Number(response.headers.get("retry-after"));
         await response.body?.cancel();
         lastError = new Error(`Research gateway HTTP ${response.status}`);
         const transient = [429, 500, 502, 503, 504].includes(response.status);
         if (!transient || attempt === retries) throw lastError;
-        if (Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 60) {
-          // Honor the gateway's own retry hint for this attempt.
-          await sleep(retryAfter * 1000, signal).catch(() => {});
-        }
+        if (Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 60) retryAfterHintMs = retryAfter * 1000;
         continue;
       } catch (error) {
         if (signal?.aborted) throw error;
         lastError = error;
-        if (attempt === retries) throw error;
+        if ((error as { nonRetryable?: boolean }).nonRetryable || attempt === retries) throw error;
+      } finally {
+        // Non-ok and throw paths previously leaked the armed timer: it kept the
+        // process alive up to 120s after the run finished.
+        if (idleTimer) clearTimeout(idleTimer);
       }
     }
     throw lastError;
