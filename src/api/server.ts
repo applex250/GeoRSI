@@ -262,6 +262,42 @@ function deriveStatus(record: RunRecord): RunStatus {
 	return record.status;
 }
 
+/** Signal-0 existence probe (EPERM still proves the pid is alive on Windows). */
+function pidAlive(pid: number | undefined): boolean {
+	if (typeof pid !== "number" || pid <= 0) return false;
+	try { process.kill(pid, 0); return true; }
+	catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
+}
+
+/**
+ * Startup sweep: the API server loses its ChildProcess handles when it exits,
+ * but spawned children SURVIVE it on Windows. Without this sweep, records stay
+ * "running" forever (zombies) and /start could double-launch a live run.
+ * Alive-but-unmanaged runs keep their status with an explicit note; dead ones
+ * resolve to failed with an honest error.
+ */
+function sweepOrphanedRuns(): void {
+	if (!existsSync(RUNS_ROOT)) return;
+	for (const record of listRecords()) {
+		if (record.status !== "queued" && record.status !== "running" && record.status !== "pausing" && record.status !== "stopping") continue;
+		if (pidAlive(record.pid)) {
+			const note = "unmanaged: API server restarted while this run was active";
+			if (record.error !== note) {
+				record.error = note;
+				record.updatedAt = new Date().toISOString();
+				writeMetadata(record);
+			}
+			continue;
+		}
+		record.status = "failed";
+		if (!record.error) record.error = "run did not finish: API server restarted while it was active";
+		record.finishedAt = record.finishedAt ?? new Date().toISOString();
+		record.updatedAt = record.finishedAt;
+		record.exitCode = record.exitCode ?? null;
+		writeMetadata(record);
+	}
+}
+
 function snapshot(record: RunRecord): RunSnapshot {
 	const status = deriveStatus(record);
 	const plan = readPlan(record.id);
@@ -357,7 +393,12 @@ function startRun(record: RunRecord, args: string[]): void {
 		record.exitCode = code;
 		record.finishedAt = new Date().toISOString();
 		record.updatedAt = record.finishedAt;
-		record.status = record.status === "stopping" || record.status === "cancelled" ? "cancelled" : code === 0 ? "completed" : "failed";
+		// Exit-code semantics are per-mode: research-live exits 2 for a completed
+		// but honestly-ineligible package, evolve exits 2 when no candidate is
+		// promoted — both are completed outcomes, not failures. research-demo's
+		// code 2 is a genuine replay failure.
+		const completedOutcome = code === 0 || ((record.mode === "research-live" || record.mode === "evolve") && code === 2);
+		record.status = record.status === "stopping" || record.status === "cancelled" ? "cancelled" : completedOutcome ? "completed" : "failed";
 		if (signal) record.error = `process exited by ${signal}`;
 		activeChildren.delete(record.id);
 		writeMetadata(record);
@@ -393,7 +434,11 @@ function buildCommand(record: RunRecord, body: CreateRunBody, missionPath?: stri
 	// its historical `research-evolve` command spelling.
 	const args: string[] = [record.mode === "evolve" ? "research-evolve" : String(record.mode)];
 	if (config) args.push("--config", config);
-	args.push("--run-name", record.id);
+	// research-evolve parses --run-prefix (its campaign child runs land under
+	// runs/<prefix>-baseline, runs/<prefix>-cand1, ...); --run-name is not a flag
+	// there and would be silently ignored.
+	if (record.mode === "evolve") args.push("--run-prefix", record.id);
+	else args.push("--run-name", record.id);
 	if (record.mode === "research-live") {
 		if (!missionPath) throw new Error("research-live requires mission");
 		args.push("--mission", missionPath);
@@ -418,7 +463,12 @@ function startArgs(record: RunRecord, resume: boolean): string[] {
 
 function contentType(name: string): string {
 	const ext = extname(name).toLowerCase();
-	return ext === ".json" ? "application/json" : ext === ".md" || ext === ".txt" ? "text/plain; charset=utf-8" : ext === ".tif" || ext === ".tiff" ? "image/tiff" : "application/octet-stream";
+	return ext === ".json" ? "application/json"
+		: ext === ".md" || ext === ".txt" ? "text/plain; charset=utf-8"
+		: ext === ".csv" ? "text/csv; charset=utf-8"
+		: ext === ".tif" || ext === ".tiff" ? "image/tiff"
+		: ext === ".png" ? "image/png"
+		: "application/octet-stream";
 }
 
 function listDeliverables(id: string): unknown[] {
@@ -475,7 +525,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			if (mode === "research-live") {
 				if (!body.mission || typeof body.mission !== "object") throw new Error("mission is required for research-live");
 				const mission = body.mission as ResearchMission;
-				const issues = validateResearchMission(mission);
+				// validateMission() wraps validateResearchMission in try/catch: a payload
+				// missing required fields must surface as clean 422 issues, never as a
+				// TypeError from undefined property access.
+				const issues = validateMission(mission);
 				if (issues.length) return errorResponse(res, 422, "INVALID_MISSION", "mission validation failed", issues);
 				record.missionId = mission.id;
 				missionPath = join(runDir(id), "mission-input.json");
@@ -504,6 +557,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			const body = (await readJson(req)) as StartRunBody;
 			const resume = body.resume === true;
 			if (activeChildren.has(id)) return errorResponse(res, 409, "RUN_ALREADY_ACTIVE", "run is already active");
+			if (pidAlive(record.pid)) return errorResponse(res, 409, "RUN_ALREADY_ACTIVE", "run process is still alive (unmanaged after an API server restart); stop it by pid before restarting here");
 			const currentStatus = deriveStatus(record);
 			const resumable = resume && (currentStatus === "failed" || currentStatus === "cancelled" || currentStatus === "running" || currentStatus === "queued" || currentStatus === "paused");
 			if (currentStatus !== "queued" && !resumable) return errorResponse(res, 409, "RUN_NOT_STARTABLE", `run cannot be started from status ${currentStatus}`);
@@ -598,13 +652,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	if (evidenceContentMatch && req.method === "GET") {
 		const evidenceId = decodeURIComponent(evidenceContentMatch[1]!);
 		if (!/^sha256:[a-f0-9]{64}$/.test(evidenceId)) return errorResponse(res, 400, "INVALID_EVIDENCE_ID", "invalid evidence id");
-		const refs = readJsonFile<Array<{ id: string; sha256: string; bytes: number; mediaType?: string }>>(join(runDir(id), "evidence-index.json")) ?? [];
+		const refs = readJsonFile<Array<{ id: string; sha256: string; bytes: number; mediaType?: string; logicalName?: string }>>(join(runDir(id), "evidence-index.json")) ?? [];
 		const ref = refs.find((item) => item.id === evidenceId && /^[a-f0-9]{64}$/.test(item.sha256));
 		if (!ref) return errorResponse(res, 404, "EVIDENCE_NOT_FOUND", "evidence is not indexed for this run");
+		// Evidence refs do not carry a media type; derive it from the logical name so
+		// figures render in-browser instead of downloading as octet-stream.
+		const evidenceMediaType = ref.mediaType ?? (ref.logicalName ? contentType(ref.logicalName) : "application/octet-stream");
 		const evidenceRoot = join(resolve(process.env.TEMP ?? process.env.TMP ?? "/tmp"), "GeoRSI", "evidence", basename(runDir(id)));
 		const file = join(evidenceRoot, ref.sha256.slice(0, 2), ref.sha256);
 		if (!existsSync(file) || statSync(file).size !== ref.bytes) return errorResponse(res, 404, "EVIDENCE_CONTENT_NOT_FOUND", "evidence content is unavailable");
-		res.writeHead(200, { "Content-Type": ref.mediaType ?? "application/octet-stream", "Content-Length": String(ref.bytes), ETag: JSON.stringify(evidenceId), "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
+		res.writeHead(200, { "Content-Type": evidenceMediaType, "Content-Length": String(ref.bytes), ETag: JSON.stringify(evidenceId), "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
 		res.end(readFileSync(file));
 		return;
 	}
@@ -628,6 +685,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 }
 
 export function createApiServer(): ReturnType<typeof createServer> {
+	sweepOrphanedRuns();
 	return createServer((req, res) => {
 		handle(req, res).catch((error) => errorResponse(res, 500, "INTERNAL_ERROR", error instanceof Error ? error.message : String(error)));
 	});
