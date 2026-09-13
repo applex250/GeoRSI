@@ -10,7 +10,8 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((
   signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("aborted")); }, { once: true });
 });
 
-export function workspaceModel(policy: ResearchModelConfig): ResearchModelCall {
+export interface WorkspaceModelHooks { onRetry?: (attempt: number, retries: number, waitMs: number, lastError: string) => void }
+export function workspaceModel(policy: ResearchModelConfig, hooks: WorkspaceModelHooks = {}): ResearchModelCall {
   const key = process.env[policy.credential_env];
   if (!key) throw new Error("Research API credential is not configured");
   // Cache affinity: node tool loops resend an identical conversation prefix; the
@@ -31,6 +32,7 @@ export function workspaceModel(policy: ResearchModelConfig): ResearchModelCall {
       if (attempt > 0) {
         const wait = Math.min(backoffMs * 2 ** (attempt - 1), backoffCap);
         console.log(`[research] gateway retry ${attempt}/${retries} after ${wait}ms (last: ${lastError instanceof Error ? lastError.message : String(lastError)})`);
+hooks.onRetry?.(attempt, retries, wait, lastError instanceof Error ? lastError.message : String(lastError));
         await sleep(wait, signal);
       }
       try {
@@ -38,7 +40,7 @@ export function workspaceModel(policy: ResearchModelConfig): ResearchModelCall {
           method: "POST", dispatcher,
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: policy.model, reasoning: { effort: policy.thinking_level }, input, tools, max_output_tokens: Math.min(policy.max_output, 10000), store: false, prompt_cache_key: promptCacheKey }),
-          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(180000)]) : AbortSignal.timeout(180000),
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(240000)]) : AbortSignal.timeout(240000),
         });
         if (response.ok) {
           const reply = await response.json() as ModelReply;

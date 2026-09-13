@@ -92,7 +92,12 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
   const input = JSON.parse(readFileSync(join(runDir, "request.json"), "utf8")) as WorkspaceInput;
   const cfg = loadConfig(configPath);
   if (!cfg.research_model) throw new Error("Research model configuration is missing");
-  const callModel = injectedModel ?? workspaceModel(cfg.research_model);
+  // Stop must abort IN-FLIGHT calls within ~1s: a model call stuck in its 240s
+  // timeout/retry loop would otherwise ignore the stop flag until it surfaces
+  // (up to half an hour of retries).
+  const stopController = new AbortController();
+  const stopWatcher = setInterval(() => { if (stopped()) stopController.abort(); }, 1000);
+  const callModel = injectedModel ?? workspaceModel(cfg.research_model, { onRetry: (attempt, retries, waitMs, lastError) => event("gateway-retry", { attempt, retries, waitMs, lastError: lastError.slice(0, 120) }) });
   const maxRounds = Math.max(1, Math.min(5, Number(process.env.GEORSI_WORKSPACE_ROUNDS) || 3));
   const maxCalls = Math.max(10, Math.min(200, Number(process.env.GEORSI_WORKSPACE_MODEL_CALLS) || 60));
   const evidenceStore = new ContentAddressedEvidenceStore(join(tmpdir(), "GeoRSI", "evidence", runId));
@@ -126,7 +131,8 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
     if (stopped()) throw new Error("Research stopped by user");
     if (state.modelCalls >= maxCalls) throw new Error("Research model-call budget reached");
     state.modelCalls++; saveState();
-    const reply = await callModel(messages, tools, signal);
+    const effectiveSignal = signal ? AbortSignal.any([signal, stopController.signal]) : stopController.signal;
+    const reply = await callModel(messages, tools, effectiveSignal);
     state.totalTokens += (reply.usage?.input_tokens ?? 0) + (reply.usage?.output_tokens ?? 0);
     event("model-call-completed", { model: cfg.research_model!.model, thinking: cfg.research_model!.thinking_level, usage: reply.usage }); saveState(); return reply;
   };
@@ -360,5 +366,5 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
   } catch (error) {
     state.phase = stopped() ? "cancelled" : "failed"; state.error = String(sanitizeResearchEvidence(error instanceof Error ? error.message : String(error)));
     saveState(); event("workspace-failed", { error: state.error }); throw error;
-  } finally { ledger.close(); await dispatcher?.close(); }
+  } finally { clearInterval(stopWatcher); ledger.close(); await dispatcher?.close(); }
 }
