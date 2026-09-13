@@ -497,6 +497,28 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 	const url = new URL(req.url ?? "/", "http://localhost");
 	const path = url.pathname.replace(/\/+$/, "") || "/";
+	if (req.method === "GET" && (path === "/" || path === "/api" || path === "/api/v1")) {
+		// Humans opening the root in a browser get a service index instead of a 404.
+		json(res, 200, {
+			service: "georsi-api",
+			version: 1,
+			message: "GeoRSI local HTTP API — pure JSON, no UI served here.",
+			endpoints: {
+				health: "/healthz",
+				ready: "/readyz",
+				configs: `${API_PREFIX}/configs`,
+				missionTemplates: `${API_PREFIX}/research-missions`,
+				runs: `${API_PREFIX}/research-runs`,
+				runExample: `${API_PREFIX}/research-runs/{id}`,
+				runEvents: `${API_PREFIX}/research-runs/{id}/events (SSE)`,
+				runActions: `${API_PREFIX}/research-runs/{id}/actions (pause/resume/stop)`,
+				runDeliverables: `${API_PREFIX}/research-runs/{id}/deliverables`,
+			},
+			docs: "docs/API.md",
+			createRunExample: { method: "POST", url: `${API_PREFIX}/research-runs`, body: { mode: "research-demo", name: "first run" } },
+		});
+		return;
+	}
 	if (req.method === "GET" && path === "/healthz") { json(res, 200, { ok: true, service: "georsi-api", time: new Date().toISOString() }); return; }
 	if (req.method === "GET" && path === "/readyz") { json(res, existsSync(TSX_CLI) ? 200 : 503, { ok: existsSync(TSX_CLI), runsRoot: RUNS_ROOT, tsx: existsSync(TSX_CLI) }); return; }
 	if (req.method === "GET" && path === API_PREFIX + "/configs") { json(res, 200, { items: listConfigs() }); return; }
