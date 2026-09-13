@@ -37,6 +37,7 @@ const projects = [
 ];
 
 const navigation = [
+  ["研究工作台", "/workspace"],
   ["About", "#about"],
   ["Research", "#research"],
   ["Team", "#team"],

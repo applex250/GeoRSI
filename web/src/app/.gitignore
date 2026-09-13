@@ -1,0 +1,3 @@
+# The repository ignores agent workspace directories; this one is a Next.js route.
+!workspace/
+!workspace/**
