@@ -4,7 +4,16 @@ import type { NextRequest } from "next/server";
 export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const route = path.join("/");
-  if (!/^(uploads|research-requests|gateways\/select|research-runs\/[A-Za-z0-9_-]+\/(feedback|actions|start))$/.test(route)) return Response.json({ error: { message: "Unsupported action" } }, { status: 404 });
+  // Structural gate ONLY. The enumerated allowlist that used to live here drifted
+  // three times (start, gateways/select, …): every new engine action broke the
+  // proxy with "Unsupported action". The ENGINE is the authority on which
+  // sub-actions exist (it 404s unknown tails itself) — this gate merely rejects
+  // malformed shapes before forwarding.
+  const segments = route.split("/");
+  const shapeOk = route === "uploads" || route === "research-requests" || route === "gateways/select"
+    || route === "research-runs"
+    || (route.startsWith("research-runs/") && segments.length === 3 && /^[A-Za-z0-9_-]+$/.test(segments[1] ?? ""));
+  if (!shapeOk) return Response.json({ error: { message: "Unsupported action" } }, { status: 404 });
   const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";
   try {
     const response = await fetch(`${origin}/api/v1/${route}${request.nextUrl.search}`, {
