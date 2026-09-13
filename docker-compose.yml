@@ -105,6 +105,11 @@ services:
       - GEORSI_API_DEFAULT_CONFIG=research-competition-luna
       - HTTP_PROXY=${GEORSI_HTTP_PROXY:-}
       - HTTPS_PROXY=${GEORSI_HTTPS_PROXY:-}
+      - GEORSI_WORKSPACE_ROUNDS=${GEORSI_WORKSPACE_ROUNDS:-3}
+      - GEORSI_WORKSPACE_MODEL_CALLS=${GEORSI_WORKSPACE_MODEL_CALLS:-60}
+    volumes:
+      - ./runs/.evidence:/tmp/GeoRSI/evidence
+      - ./runs/.workspace:/tmp/GeoRSI/workspace
     ports:
       - "8792:8787"
     healthcheck:

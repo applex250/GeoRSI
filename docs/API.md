@@ -36,7 +36,7 @@ GeoRSI 提供一个面向前端的本地 HTTP API。API 以 `research-runs` 为�
 | GET | `/research-runs/:runId/deliverables` | 200 | 可下载文件，`{ items }` |
 | GET | `/research-runs/:runId/deliverables/:name/content` | 200 | 文件原始内容 |
 
-目前共 23 个方法/路径组合。没有登录、上传、删除运行、修改配置、聊天对话或 benchmark 聚合 HTTP 接口；CLI 命令不等于已暴露的 HTTP 接口。
+上表为原有的 23 个方法/路径组合。工作台另新增文件上传、自然语言启动、原始需求读取和补充方向读取四个接口，详见 [第二阶段接入说明](FRONTEND-STAGE-2.md)。普通输入通过 `POST /api/v1/research-requests` 启动真实 `research-agent` 任务。没有登录、删除运行、修改模型配置或 benchmark 聚合接口。
 
 ## 启动
 
@@ -46,7 +46,7 @@ npm run api
 
 默认地址：`http://localhost:8787`
 
-Docker 单独启动 API：`docker compose up -d --build georsi-api`，宿主机访问 `http://localhost:8792`（映射至容器 `8787`）。前端开发地址与 API 地址分开配置，例如 `NEXT_PUBLIC_GEORSI_API_URL=http://localhost:8787`；该变量是前端接入建议，当前前端尚未接入它。
+Docker 单独启动 API：`docker compose up -d --build georsi-api`，宿主机访问 `http://localhost:8792`（映射至容器 `8787`）。前端使用同源 `/api/research` 路由代理；Docker 中由服务端 `GEORSI_API_URL=http://georsi-api:8787` 指向 API，浏览器不需要配置后端地址。
 
 Docker API 的默认配置由 `GEORSI_API_DEFAULT_CONFIG` 指定，当前为
 `research-competition-luna`（ALSL、`gpt-5.6-luna`、`high`）。创建任务时显式传入

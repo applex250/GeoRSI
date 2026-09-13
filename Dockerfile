@@ -47,6 +47,7 @@ RUN pip install --no-cache-dir --break-system-packages \
     "statsmodels>=0.14" \
     "openai>=1.0" \
     "tqdm>=4.66"
+RUN pip install --no-cache-dir --break-system-packages pypdf openpyxl xlrd rasterio geopandas
 
 # 5) 拷贝源码与配置 (放在最后，改代码时不重装依赖)
 COPY config ./config

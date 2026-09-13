@@ -96,6 +96,9 @@
 .rs-inspector-content .rs-node-detail dl{flex-direction:column;gap:17px;margin-top:20px}
 .rs-inspector-content .rs-node-detail dd{font-size:12px;line-height:1.8}
 .rs-inspector-caption{font-size:10px;color:#9aaa9b;margin:0 0 22px!important}
+.rs-iteration-review{border:1px solid #dfe8df;background:#f5f8f2;border-radius:8px;padding:12px;margin-bottom:16px;font-size:11px;color:#769071}
+.rs-iteration-review strong{color:#426b43;font-size:11px}
+.rs-iteration-review p{margin-top:6px!important;line-height:1.9}
 .rs-inspector-content .rs-timeline-item{padding-bottom:25px}
 .rs-inspector-content .rs-timeline-item strong{flex-wrap:wrap}
 .rs-inspector-content .rs-timeline-item p{line-height:1.9}

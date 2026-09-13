@@ -7,6 +7,8 @@ export interface Run {
   id: string; name: string; status: string; mode: string; createdAt?: string;
   timing?: { elapsedSeconds: number }; progress?: { completedNodes: number; totalNodes: number; percent: number };
   error?: string;
+  phase?: string;
+  workspace?: { phase: string; iteration: number; modelCalls: number; totalTokens: number; iterations: Array<{ round: number; summary: string }>; review?: string };
 }
 export interface Deliverable { name: string; downloadUrl: string; bytes: number }
 export const labels: Record<string, string> = {

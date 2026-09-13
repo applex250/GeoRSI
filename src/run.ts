@@ -43,6 +43,13 @@ async function main() {
 	const args = parseArgs(process.argv.slice(2));
 	const cmd = String(args._cmd ?? "rsi");
 	const cfg = loadConfig(args.config ? String(args.config) : undefined);
+	if (cmd === "research-agent") {
+		const runDir = resolve(String(args["run-dir"] ?? ""));
+		if (!runDir.startsWith(resolve(ROOT, "runs") + (process.platform === "win32" ? "\\" : "/"))) throw new Error("research-agent run directory must be under runs");
+		const { runWorkspaceAgent } = await import("./research/workspace-agent.js");
+		await runWorkspaceAgent(runDir, args.config ? String(args.config) : join(ROOT, "config", "research-competition-luna.json"));
+		return;
+	}
 
 	if (cmd === "research-gateway") {
 		// Unified gateway routing switch: one command flips research_model.gateway in the config

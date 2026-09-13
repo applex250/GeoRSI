@@ -14,6 +14,8 @@ import { fileURLToPath } from "node:url";
 import { ROOT } from "../config.js";
 import { validateResearchMission, type ResearchMission, type ResearchWorkGraph } from "../research/contracts.js";
 import { readResearchLedger, type ResearchEvent } from "../research/event-ledger.js";
+import { receiveUpload, getUpload } from "./uploads.js";
+import type { WorkspaceState, Direction } from "../research/workspace-agent.js";
 
 const API_PREFIX = "/api/v1";
 const DEFAULT_PORT = 8787;
@@ -21,7 +23,7 @@ const RUNS_ROOT = resolve(ROOT, "runs");
 const TSX_CLI = join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const RUN_TS = join(ROOT, "src", "run.ts");
 
-type RunMode = "research-live" | "research-demo" | "rsi" | "evolve";
+type RunMode = "research-live" | "research-demo" | "rsi" | "evolve" | "research-agent";
 type RunStatus = "queued" | "running" | "pausing" | "paused" | "stopping" | "completed" | "failed" | "cancelled";
 type Action = "pause" | "resume" | "stop";
 
@@ -256,6 +258,10 @@ function readResult(id: string): Record<string, unknown> | null {
 
 function deriveStatus(record: RunRecord): RunStatus {
 	if (activeChildren.has(record.id)) return record.status;
+	if (record.mode === "research-agent" && record.status === "running") {
+		const phase = readJsonFile<WorkspaceState>(join(runDir(record.id), "workspace-state.json"))?.phase;
+		return phase === "completed" ? "completed" : "failed";
+	}
 	if (record.status === "queued" || record.status === "running" || record.status === "pausing" || record.status === "stopping") {
 		if (record.exitCode !== undefined) return record.exitCode === 0 ? "completed" : "failed";
 	}
@@ -264,6 +270,7 @@ function deriveStatus(record: RunRecord): RunStatus {
 
 function snapshot(record: RunRecord): RunSnapshot {
 	const status = deriveStatus(record);
+	const workspace = readJsonFile<WorkspaceState>(join(runDir(record.id), "workspace-state.json"));
 	const plan = readPlan(record.id);
 	const events = parseLedger(record.id);
 	const nodes = plan?.nodes ?? [];
@@ -281,12 +288,13 @@ function snapshot(record: RunRecord): RunSnapshot {
 		name: record.name,
 		mode: record.mode,
 		status,
-		phase: current?.kind ?? (status === "completed" ? "completed" : status),
+		phase: workspace?.phase ?? current?.kind ?? (status === "completed" ? "completed" : status),
 		progress: { completedNodes, totalNodes, percent: totalNodes ? Math.round((completedNodes / totalNodes) * 100) : result ? 100 : 0 },
 		timing: { createdAt: record.createdAt, ...(record.startedAt ? { startedAt: record.startedAt } : {}), updatedAt: record.updatedAt, ...(record.finishedAt ? { finishedAt: record.finishedAt } : {}), elapsedSeconds: Math.max(0, Math.floor((finished - started) / 1000)) },
 		usage: { evidenceCount: evidenceIndex?.length ?? 0, activeNodes: active.length, totalEvents: events.length },
 		currentNode: current ? { id: current.id, kind: current.kind, title: current.title, state: current.state, attempts: current.attempts, startedAt: current.startedAt } : null,
 		result,
+		...(workspace ? { workspace, error: workspace.error } : {}),
 		...(record.error ? { error: record.error } : {}),
 	};
 }
@@ -388,7 +396,7 @@ function configPath(value: unknown): string | undefined {
 }
 
 function buildCommand(record: RunRecord, body: CreateRunBody, missionPath?: string): string[] {
-	const config = configPath(body.config);
+	const config = configPath(body.config ?? record.configName);
 	// The public API keeps a stable resource mode name while the CLI retains
 	// its historical `research-evolve` command spelling.
 	const args: string[] = [record.mode === "evolve" ? "research-evolve" : String(record.mode)];
@@ -397,6 +405,8 @@ function buildCommand(record: RunRecord, body: CreateRunBody, missionPath?: stri
 	if (record.mode === "research-live") {
 		if (!missionPath) throw new Error("research-live requires mission");
 		args.push("--mission", missionPath);
+	} else if (record.mode === "research-agent") {
+		args.push("--run-dir", runDir(record.id));
 	} else if (record.mode === "rsi") {
 		const gens = parseGens(body.gens);
 		if (gens !== undefined) args.push("--gens", String(gens));
@@ -435,6 +445,31 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 	const url = new URL(req.url ?? "/", "http://localhost");
 	const path = url.pathname.replace(/\/+$/, "") || "/";
+	if (req.method === "POST" && path === API_PREFIX + "/uploads") {
+		try { json(res, 201, await receiveUpload(req, url.searchParams.get("name") ?? "")); }
+		catch (error) { req.resume(); errorResponse(res, 400, "INVALID_UPLOAD", error instanceof Error ? error.message : "upload failed"); }
+		return;
+	}
+	if (req.method === "POST" && path === API_PREFIX + "/research-requests") {
+		try {
+			const body = await readJson(req) as { question?: unknown; uploadIds?: unknown };
+			if (typeof body.question !== "string" || !body.question.trim() || body.question.length > 20000) throw new Error("question must contain 1–20000 characters");
+			if (body.uploadIds !== undefined && (!Array.isArray(body.uploadIds) || body.uploadIds.length > 8 || body.uploadIds.some((value) => typeof value !== "string"))) throw new Error("uploadIds must contain at most 8 uploaded file IDs");
+			const uploadIds = [...new Set((body.uploadIds ?? []) as string[])];
+			uploadIds.forEach(getUpload);
+			if (activeChildren.size >= 2) return errorResponse(res, 429, "RUN_CAPACITY", "Two research tasks are already running; wait for a task to finish");
+			const configName = process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna";
+			configPath(configName);
+			const id = `run_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
+			const createdAt = new Date().toISOString();
+			const record: RunRecord = { id, name: body.question.trim().slice(0, 160), mode: "research-agent", status: "queued", configName, createdAt, updatedAt: createdAt };
+			writeMetadata(record);
+			writeFileSync(join(runDir(id), "request.json"), JSON.stringify({ question: body.question.trim(), uploadIds }), "utf8");
+			startRun(record, buildCommand(record, { config: configName }));
+			json(res, 202, { id, name: record.name, status: record.status, mode: record.mode });
+		} catch (error) { errorResponse(res, 400, "INVALID_RESEARCH_REQUEST", error instanceof Error ? error.message : "request failed"); }
+		return;
+	}
 	if (req.method === "GET" && path === "/healthz") { json(res, 200, { ok: true, service: "georsi-api", time: new Date().toISOString() }); return; }
 	if (req.method === "GET" && path === "/readyz") { json(res, existsSync(TSX_CLI) ? 200 : 503, { ok: existsSync(TSX_CLI), runsRoot: RUNS_ROOT, tsx: existsSync(TSX_CLI) }); return; }
 	if (req.method === "GET" && path === API_PREFIX + "/configs") { json(res, 200, { items: listConfigs() }); return; }
@@ -547,7 +582,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			const body = (await readJson(req)) as { action?: unknown };
 			if (!isAction(body.action)) throw new Error("action must be pause, resume, or stop");
 			if (!activeChildren.has(id)) return errorResponse(res, 409, "RUN_NOT_ACTIVE", "run is not active");
-			if (record.mode !== "rsi" && record.mode !== "research-live") {
+			if (record.mode !== "rsi" && record.mode !== "research-live" && record.mode !== "research-agent") {
 				return errorResponse(res, 409, "ACTION_UNSUPPORTED", `control is not supported for ${record.mode} runs`);
 			}
 			if (body.action !== "stop" && record.mode !== "rsi") {
@@ -567,16 +602,35 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		try {
 			const body = (await readJson(req)) as { text?: unknown };
 			if (typeof body.text !== "string" || !body.text.trim()) throw new Error("text is required");
+			if (record.mode === "research-agent") {
+				const phase = readJsonFile<WorkspaceState>(join(runDir(id), "workspace-state.json"))?.phase;
+				if (phase && ["finalizing", "completed", "failed", "cancelled"].includes(phase)) return errorResponse(res, 409, "RUN_NOT_ACTIVE", "The research is finalizing or has ended");
+				if (!activeChildren.has(id) || !["running", "queued"].includes(deriveStatus(record))) return errorResponse(res, 409, "RUN_NOT_ACTIVE", "This research has ended and no longer accepts directions");
+				const direction: Direction = { id: `direction_${randomUUID().replaceAll("-", "")}`, text: body.text.trim().slice(0, 10000), createdAt: new Date().toISOString() };
+				appendFileSync(join(runDir(id), "directions.jsonl"), JSON.stringify(direction) + "\n", "utf8");
+				json(res, 201, { ...direction, status: "queued", effectiveAt: "next-node" }); return;
+			}
 			const timestamp = new Date().toISOString();
 			appendFileSync(join(runDir(id), "FEEDBACK.md"), `\n[api ${timestamp}] ${body.text.trim().slice(0, 10_000)}\n`, "utf8");
 			json(res, 201, { id: `feedback_${randomUUID().slice(0, 8)}`, status: "recorded", effectiveAt: "next-generation" });
 		} catch (error) { errorResponse(res, 400, "INVALID_FEEDBACK", error instanceof Error ? error.message : String(error)); }
 		return;
 	}
+	if (tail === "directions" && req.method === "GET") {
+		const file = join(runDir(id), "directions.jsonl");
+		const applied = readJsonFile<WorkspaceState>(join(runDir(id), "workspace-state.json"))?.appliedDirectionIds ?? [];
+		const items = existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean).flatMap((line) => { try { const d = JSON.parse(line) as Direction; return [{ ...d, status: applied.includes(d.id) ? "applied" : "queued" }]; } catch { return []; } }) : [];
+		json(res, 200, { items }); return;
+	}
+	if (tail === "request" && req.method === "GET") {
+		const value = readJsonFile<{ question: string; uploadIds: string[] }>(join(runDir(id), "request.json"));
+		if (!value) return errorResponse(res, 404, "REQUEST_NOT_FOUND", "request is not available for this mode");
+		json(res, 200, { question: value.question, files: value.uploadIds.map(getUpload) }); return;
+	}
 	if (tail === "logs" && req.method === "GET") {
 		const file = join(runDir(id), "api-stream.log");
 		const bytes = existsSync(file) ? readFileSync(file) : Buffer.alloc(0);
-		const offset = Math.min(bytes.length, Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0));
+		const offset = Math.min(bytes.length, Math.max(0, Number(url.searchParams.has("tail") ? Math.max(0, bytes.length - Math.min(1000000, Number(url.searchParams.get("tail")) || 24000)) : url.searchParams.get("offset") ?? 0) || 0));
 		const limit = Math.min(1_000_000, Math.max(1, Number(url.searchParams.get("limit") ?? 200_000) || 200_000));
 		const nextOffset = Math.min(bytes.length, offset + limit);
 		json(res, 200, { content: bytes.subarray(offset, nextOffset).toString("utf8"), offset, nextOffset, totalBytes: bytes.length, complete: nextOffset >= bytes.length });

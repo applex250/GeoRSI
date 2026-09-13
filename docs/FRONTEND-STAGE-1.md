@@ -1,5 +1,8 @@
 # Frontend stage 1 — workspace visual review
 
+Historical stage notes. Real submission and uploads are now available; see
+[stage 2](FRONTEND-STAGE-2.md) for the current execution behavior.
+
 On Windows, double-click **start-workspace.cmd** in the repository root.
 It builds and starts the API and frontend, waits for healthy containers, checks
 the HTTP endpoints and prints the addresses. Docker Desktop must be running.

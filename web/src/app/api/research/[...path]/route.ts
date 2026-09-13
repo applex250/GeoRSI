@@ -1,9 +1,23 @@
 import type { NextRequest } from "next/server";
 
-// Same-origin, read-only adapter. The engine remains the source of truth.
+// Stream uploads directly to the engine; never buffer large files in Next.js.
+export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const { path } = await context.params;
+  const route = path.join("/");
+  if (!/^(uploads|research-requests|research-runs\/[A-Za-z0-9_-]+\/(feedback|actions))$/.test(route)) return Response.json({ error: { message: "Unsupported action" } }, { status: 404 });
+  const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";
+  try {
+    const response = await fetch(`${origin}/api/v1/${route}${request.nextUrl.search}`, {
+      method: "POST", headers: { "Content-Type": request.headers.get("content-type") ?? "application/octet-stream" },
+      body: request.body, duplex: "half", cache: "no-store", signal: AbortSignal.any([request.signal, AbortSignal.timeout(180000)]),
+    } as RequestInit & { duplex: "half" });
+    return new Response(response.body, { status: response.status, headers: { "Content-Type": response.headers.get("content-type") ?? "application/json", "Cache-Control": "no-store" } });
+  } catch { return Response.json({ error: { message: "请求未能确认完成，请先检查研究记录再重试。" } }, { status: 503 }); }
+}
+
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
-  if (path.some((part) => !/^[a-zA-Z0-9_.-]+$/.test(part) || part === "..")) {
+  if (path.some((part) => !/^[a-zA-Z0-9_.:-]+$/.test(part) || part === "..")) {
     return Response.json({ error: { message: "Invalid resource" } }, { status: 400 });
   }
   const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";

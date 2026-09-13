@@ -25,7 +25,8 @@
     "research:evolve": "tsx src/run.ts research-evolve",
     "research:benchmark": "tsx src/run.ts research-benchmark",
     "api": "tsx src/api/server.ts",
-    "api:selftest": "tsx src/api/server_selftest.ts"
+    "api:selftest": "tsx src/api/server_selftest.ts",
+    "workspace:selftest": "tsx src/research/workspace_selftest.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.2",
