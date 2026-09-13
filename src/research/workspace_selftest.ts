@@ -61,3 +61,42 @@ const refs = JSON.parse(readFileSync(join(runDir, "evidence-index.json"), "utf8"
 const corrected = linkWorkspaceReport(`[file](rainfall.csv) [evidence:sha256:${file!.sha256})`, refs, runId);
 assert.ok(!corrected.includes("](rainfall.csv)")); assert.ok(!corrected.includes("[evidence:"));
 console.log("Workspace selftest PASS: streamed upload, validation, private URL rejection, real Python, graph iteration, queued directions, durable report and ledger");
+
+// ---- resume after a gateway outage: manual retry must not redo completed nodes ----
+{
+  const resumeRunId = "run_" + randomUUID().replaceAll("-", "").slice(0, 12);
+  const resumeDir = join(ROOT, "runs", resumeRunId);
+  mkdirSync(resumeDir, { recursive: true });
+  writeFileSync(join(resumeDir, "request.json"), JSON.stringify({ question: "网关中断后的续跑测试", uploadIds: [file!.id] }));
+  const failModel: ResearchModelCall = async (input) => {
+    const prompt = JSON.stringify(input);
+    if (prompt.includes("Plan round")) return reply(JSON.stringify({ nodes: [{ id: "analyze", title: "计算均值", kind: "quantitative-analysis", dependsOn: [], objective: "Compute mean" }, { id: "verify", title: "验证结论", kind: "verification", dependsOn: ["analyze"], objective: "Verify" }, { id: "report", title: "报告", kind: "report", dependsOn: ["verify"], objective: "Report" }] }));
+    if (prompt.includes("(verification)")) throw new Error("Research gateway HTTP 502");
+    if (prompt.includes("Review this research critically")) throw new Error("Research gateway HTTP 502");
+    return reply(`均值计算完成，基于上传数据。${cite}\n方法与结果说明：直接算术平均并复核。`);
+  };
+  await assert.rejects(runWorkspaceAgent(resumeDir, join(ROOT, "config", "research-competition-luna.json"), failModel), /502/);
+  const failedState = JSON.parse(readFileSync(join(resumeDir, "workspace-state.json"), "utf8"));
+  assert.equal(failedState.phase, "failed");
+  assert.ok(failedState.outputs && Object.keys(failedState.outputs).length >= 1, "completed node outputs must be checkpointed for resume");
+  let resumedEvents = 0;
+  const okModel: ResearchModelCall = async (input) => {
+    const prompt = JSON.stringify(input);
+    if (prompt.includes("Plan round")) { throw new Error("resume must not re-plan"); }
+    if (prompt.includes("workspace-resumed") || prompt.includes("workflow-resumed")) resumedEvents += 0;
+    if (prompt.includes("Review this research critically")) return reply(JSON.stringify({ complete: true, summary: "续跑后证据与报告完整" }));
+    return reply(`# 续跑报告\n\n验证与报告完成，均值结论与证据齐备。${cite}\n\n## 局限\n样本有限，结论需更长序列支撑。${cite}\n${"说明与复核细节。".repeat(12)}\n${cite}`);
+  };
+  await runWorkspaceAgent(resumeDir, join(ROOT, "config", "research-competition-luna.json"), okModel, true);
+  const resumedState = JSON.parse(readFileSync(join(resumeDir, "workspace-state.json"), "utf8"));
+  assert.equal(resumedState.phase, "completed");
+  assert.ok(resumedState.modelCalls > 3, "model-call accounting must continue across resume");
+  const resumedPlan = JSON.parse(readFileSync(join(resumeDir, "plan.json"), "utf8"));
+  assert.ok(resumedPlan.nodes.every((n: { state: string }) => n.state === "completed"), "restored graph must finish all nodes");
+  assert.ok(readFileSync(join(resumeDir, "report.md"), "utf8").includes("续跑报告"));
+  const resumeEvents = readResearchLedger(join(resumeDir, "events.jsonl")).events.map((e) => e.type);
+  assert.ok(resumeEvents.includes("workspace-resumed"), "resume must be ledgered");
+  assert.equal(resumeEvents.filter((type) => type === "workspace-start").length, 1, "workspace-start must come from the first attempt only");
+  resumedEvents += 1;
+  assert.ok(resumedEvents === 1);
+}

@@ -47,7 +47,7 @@ async function main() {
 		const runDir = resolve(String(args["run-dir"] ?? ""));
 		if (!runDir.startsWith(resolve(ROOT, "runs") + (process.platform === "win32" ? "\\" : "/"))) throw new Error("research-agent run directory must be under runs");
 		const { runWorkspaceAgent } = await import("./research/workspace-agent.js");
-		await runWorkspaceAgent(runDir, args.config ? String(args.config) : join(ROOT, "config", "research-competition-luna.json"));
+		await runWorkspaceAgent(runDir, args.config ? String(args.config) : join(ROOT, "config", "research-competition-luna.json"), undefined, args.resume === true);
 		return;
 	}
 

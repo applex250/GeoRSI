@@ -71,3 +71,7 @@ export async function getJson<T>(url: string): Promise<T> {
   return response.json();
 }
 export const api = "/api/research";
+export interface Gateway {
+  id: string; provider: string; model: string; api2: string; baseUrl: string;
+  thinkingEvidence: string; credentialConfigured: boolean; current: boolean;
+}

@@ -8,10 +8,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, appendFileSync, renameSync, rmSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ROOT } from "../config.js";
+import { ROOT, loadConfig, researchModelConfigFingerprint } from "../config.js";
 import { validateResearchMission, type ResearchMission, type ResearchWorkGraph } from "../research/contracts.js";
 import { readResearchLedger, type ResearchEvent } from "../research/event-ledger.js";
 import { receiveUpload, getUpload } from "./uploads.js";
@@ -488,6 +488,12 @@ function startArgs(record: RunRecord, resume: boolean): string[] {
 			if (existsSync(join(runDir(record.id), "plan.json"))) args.push("--resume", runDir(record.id));
 		} else if (record.mode === "rsi") {
 			if (["state.json", "board.jsonl", "champion_scaffold.json", "memory"].some((entry) => existsSync(join(runDir(record.id), entry)))) args.push("--resume");
+		} else if (record.mode === "research-agent") {
+			// Manual retry after a failure (e.g. gateway outage): the agent restores
+			// its checkpointed graph/state/evidence and re-executes only what did not
+			// finish — with whatever gateway the config now points at.
+			if (!existsSync(join(runDir(record.id), "plan.json")) || !existsSync(join(runDir(record.id), "workspace-state.json"))) throw new Error("resume is not available: no workspace checkpoint for this run");
+			args.push("--resume");
 		} else throw new Error(`resume is not supported for ${record.mode}`);
 	}
 	return args;
@@ -542,6 +548,59 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	if (req.method === "POST" && path === API_PREFIX + "/uploads") {
 		try { json(res, 201, await receiveUpload(req, url.searchParams.get("name") ?? "")); }
 		catch (error) { req.resume(); errorResponse(res, 400, "INVALID_UPLOAD", error instanceof Error ? error.message : "upload failed"); }
+		return;
+	}
+	if (req.method === "GET" && path === API_PREFIX + "/gateways") {
+		const configFilePath = configPath(process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna") ?? join(ROOT, "config", "research-competition-luna.json");
+		const raw = readJsonFile<Record<string, unknown>>(configFilePath) ?? {};
+		const gateways = (raw.research_gateways ?? {}) as Record<string, Record<string, unknown>>;
+		const current = (raw.research_model as Record<string, unknown> | undefined)?.gateway;
+		const items = Object.keys(gateways).sort().map((name) => {
+			const entry = gateways[name]!;
+			const credentialEnv = typeof entry.credential_env === "string" ? entry.credential_env : "";
+			return {
+				id: name,
+				provider: String(entry.provider ?? ""),
+				model: String(entry.model ?? ""),
+				api: String(entry.api ?? ""),
+				baseUrl: String(entry.base_url ?? ""),
+				thinkingLevel: String(entry.thinking_level ?? ""),
+				thinkingEvidence: String(entry.thinking_evidence ?? ""),
+				credentialEnv,
+				credentialConfigured: !!credentialEnv && !!process.env[credentialEnv],
+				current: current === name,
+			};
+		});
+		json(res, 200, { items, note: "switching affects NEW runs; already-running children keep the policy they were spawned with" });
+		return;
+	}
+	const gatewaySelectMatch = /^gateways\/([^/]+)\/select$/.exec(path);
+	if (req.method === "POST" && path === API_PREFIX + "/gateways/select") {
+		try {
+			const body = (await readJson(req)) as { gateway?: unknown };
+			const target = typeof body.gateway === "string" ? body.gateway : "";
+			const configFilePath = configPath(process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna") ?? join(ROOT, "config", "research-competition-luna.json");
+			const raw = JSON.parse(readFileSync(configFilePath, "utf8")) as Record<string, unknown>;
+			const gateways = (raw.research_gateways ?? {}) as Record<string, Record<string, unknown>>;
+			if (!gateways[target]) return errorResponse(res, 404, "GATEWAY_NOT_FOUND", `unknown gateway "${target}"`, { registered: Object.keys(gateways).sort() });
+			const credentialEnv = String(gateways[target]!.credential_env ?? "");
+			if (!credentialEnv || !process.env[credentialEnv]) return errorResponse(res, 400, "GATEWAY_CREDENTIAL_MISSING", `${target} needs ${credentialEnv || "a credential env"} to be set in the API server environment`);
+			raw.research_model = { gateway: target };
+			// Validate the switched config fully parses before writing (same contract as
+			// the research:gateway CLI: temp file -> loadConfig -> atomic rename).
+			const tempPath = `${configFilePath}.gateway-switch.tmp.json`;
+			writeFileSync(tempPath, JSON.stringify(raw, null, 2) + "\n", { encoding: "utf-8" });
+			try {
+				const switched = loadConfig(tempPath);
+				if (!switched.research_model) throw new Error("expanded config has no research_model");
+				const fingerprint = researchModelConfigFingerprint(switched.research_model);
+				renameSync(tempPath, configFilePath);
+				json(res, 200, { gateway: target, provider: switched.research_model.provider, model: switched.research_model.model, api: switched.research_model.api, fingerprint, note: "new runs use this gateway; running children are unaffected" });
+			} catch (error) {
+				try { rmSync(tempPath, { force: true }); } catch { /* best effort */ }
+				throw error;
+			}
+		} catch (error) { errorResponse(res, 400, "GATEWAY_SWITCH_FAILED", error instanceof Error ? error.message : String(error)); }
 		return;
 	}
 	if (req.method === "POST" && path === API_PREFIX + "/research-requests") {
