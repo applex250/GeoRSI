@@ -24,7 +24,7 @@ import type { EvidenceRef, ResearchWorkGraph, WorkNode, WorkNodeKind } from "./c
 
 export interface WorkspaceInput { question: string; uploadIds: string[] }
 export interface Direction { id: string; text: string; createdAt: string }
-export interface WorkspaceState { phase: string; iteration: number; iterations: Array<{ round: number; summary: string; completed: boolean }>; appliedDirectionIds: string[]; modelCalls: number; totalTokens: number; error?: string; review?: string;
+export interface WorkspaceState { phase: string; iteration: number; iterations: Array<{ round: number; summary: string; completed: boolean; complete?: boolean; next?: string }>; appliedDirectionIds: string[]; modelCalls: number; totalTokens: number; error?: string; review?: string;
 	/** Resume support: everything needed to continue a failed run without redoing
 	 * completed work — node outputs, carried tool findings, circuit-breaker memory. */
 	outputs?: Record<string, string>; toolFindings?: string[]; kindFailures?: Record<string, { count: number; reason: string }>; }
@@ -284,7 +284,13 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
               if (node.kind === "report" && (!cites.length || text.length < 300)) throw new Error("Report needs substantive content and verified evidence citations");
               const ref = remember(text, node.id + ".md", node.id);
               outputs.set(node.id, text);
-              if (node.kind === "report") { latestReport = text; writeTextAtomic(join(runDir, "report-draft.md"), text); }
+              if (node.kind === "report") {
+                latestReport = text;
+                writeTextAtomic(join(runDir, "report-draft.md"), text);
+                // Keep EVERY round's draft: rejected intermediates are research
+                // history the report panel can browse, not overwrite-fodder.
+                writeTextAtomic(join(runDir, `report-round-${round}.md`), text);
+              }
               return { artifactIds: [ref.id], usage: { modelCalls: state.modelCalls - before, toolCalls: toolCount, outputTokens } };
             }
             for (const call of calls) {
@@ -352,7 +358,7 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
       let critique: { complete: boolean; summary: string; next?: string };
       try { critique = parseModelJson(replyText(review)) as typeof critique; if (typeof critique.complete !== "boolean" || typeof critique.summary !== "string") throw new Error("invalid review"); } catch { critique = { complete: false, summary: "质量检查未返回有效结果，需要复核。", next: "复核证据与报告完整性" }; }
       const pendingDirections = readDirections().some((d) => !state.appliedDirectionIds.includes(d.id));
-      state.iterations.push({ round, summary: critique.summary, completed: scheduled.completed }); state.review = critique.summary;
+      state.iterations.push({ round, summary: critique.summary, completed: scheduled.completed, complete: critique.complete, next: critique.next }); state.review = critique.summary;
       event("iteration-reviewed", { round, ...critique, pendingDirections }); saveState();
       if (critique.complete && scheduled.completed && latestReport && !pendingDirections) break;
       revision = `${critique.summary}\n${critique.next ?? ""}`;

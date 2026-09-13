@@ -11,6 +11,11 @@ export interface Run {
   workspace?: { phase: string; iteration: number; modelCalls: number; totalTokens: number; iterations: Array<{ round: number; summary: string }>; review?: string };
 }
 export interface Deliverable { name: string; downloadUrl: string; bytes: number }
+export interface RoundInfo {
+  round: number; completed: boolean;
+  review: { complete: boolean | null; summary: string; next: string | null };
+  reportAvailable: boolean; reportUrl: string | null;
+}
 export const labels: Record<string, string> = {
   pending: "等待中", ready: "待执行", running: "执行中", verifying: "验证中", completed: "已完成",
   failed: "未完成", blocked: "受阻", cancelled: "已停止", queued: "排队中", stopping: "正在停止", paused: "已暂停", pausing: "正在暂停",

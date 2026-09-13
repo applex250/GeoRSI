@@ -271,8 +271,12 @@ function readResult(id: string): Record<string, unknown> | null {
 function deriveStatus(record: RunRecord): RunStatus {
 	if (activeChildren.has(record.id)) return record.status;
 	if (record.mode === "research-agent" && record.status === "running") {
+		// An unmanaged child that SURVIVED a server restart is still alive and
+		// writing state — report it as running; only dead children get resolved
+		// from the durable workspace phase.
+		if (pidAlive(record.pid)) return "running";
 		const phase = readJsonFile<WorkspaceState>(join(runDir(record.id), "workspace-state.json"))?.phase;
-		return phase === "completed" ? "completed" : "failed";
+		return phase === "completed" ? "completed" : phase === "cancelled" ? "cancelled" : "failed";
 	}
 	if (record.status === "queued" || record.status === "running" || record.status === "pausing" || record.status === "stopping") {
 		if (record.exitCode !== undefined) return record.exitCode === 0 ? "completed" : "failed";
@@ -771,6 +775,30 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			appendFileSync(join(runDir(id), "FEEDBACK.md"), `\n[api ${timestamp}] ${body.text.trim().slice(0, 10_000)}\n`, "utf8");
 			json(res, 201, { id: `feedback_${randomUUID().slice(0, 8)}`, status: "recorded", effectiveAt: "next-generation" });
 		} catch (error) { errorResponse(res, 400, "INVALID_FEEDBACK", error instanceof Error ? error.message : String(error)); }
+		return;
+	}
+	if (tail === "rounds" && req.method === "GET") {
+		const workspace = readJsonFile<import("../research/workspace-agent.js").WorkspaceState>(join(runDir(id), "workspace-state.json"));
+		const items = (workspace?.iterations ?? []).map((iteration) => {
+			const file = `report-round-${iteration.round}.md`;
+			const exists = existsSync(join(runDir(id), file));
+			return {
+				round: iteration.round,
+				completed: iteration.completed,
+				review: { complete: iteration.complete ?? null, summary: iteration.summary, next: iteration.next ?? null },
+				reportAvailable: exists,
+				reportUrl: exists ? `${API_PREFIX}/research-runs/${encodeURIComponent(id)}/rounds/${iteration.round}/report` : null,
+			};
+		});
+		json(res, 200, { items });
+		return;
+	}
+	const roundReportMatch = /^rounds\/(\d+)\/report$/.exec(tail);
+	if (roundReportMatch && req.method === "GET") {
+		const file = join(runDir(id), `report-round-${Number(roundReportMatch[1])}.md`);
+		if (!existsSync(file)) return errorResponse(res, 404, "ROUND_REPORT_NOT_FOUND", "no report draft for this round");
+		res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
+		res.end(readFileSync(file));
 		return;
 	}
 	if (tail === "directions" && req.method === "GET") {
