@@ -1,6 +1,6 @@
 {
   "research_model": {
-    "gateway": "ai-pixel"
+    "gateway": "alsl"
   },
   "inner_model": "gpt-5.6-luna",
   "inner_thinking_level": "high",
