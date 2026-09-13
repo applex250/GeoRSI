@@ -56,6 +56,12 @@ demo supplements. Mobile sheets should close on Escape or backdrop click and
 return focus to their trigger. These are user acceptance steps, not claims of
 automated browser verification.
 
+Layout revision: the center column now contains the question and workflow,
+without a second activity/log section underneath. Click a node for the right
+inspector's node tab, or **运行记录** in the graph footer for activity. Node,
+activity, log and report tabs share the same inspector and scroll independently
+from the graph. The history scrollbar is hidden while scrolling remains enabled.
+
 Per the requested staged review process, browser visual validation belongs to
 the user. Container build/type checking, health and HTTP checks are performed
 before each handoff; no browser-based acceptance is claimed.
