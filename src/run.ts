@@ -9,6 +9,7 @@
  *   npx tsx src/run.ts rsi [--gens N] [--resume] [--run-name NAME]
  */
 import { readFileSync, writeFileSync, renameSync, rmSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { loadConfig, researchModelConfigFingerprint, ROOT } from "./config.js";
 import { selftest } from "./selftest.js";
@@ -75,8 +76,10 @@ async function main() {
 		}
 		raw.research_model = { gateway: target };
 		// Validate the switched config fully parses (expansion + validation) before writing.
-		const tempPath = `${configPath}.gateway-switch.tmp.json`;
-		writeFileSync(tempPath, JSON.stringify(raw, null, 2) + "\n", { encoding: "utf8" });
+		// Unique temp name: the API server switches through the same file, and a shared
+		// fixed name let two switchers validate/rename/delete each other's payload.
+		const tempPath = `${configPath}.gateway-switch.${process.pid}.${randomBytes(4).toString("hex")}.tmp.json`;
+		writeFileSync(tempPath, JSON.stringify(raw, null, 2) + "\n", { encoding: "utf8", flag: "wx" });
 		try {
 			const switched = loadConfig(tempPath);
 			if (!switched.research_model) throw new Error("expanded config has no research_model");

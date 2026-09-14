@@ -8,7 +8,7 @@ export interface Run {
   timing?: { elapsedSeconds: number }; progress?: { completedNodes: number; totalNodes: number; percent: number };
   error?: string;
   phase?: string;
-  workspace?: { phase: string; iteration: number; modelCalls: number; totalTokens: number; iterations: Array<{ round: number; summary: string }>; review?: string };
+  workspace?: { phase: string; iteration: number; modelCalls: number; totalTokens: number; truncatedCalls?: number; iterations: Array<{ round: number; summary: string }>; review?: string };
 }
 export interface Deliverable { name: string; downloadUrl: string; bytes: number }
 export interface RoundInfo {
@@ -77,6 +77,6 @@ export async function getJson<T>(url: string): Promise<T> {
 }
 export const api = "/api/research";
 export interface Gateway {
-  id: string; provider: string; model: string; api2: string; baseUrl: string;
+  id: string; provider: string; model: string; api: string; baseUrl: string;
   thinkingEvidence: string; credentialConfigured: boolean; current: boolean;
 }

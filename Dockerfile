@@ -67,10 +67,11 @@ RUN mkdir -p runs knowledge rag \
     && git config --global --add safe.directory /app
 
 # 7) 环境变量
+#    执行后端由 config.json 的 execution_backend 决定（默认 host-audit）；曾经的
+#    EXECUTION_BACKEND 环境变量没有任何代码读取，已删除以免造成"已加固"的错觉。
 ENV NODE_ENV=production \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    EXECUTION_BACKEND=host-audit \
     TZ=Asia/Shanghai
 
 # 8) 健康检查: 轻量 selftest (无 LLM) 验证镜像完整性

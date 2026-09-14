@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DirectHostComputePort } from "./direct-compute.js";
-import { attestComputeReplay, createSandboxiePythonResearchTool, validateComputeReceipt, validateHostComputeReceipt, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt } from "./sandboxie-compute.js";
+import { attestComputeReplay, createSandboxiePythonResearchTool, validateComputeReceipt, validateHostComputeReceipt, validateSandboxieComputeReceipt, type ComputeRunReceipt } from "./sandboxie-compute.js";
 import { validateRuntimeAttestation, type ComputeReplayAttestation, type ResearchRuntimeAttestation } from "./runtime-attestation.js";
 import type { ResearchMission } from "./contracts.js";
 
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
 		const replay = await attestComputeReplay(port, [receipt], "open");
 		check("replay passes for deterministic script", replay.passed && replay.backend === "host-audit" && replay.processOwnershipVerified);
 
-		const mutated: SandboxieComputeRunReceipt = { ...receipt, stdout: `${receipt.stdout}tampered` };
+		const mutated: ComputeRunReceipt = { ...receipt, stdout: `${receipt.stdout}tampered` };
 		const replayTampered = await attestComputeReplay(port, [mutated], "open");
 		check("replay fails on tampered receipt", !replayTampered.passed);
 

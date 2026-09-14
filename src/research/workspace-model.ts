@@ -1,16 +1,12 @@
 import { fetch, ProxyAgent } from "undici";
 import type { ResearchModelConfig } from "../config.js";
+import { backoffWaitMs, createIdleWatchdog, isNonRetryable, isTransientStatus, nonRetryable, retryAfterHintMs, retryPolicyFrom, sleep, STREAM_HARD_CAP_MS } from "./model-resilience.js";
 
 export interface ModelReply { output?: Array<Record<string, unknown>>; usage?: { input_tokens?: number; output_tokens?: number }; status?: string; model?: string; error?: unknown }
 export type ResearchModelCall = (input: unknown[], tools: unknown[], signal?: AbortSignal) => Promise<ModelReply>;
-/** Uses the same authoritative gateway policy as the research engine. */
-const sleep = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
-  if (signal?.aborted) return reject(new Error("aborted"));
-  const timer = setTimeout(resolve, ms);
-  signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new Error("aborted")); }, { once: true });
-});
 
 export interface WorkspaceModelHooks { onRetry?: (attempt: number, retries: number, waitMs: number, lastError: string) => void }
+/** Uses the same authoritative gateway policy as the research engine. */
 export function workspaceModel(policy: ResearchModelConfig, hooks: WorkspaceModelHooks = {}): ResearchModelCall {
   const key = process.env[policy.credential_env];
   if (!key) throw new Error("Research API credential is not configured");
@@ -20,42 +16,30 @@ export function workspaceModel(policy: ResearchModelConfig, hooks: WorkspaceMode
   const promptCacheKey = `georsi-workspace-${process.pid}`;
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   const dispatcher = proxy ? new ProxyAgent(proxy) : undefined;
-  // Same resilience contract as the research engine: the gateway registry carries
-  // session_retries/backoff knobs, transient statuses (429/5xx) and network errors
-  // retry with capped exponential backoff instead of failing a whole research node.
-  const retries = Math.max(0, Math.min(10, policy.resilience?.session_retries ?? 5));
-  const backoffMs = Math.max(250, policy.resilience?.probe_backoff_ms ?? 3000);
-  const backoffCap = Math.max(backoffMs, policy.resilience?.probe_backoff_cap_ms ?? 20000);
+  // Same resilience contract as the research engine (model-resilience.ts): the
+  // gateway registry carries session_retries/backoff knobs, transient statuses and
+  // network errors retry with capped exponential backoff instead of failing a node.
+  const retry = retryPolicyFrom(policy.resilience, { retries: 5 });
   return async (input, tools, signal) => {
     let lastError: unknown;
-    let retryAfterHintMs = 0;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
+    let retryAfterMs = 0;
+    for (let attempt = 0; attempt <= retry.retries; attempt += 1) {
       if (attempt > 0) {
         // Gateway Retry-After and our exponential backoff merge into ONE wait.
-        const wait = Math.max(Math.min(backoffMs * 2 ** (attempt - 1), backoffCap), retryAfterHintMs);
-        retryAfterHintMs = 0;
+        const wait = backoffWaitMs(attempt, retry, retryAfterMs);
+        retryAfterMs = 0;
         const message = lastError instanceof Error ? lastError.message : String(lastError);
-        console.log(`[research] gateway retry ${attempt}/${retries} after ${wait}ms (last: ${message})`);
-        hooks.onRetry?.(attempt, retries, wait, message);
+        console.log(`[research] gateway retry ${attempt}/${retry.retries} after ${wait}ms (last: ${message})`);
+        hooks.onRetry?.(attempt, retry.retries, wait, message);
         await sleep(wait, signal);
       }
-      // Streaming timeout policy: a long generation is fine as long as BYTES KEEP
-      // FLOWING. First byte gets a generous window (relays may buffer); after that,
-      // 120s of stream silence means the provider hiccuped — abort and retry. Hard
-      // ceiling 15 minutes. The old flat 240s cap killed legitimate 4+ minute
-      // high-effort generations mid-stream.
-      const idleController = new AbortController();
-      let idleTimer: ReturnType<typeof setTimeout> | null = null;
-      let firstByte = true;
-      const armIdle = (): void => {
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => idleController.abort(new Error(`Research gateway stream idle for ${firstByte ? 300 : 120}s`)), firstByte ? 300_000 : 120_000);
-        firstByte = false;
-      };
-      const signals: AbortSignal[] = [idleController.signal, AbortSignal.timeout(900_000)];
+      // Streaming timeout policy lives in model-resilience.ts: generous first-byte
+      // window, then per-chunk idle, plus a hard ceiling.
+      const idle = createIdleWatchdog();
+      const signals: AbortSignal[] = [idle.signal, AbortSignal.timeout(STREAM_HARD_CAP_MS)];
       if (signal) signals.unshift(signal);
       try {
-        armIdle();
+        idle.touch();
         const response = await fetch(policy.base_url.replace(/\/$/, "") + "/responses", {
           method: "POST", dispatcher,
           headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "text/event-stream" },
@@ -63,29 +47,28 @@ export function workspaceModel(policy: ResearchModelConfig, hooks: WorkspaceMode
           signal: AbortSignal.any(signals),
         });
         if (response.ok) {
-          const reply = await readStreamedResponse(response, armIdle);
+          const reply = await readStreamedResponse(response, idle.touch);
           if (reply.status === "failed") throw new Error(`Research gateway response failed: ${JSON.stringify(reply.error ?? {}).slice(0, 150)}`);
           if (reply.model && reply.model !== policy.model) {
             // Deterministic misconfiguration — retrying 10 times is pure waste.
-            throw Object.assign(new Error("Gateway returned an unexpected model"), { nonRetryable: true });
+            throw nonRetryable(new Error("Gateway returned an unexpected model"));
           }
           return reply;
         }
-        const retryAfter = Number(response.headers.get("retry-after"));
+        const hint = retryAfterHintMs(response.headers.get("retry-after"));
         await response.body?.cancel();
         lastError = new Error(`Research gateway HTTP ${response.status}`);
-        const transient = [429, 500, 502, 503, 504].includes(response.status);
-        if (!transient || attempt === retries) throw lastError;
-        if (Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 60) retryAfterHintMs = retryAfter * 1000;
+        if (!isTransientStatus(response.status) || attempt === retry.retries) throw lastError;
+        retryAfterMs = hint;
         continue;
       } catch (error) {
         if (signal?.aborted) throw error;
         lastError = error;
-        if ((error as { nonRetryable?: boolean }).nonRetryable || attempt === retries) throw error;
+        if (isNonRetryable(error) || attempt === retry.retries) throw error;
       } finally {
         // Non-ok and throw paths previously leaked the armed timer: it kept the
         // process alive up to 120s after the run finished.
-        if (idleTimer) clearTimeout(idleTimer);
+        idle.clear();
       }
     }
     throw lastError;

@@ -1,5 +1,12 @@
 import type { NextRequest } from "next/server";
 
+// The engine may require a shared token (GEORSI_API_TOKEN). The browser never
+// sees it: this server-side proxy attaches it on every forwarded request.
+function engineHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = process.env.GEORSI_API_TOKEN?.trim();
+  return token ? { ...extra, "X-GeoRSI-Token": token } : extra;
+}
+
 // Stream uploads directly to the engine; never buffer large files in Next.js.
 export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
@@ -17,7 +24,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
   const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";
   try {
     const response = await fetch(`${origin}/api/v1/${route}${request.nextUrl.search}`, {
-      method: "POST", headers: { "Content-Type": request.headers.get("content-type") ?? "application/octet-stream" },
+      method: "POST", headers: engineHeaders({ "Content-Type": request.headers.get("content-type") ?? "application/octet-stream" }),
       body: request.body, duplex: "half", cache: "no-store", signal: AbortSignal.any([request.signal, AbortSignal.timeout(180000)]),
     } as RequestInit & { duplex: "half" });
     return new Response(response.body, { status: response.status, headers: { "Content-Type": response.headers.get("content-type") ?? "application/json", "Cache-Control": "no-store" } });
@@ -38,7 +45,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
   const signal = isEventStream ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(12000)]);
   try {
     const response = await fetch(`${origin}${prefix}${path.map(encodeURIComponent).join("/")}${request.nextUrl.search}`, {
-      cache: "no-store", signal,
+      cache: "no-store", signal, headers: engineHeaders(),
     });
     return new Response(response.body, {
       status: response.status,

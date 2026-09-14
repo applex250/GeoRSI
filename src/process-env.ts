@@ -11,7 +11,10 @@ export function sanitizeExecutionEnvironment(env?: NodeJS.ProcessEnv): NodeJS.Pr
 	for (const key of Object.keys(safe)) {
 		if (
 			/^RSILAB_/i.test(key) ||
-			/^(https?|all|no)_proxy$/i.test(key) ||
+			// Proxy URLs routinely embed user:pass@host; the GEORSI_-prefixed variants
+			// (documented in .env.example, passed into the API container) slipped past
+			// the unprefixed pattern and reached model-authored scripts.
+			/^(?:GEORSI_)?(https?|all|no)_proxy$/i.test(key) ||
 			/^(?:PYTHONPATH|PYTHONHOME|PYTHONSTARTUP|NODE_PATH|NODE_OPTIONS)$/i.test(key) ||
 			/^(?:SSH_AUTH_SOCK|GIT_ASKPASS|SSH_ASKPASS|DOCKER_AUTH_CONFIG|KUBECONFIG|AWS_SHARED_CREDENTIALS_FILE|AZURE_CONFIG_DIR)$/i.test(key) ||
 			/(?:API[_-]?KEY|TOKEN|ACCESS[_-]?(?:KEY|TOKEN)|AUTH[_-]?TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE[_-]?KEY|CREDENTIAL)/i.test(key)

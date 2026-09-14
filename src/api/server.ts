@@ -7,11 +7,13 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, appendFileSync, renameSync, rmSync } from "node:fs";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync, appendFileSync, renameSync, rmSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { ROOT, loadConfig, researchModelConfigFingerprint } from "../config.js";
+import { atomicWriteJson } from "../journal.js";
 import { validateResearchMission, type ResearchMission, type ResearchWorkGraph } from "../research/contracts.js";
 import { readResearchLedger, type ResearchEvent } from "../research/event-ledger.js";
 import { receiveUpload, getUpload } from "./uploads.js";
@@ -19,13 +21,27 @@ import type { WorkspaceState, Direction } from "../research/workspace-agent.js";
 
 const API_PREFIX = "/api/v1";
 const DEFAULT_PORT = 8787;
+/** Loopback by default: the API has no user accounts, so reachability IS authorization.
+ * Containers set GEORSI_API_HOST=0.0.0.0 and publish the port on the host's loopback. */
+const DEFAULT_HOST = "127.0.0.1";
 const RUNS_ROOT = resolve(ROOT, "runs");
 const TSX_CLI = join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 const RUN_TS = join(ROOT, "src", "run.ts");
+/** Shared secret (optional). When set, every request except the health probes and
+ * the service index must present it as `Authorization: Bearer` or `X-GeoRSI-Token`.
+ * Read per request so a selftest (and an operator) can rotate it without a restart. */
+const apiToken = (): string | undefined => process.env.GEORSI_API_TOKEN?.trim() || undefined;
+/** Browser origin allowed to call the API cross-origin. Unset = no CORS headers at
+ * all: the shipped frontend reaches the engine through its same-origin proxy. */
+const allowedOrigin = (): string | undefined => process.env.GEORSI_API_ALLOWED_ORIGIN?.trim() || undefined;
+/** Every managed run is a Node + Python + model-billing child; cap them uniformly. */
+const MAX_CONCURRENT_RUNS = Math.max(1, Math.min(16, Number(process.env.GEORSI_API_MAX_CONCURRENT) || 2));
 
-type RunMode = "research-live" | "research-demo" | "rsi" | "evolve" | "research-agent";
+/** `rsi` (the classic agent-evolution loop) is frozen and no longer creatable here;
+ * records from before the freeze still load, but cannot be started. */
+type RunMode = "research-live" | "research-demo" | "evolve" | "research-agent";
 type RunStatus = "queued" | "running" | "pausing" | "paused" | "stopping" | "completed" | "failed" | "cancelled";
-type Action = "pause" | "resume" | "stop";
+type Action = "stop";
 
 interface RunRecord {
 	id: string;
@@ -85,26 +101,69 @@ interface ApiEvent {
 const activeChildren = new Map<string, ChildProcess>();
 const subscribers = new Map<string, Set<ServerResponse>>();
 
+function corsHeaders(): Record<string, string> {
+	const origin = allowedOrigin();
+	if (!origin) return {};
+	return {
+		"Access-Control-Allow-Origin": origin,
+		"Access-Control-Allow-Headers": "Content-Type, Idempotency-Key, Last-Event-ID, Authorization, X-GeoRSI-Token",
+		"Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+		Vary: "Origin",
+	};
+}
+
 function json(res: ServerResponse, status: number, body: unknown): void {
 	const payload = JSON.stringify(body);
-	res.writeHead(status, {
-		"Content-Type": "application/json; charset=utf-8",
-		"Cache-Control": "no-store",
-		"Access-Control-Allow-Origin": "*",
-		"Access-Control-Allow-Headers": "Content-Type, Idempotency-Key, Last-Event-ID",
-		"Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-	});
+	res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...corsHeaders() });
 	res.end(payload);
 }
 
 function errorResponse(res: ServerResponse, status: number, code: string, message: string, details?: unknown): void {
+	// A failure after the headers went out (SSE stream, file body) cannot be turned
+	// into a JSON error any more; a second writeHead would throw inside the outer
+	// catch and take the whole process down as an unhandled rejection.
+	if (res.headersSent) { res.destroy(); return; }
 	json(res, status, { error: { code, message, ...(details === undefined ? {} : { details }), timestamp: new Date().toISOString() } });
 }
 
 function cors(res: ServerResponse): void {
-	res.setHeader("Access-Control-Allow-Origin", "*");
-	res.setHeader("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key, Last-Event-ID");
-	res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+	for (const [name, value] of Object.entries(corsHeaders())) res.setHeader(name, value);
+}
+
+function presentedToken(req: IncomingMessage): string | undefined {
+	const header = req.headers.authorization;
+	if (typeof header === "string" && /^Bearer\s+/i.test(header)) return header.replace(/^Bearer\s+/i, "").trim();
+	const custom = req.headers["x-georsi-token"];
+	return typeof custom === "string" ? custom.trim() : undefined;
+}
+
+function authorized(req: IncomingMessage): boolean {
+	const required = apiToken();
+	if (!required) return true;
+	const token = presentedToken(req);
+	if (!token) return false;
+	const expected = Buffer.from(required);
+	const actual = Buffer.from(token);
+	return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function capacityExceeded(): boolean {
+	return activeChildren.size >= MAX_CONCURRENT_RUNS;
+}
+
+/** Read `[offset, offset+limit)` of a file without loading the whole log into memory. */
+function readFileSlice(file: string, offset: number, limit: number): { chunk: Buffer; totalBytes: number } {
+	if (!existsSync(file)) return { chunk: Buffer.alloc(0), totalBytes: 0 };
+	const totalBytes = statSync(file).size;
+	const start = Math.min(totalBytes, Math.max(0, offset));
+	const length = Math.max(0, Math.min(limit, totalBytes - start));
+	if (!length) return { chunk: Buffer.alloc(0), totalBytes };
+	const fd = openSync(file, "r");
+	try {
+		const chunk = Buffer.alloc(length);
+		const read = readSync(fd, chunk, 0, length, start);
+		return { chunk: chunk.subarray(0, read), totalBytes };
+	} finally { closeSync(fd); }
 }
 
 async function readJson(req: IncomingMessage): Promise<unknown> {
@@ -118,11 +177,11 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 }
 
 function isRunMode(value: unknown): value is RunMode {
-	return value === "research-live" || value === "research-demo" || value === "rsi" || value === "evolve";
+	return value === "research-live" || value === "research-demo" || value === "evolve";
 }
 
 function isAction(value: unknown): value is Action {
-	return value === "pause" || value === "resume" || value === "stop";
+	return value === "stop";
 }
 
 function safeRunId(value: string): string {
@@ -145,7 +204,9 @@ function readJsonFile<T>(path: string): T | null {
 
 function writeMetadata(record: RunRecord): void {
 	mkdirSync(runDir(record.id), { recursive: true });
-	writeFileSync(metadataPath(record.id), JSON.stringify(record, null, 2) + "\n", "utf8");
+	// tmp + rename: a crash mid-write must never leave a truncated record that makes
+	// the run vanish from the API while its child keeps running on the host.
+	atomicWriteJson(metadataPath(record.id), record);
 }
 
 function loadRecord(id: string): RunRecord | null {
@@ -250,9 +311,26 @@ function validateMission(mission: ResearchMission | null): string[] {
 	try { return validateResearchMission(mission); } catch (error) { return [error instanceof Error ? error.message : "mission shape is invalid"]; }
 }
 
+/**
+ * Ledger parse cache. readResearchLedger re-verifies the whole hash chain on every
+ * call; the history list (100 runs every 10 s) and every SSE poll tick (500 ms per
+ * subscriber) would otherwise re-hash every event of every run. Keyed on the file's
+ * (mtime, size) so a new append invalidates it; bounded so idle runs age out.
+ */
+const LEDGER_CACHE_LIMIT = 64;
+const ledgerCache = new Map<string, { mtimeMs: number; size: number; events: ResearchEvent[] }>();
+
 function parseLedger(id: string): ResearchEvent[] {
 	const ledger = join(runDir(id), "events.jsonl");
-	return readResearchLedger(ledger).events;
+	if (!existsSync(ledger)) return [];
+	const stat = statSync(ledger);
+	const cached = ledgerCache.get(ledger);
+	if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.events;
+	const events = readResearchLedger(ledger).events;
+	ledgerCache.delete(ledger);
+	ledgerCache.set(ledger, { mtimeMs: stat.mtimeMs, size: stat.size, events });
+	if (ledgerCache.size > LEDGER_CACHE_LIMIT) ledgerCache.delete(ledgerCache.keys().next().value!);
+	return events;
 }
 
 function readPlan(id: string): ResearchWorkGraph | null {
@@ -374,12 +452,13 @@ function eventFromLedger(id: string, event: ResearchEvent, index: number): ApiEv
 
 function startRun(record: RunRecord, args: string[]): void {
 	if (activeChildren.has(record.id)) throw new Error("run is already active");
+	if (!isRunMode(record.mode) && record.mode !== "research-agent") throw new Error(`${String(record.mode)} runs are no longer managed by the API`);
 	// Keep the control channel inside the run directory and pass it to modes
 	// that support cooperative process control.  Without this, /actions would
 	// write a file that the child process never watches.
 	const controlPath = join(runDir(record.id), "control.json");
 	mkdirSync(runDir(record.id), { recursive: true });
-	if (record.mode === "rsi" || record.mode === "research-live") {
+	if (record.mode === "research-live") {
 		writeFileSync(controlPath, "", "utf8");
 		args = [...args, "--control", controlPath];
 	}
@@ -402,17 +481,26 @@ function startRun(record: RunRecord, args: string[]): void {
 	record.pid = child.pid;
 	activeChildren.set(record.id, child);
 	writeMetadata(record);
-	const appendOutput = (chunk: Buffer): void => {
+	// Child output only has to bump updatedAt; rewriting the whole record on every
+	// stdout chunk turned a chatty child into thousands of metadata writes. Coalesce
+	// into one trailing write and flush unconditionally on exit.
+	let metadataTimer: ReturnType<typeof setTimeout> | null = null;
+	const flushMetadata = (): void => {
+		if (metadataTimer) { clearTimeout(metadataTimer); metadataTimer = null; }
 		Object.assign(record, loadRecord(record.id) ?? {});
-		const path = join(runDir(record.id), "api-stream.log");
-		appendFileSync(path, chunk.toString("utf8"));
 		record.updatedAt = new Date().toISOString();
 		writeMetadata(record);
-		emit(record.id, { id: `log-${Date.now()}`, seq: Date.now(), timestamp: new Date().toISOString(), type: "log", runId: record.id, data: { text: chunk.toString("utf8") } });
+	};
+	const appendOutput = (chunk: Buffer): void => {
+		const text = chunk.toString("utf8");
+		appendFileSync(join(runDir(record.id), "api-stream.log"), text);
+		if (!metadataTimer) metadataTimer = setTimeout(flushMetadata, 500);
+		emit(record.id, { id: `log-${Date.now()}`, seq: Date.now(), timestamp: new Date().toISOString(), type: "log", runId: record.id, data: { text } });
 	};
 	child.stdout.on("data", appendOutput);
 	child.stderr.on("data", appendOutput);
 	child.on("error", (error) => {
+		if (metadataTimer) { clearTimeout(metadataTimer); metadataTimer = null; }
 		record.status = "failed";
 		record.error = error.message;
 		record.exitCode = 1;
@@ -423,6 +511,7 @@ function startRun(record: RunRecord, args: string[]): void {
 		emit(record.id, { id: `end-${Date.now()}`, seq: Date.now(), timestamp: new Date().toISOString(), type: "run_end", runId: record.id, data: { status: record.status, error: record.error } });
 	});
 	child.on("close", (code, signal) => {
+		if (metadataTimer) { clearTimeout(metadataTimer); metadataTimer = null; }
 		Object.assign(record, loadRecord(record.id) ?? {});
 		record.exitCode = code;
 		record.finishedAt = new Date().toISOString();
@@ -438,13 +527,6 @@ function startRun(record: RunRecord, args: string[]): void {
 		writeMetadata(record);
 		emit(record.id, { id: `end-${Date.now()}`, seq: Date.now(), timestamp: new Date().toISOString(), type: "run_end", runId: record.id, data: { status: record.status, exitCode: code, signal } });
 	});
-}
-
-function parseGens(value: unknown): number | undefined {
-	if (value === undefined) return undefined;
-	const gens = Number(value);
-	if (!Number.isInteger(gens) || gens < 1 || gens > 100) throw new Error("gens must be an integer between 1 and 100");
-	return gens;
 }
 
 function configPath(value: unknown): string | undefined {
@@ -478,20 +560,15 @@ function buildCommand(record: RunRecord, body: CreateRunBody, missionPath?: stri
 		args.push("--mission", missionPath);
 	} else if (record.mode === "research-agent") {
 		args.push("--run-dir", runDir(record.id));
-	} else if (record.mode === "rsi") {
-		const gens = parseGens(body.gens);
-		if (gens !== undefined) args.push("--gens", String(gens));
 	}
 	return args;
 }
 
 function startArgs(record: RunRecord, resume: boolean): string[] {
-	const args = buildCommand(record, { config: record.configName, gens: record.gens }, record.mode === "research-live" ? join(runDir(record.id), "mission-input.json") : undefined);
+	const args = buildCommand(record, { config: record.configName }, record.mode === "research-live" ? join(runDir(record.id), "mission-input.json") : undefined);
 	if (resume) {
 		if (record.mode === "research-live") {
 			if (existsSync(join(runDir(record.id), "plan.json"))) args.push("--resume", runDir(record.id));
-		} else if (record.mode === "rsi") {
-			if (["state.json", "board.jsonl", "champion_scaffold.json", "memory"].some((entry) => existsSync(join(runDir(record.id), entry)))) args.push("--resume");
 		} else if (record.mode === "research-agent") {
 			// Manual retry after a failure (e.g. gateway outage): the agent restores
 			// its checkpointed graph/state/evidence and re-executes only what did not
@@ -522,17 +599,38 @@ function listDeliverables(id: string): unknown[] {
 	});
 }
 
+/**
+ * Gateway switches serialize per config file. Both the CLI and this endpoint used
+ * to share ONE fixed temp filename: two concurrent switches could validate each
+ * other's payload, rename the wrong file in, or rm the other's temp mid-flight.
+ */
+const gatewaySwitchQueue = new Map<string, Promise<unknown>>();
+async function serialized<T>(key: string, task: () => Promise<T>): Promise<T> {
+	const previous = gatewaySwitchQueue.get(key) ?? Promise.resolve();
+	const next = previous.catch(() => undefined).then(task);
+	gatewaySwitchQueue.set(key, next);
+	try { return await next; }
+	finally { if (gatewaySwitchQueue.get(key) === next) gatewaySwitchQueue.delete(key); }
+}
+
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
 	cors(res);
 	if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 	const url = new URL(req.url ?? "/", "http://localhost");
 	const path = url.pathname.replace(/\/+$/, "") || "/";
+	const publicRoute = path === "/" || path === "/api" || path === "/api/v1" || path === "/healthz" || path === "/readyz";
+	if (!publicRoute && !authorized(req)) {
+		req.resume();
+		errorResponse(res, 401, "UNAUTHORIZED", "this API requires the shared token (Authorization: Bearer <GEORSI_API_TOKEN> or X-GeoRSI-Token)");
+		return;
+	}
 	if (req.method === "GET" && (path === "/" || path === "/api" || path === "/api/v1")) {
 		// Humans opening the root in a browser get a service index instead of a 404.
 		json(res, 200, {
 			service: "georsi-api",
 			version: 1,
 			message: "GeoRSI local HTTP API — pure JSON, no UI served here.",
+			auth: apiToken() ? "shared token required (Authorization: Bearer … or X-GeoRSI-Token)" : "none (loopback-only deployment)",
 			endpoints: {
 				health: "/healthz",
 				ready: "/readyz",
@@ -541,7 +639,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 				runs: `${API_PREFIX}/research-runs`,
 				runExample: `${API_PREFIX}/research-runs/{id}`,
 				runEvents: `${API_PREFIX}/research-runs/{id}/events (SSE)`,
-				runActions: `${API_PREFIX}/research-runs/{id}/actions (pause/resume/stop)`,
+				runActions: `${API_PREFIX}/research-runs/{id}/actions (stop)`,
 				runDeliverables: `${API_PREFIX}/research-runs/{id}/deliverables`,
 			},
 			docs: "docs/API.md",
@@ -555,7 +653,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		return;
 	}
 	if (req.method === "GET" && path === API_PREFIX + "/gateways") {
-		const configFilePath = configPath(process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna") ?? join(ROOT, "config", "research-competition-luna.json");
+		const configFilePath = configPath(process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna")!;
 		const raw = readJsonFile<Record<string, unknown>>(configFilePath) ?? {};
 		const gateways = (raw.research_gateways ?? {}) as Record<string, Record<string, unknown>>;
 		const current = (raw.research_model as Record<string, unknown> | undefined)?.gateway;
@@ -578,32 +676,33 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		json(res, 200, { items, note: "switching affects NEW runs; already-running children keep the policy they were spawned with" });
 		return;
 	}
-	const gatewaySelectMatch = /^gateways\/([^/]+)\/select$/.exec(path);
 	if (req.method === "POST" && path === API_PREFIX + "/gateways/select") {
 		try {
 			const body = (await readJson(req)) as { gateway?: unknown };
 			const target = typeof body.gateway === "string" ? body.gateway : "";
-			const configFilePath = configPath(process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna") ?? join(ROOT, "config", "research-competition-luna.json");
-			const raw = JSON.parse(readFileSync(configFilePath, "utf8")) as Record<string, unknown>;
-			const gateways = (raw.research_gateways ?? {}) as Record<string, Record<string, unknown>>;
-			if (!gateways[target]) return errorResponse(res, 404, "GATEWAY_NOT_FOUND", `unknown gateway "${target}"`, { registered: Object.keys(gateways).sort() });
-			const credentialEnv = String(gateways[target]!.credential_env ?? "");
-			if (!credentialEnv || !process.env[credentialEnv]) return errorResponse(res, 400, "GATEWAY_CREDENTIAL_MISSING", `${target} needs ${credentialEnv || "a credential env"} to be set in the API server environment`);
-			raw.research_model = { gateway: target };
-			// Validate the switched config fully parses before writing (same contract as
-			// the research:gateway CLI: temp file -> loadConfig -> atomic rename).
-			const tempPath = `${configFilePath}.gateway-switch.tmp.json`;
-			writeFileSync(tempPath, JSON.stringify(raw, null, 2) + "\n", { encoding: "utf-8" });
-			try {
-				const switched = loadConfig(tempPath);
-				if (!switched.research_model) throw new Error("expanded config has no research_model");
-				const fingerprint = researchModelConfigFingerprint(switched.research_model);
-				renameSync(tempPath, configFilePath);
-				json(res, 200, { gateway: target, provider: switched.research_model.provider, model: switched.research_model.model, api: switched.research_model.api, fingerprint, note: "new runs use this gateway; running children are unaffected" });
-			} catch (error) {
-				try { rmSync(tempPath, { force: true }); } catch { /* best effort */ }
-				throw error;
-			}
+			const configFilePath = configPath(process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna")!;
+			await serialized(configFilePath, async () => {
+				const raw = JSON.parse(readFileSync(configFilePath, "utf8")) as Record<string, unknown>;
+				const gateways = (raw.research_gateways ?? {}) as Record<string, Record<string, unknown>>;
+				if (!gateways[target]) return errorResponse(res, 404, "GATEWAY_NOT_FOUND", `unknown gateway "${target}"`, { registered: Object.keys(gateways).sort() });
+				const credentialEnv = String(gateways[target]!.credential_env ?? "");
+				if (!credentialEnv || !process.env[credentialEnv]) return errorResponse(res, 400, "GATEWAY_CREDENTIAL_MISSING", `${target} needs ${credentialEnv || "a credential env"} to be set in the API server environment`);
+				raw.research_model = { gateway: target };
+				// Validate the switched config fully parses before writing (same contract as
+				// the research:gateway CLI: unique temp file -> loadConfig -> atomic rename).
+				const tempPath = `${configFilePath}.gateway-switch.${process.pid}.${randomBytes(4).toString("hex")}.tmp.json`;
+				writeFileSync(tempPath, JSON.stringify(raw, null, 2) + "\n", { encoding: "utf-8", flag: "wx" });
+				try {
+					const switched = loadConfig(tempPath);
+					if (!switched.research_model) throw new Error("expanded config has no research_model");
+					const fingerprint = researchModelConfigFingerprint(switched.research_model);
+					renameSync(tempPath, configFilePath);
+					json(res, 200, { gateway: target, provider: switched.research_model.provider, model: switched.research_model.model, api: switched.research_model.api, fingerprint, note: "new runs use this gateway; running children are unaffected" });
+				} catch (error) {
+					try { rmSync(tempPath, { force: true }); } catch { /* best effort */ }
+					throw error;
+				}
+			});
 		} catch (error) { errorResponse(res, 400, "GATEWAY_SWITCH_FAILED", error instanceof Error ? error.message : String(error)); }
 		return;
 	}
@@ -614,7 +713,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			if (body.uploadIds !== undefined && (!Array.isArray(body.uploadIds) || body.uploadIds.length > 8 || body.uploadIds.some((value) => typeof value !== "string"))) throw new Error("uploadIds must contain at most 8 uploaded file IDs");
 			const uploadIds = [...new Set((body.uploadIds ?? []) as string[])];
 			uploadIds.forEach(getUpload);
-			if (activeChildren.size >= 2) return errorResponse(res, 429, "RUN_CAPACITY", "Two research tasks are already running; wait for a task to finish");
+			if (capacityExceeded()) return errorResponse(res, 429, "RUN_CAPACITY", `${MAX_CONCURRENT_RUNS} research tasks are already running; wait for a task to finish`);
 			const configName = process.env.GEORSI_API_DEFAULT_CONFIG ?? "research-competition-luna";
 			configPath(configName);
 			const id = `run_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
@@ -654,15 +753,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		try {
 			const body = (await readJson(req)) as CreateRunBody;
 			const mode = body.mode ?? "research-live";
-			if (!isRunMode(mode)) throw new Error("mode must be research-live, research-demo, rsi, or evolve");
+			if (!isRunMode(mode)) throw new Error("mode must be research-live, research-demo, or evolve");
 			const rawConfigName = body.config === undefined ? process.env.GEORSI_API_DEFAULT_CONFIG : String(body.config);
 			configPath(rawConfigName);
 			const configName = rawConfigName?.endsWith(".json") ? rawConfigName.slice(0, -5) : rawConfigName;
-			const gens = parseGens(body.gens);
 			const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 160) : "Untitled research";
+			const autoStart = body.autoStart !== false;
+			if (autoStart && capacityExceeded()) return errorResponse(res, 429, "RUN_CAPACITY", `${MAX_CONCURRENT_RUNS} runs are already active; create with autoStart=false or wait for one to finish`);
 			const id = `run_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 			const createdAt = new Date().toISOString();
-			const record: RunRecord = { id, name, mode, status: "queued", createdAt, updatedAt: createdAt, ...(configName ? { configName } : {}), ...(gens !== undefined ? { gens } : {}) };
+			const record: RunRecord = { id, name, mode, status: "queued", createdAt, updatedAt: createdAt, ...(configName ? { configName } : {}) };
 			let missionPath: string | undefined;
 			if (mode === "research-live") {
 				if (!body.mission || typeof body.mission !== "object") throw new Error("mission is required for research-live");
@@ -678,7 +778,6 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 				writeFileSync(missionPath, JSON.stringify(mission, null, 2) + "\n", "utf8");
 			}
 			writeMetadata(record);
-			const autoStart = body.autoStart !== false;
 			if (autoStart) startRun(record, buildCommand(record, body, missionPath));
 			json(res, 202, { id, name, mode, status: record.status, createdAt, links: { self: `${API_PREFIX}/research-runs/${id}`, events: `${API_PREFIX}/research-runs/${id}/events`, workflow: `${API_PREFIX}/research-runs/${id}/workflow`, ...(mode === "research-live" ? { mission: `${API_PREFIX}/research-runs/${id}/mission` } : {}) } });
 		} catch (error) { errorResponse(res, 400, "INVALID_REQUEST", error instanceof Error ? error.message : String(error)); }
@@ -703,6 +802,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			const currentStatus = deriveStatus(record);
 			const resumable = resume && (currentStatus === "failed" || currentStatus === "cancelled" || currentStatus === "running" || currentStatus === "queued" || currentStatus === "paused");
 			if (currentStatus !== "queued" && !resumable) return errorResponse(res, 409, "RUN_NOT_STARTABLE", `run cannot be started from status ${currentStatus}`);
+			if (capacityExceeded()) return errorResponse(res, 429, "RUN_CAPACITY", `${MAX_CONCURRENT_RUNS} runs are already active; wait for one to finish`);
 			startRun(record, startArgs(record, resume));
 			json(res, 202, { runId: id, status: record.status, resume, links: { self: `${API_PREFIX}/research-runs/${id}`, events: `${API_PREFIX}/research-runs/${id}/events` } });
 		} catch (error) { errorResponse(res, 400, "INVALID_START", error instanceof Error ? error.message : String(error)); }
@@ -713,16 +813,23 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		const missionFile = existsSync(join(runDir(id), "mission.json")) ? join(runDir(id), "mission.json") : join(runDir(id), "mission-input.json");
 		const mission = readJsonFile<ResearchMission>(missionFile);
 		if (!mission) return errorResponse(res, 404, "MISSION_NOT_FOUND", "mission is not available yet");
-		json(res, 200, { mission, source: basename(missionFile), updatedAt: statSync(missionFile).mtime.toISOString() });
+		let updatedAt: string | null = null;
+		try { updatedAt = statSync(missionFile).mtime.toISOString(); } catch { /* removed between read and stat */ }
+		json(res, 200, { mission, source: basename(missionFile), updatedAt });
 		return;
 	}
 	if (tail === "events" && req.method === "GET") {
-		res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive", "Access-Control-Allow-Origin": "*" });
+		res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive", ...corsHeaders() });
 		const set = subscribers.get(id) ?? new Set<ServerResponse>();
 		set.add(res); subscribers.set(id, set);
 		let after = Number(req.headers["last-event-id"] ?? url.searchParams.get("after") ?? 0) || 0;
 		const flushLedger = (): void => {
-			for (const [index, event] of parseLedger(id).entries()) {
+			const events = parseLedger(id);
+			// Sequence numbers are monotonic (verified on read): nothing past the
+			// cursor means nothing to send, without walking the whole ledger again.
+			const last = events.length ? (events[events.length - 1]!.seq ?? events.length) : 0;
+			if (last <= after) return;
+			for (const [index, event] of events.entries()) {
 				const seq = event.seq ?? index + 1;
 				if (seq <= after) continue;
 				res.write(`id: ${seq}\nevent: ${event.type}\ndata: ${JSON.stringify(eventFromLedger(id, event, index))}\n\n`);
@@ -741,15 +848,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	if (tail === "actions" && req.method === "POST") {
 		try {
 			const body = (await readJson(req)) as { action?: unknown };
-			if (!isAction(body.action)) throw new Error("action must be pause, resume, or stop");
+			if (!isAction(body.action)) throw new Error("action must be stop");
 			if (!activeChildren.has(id)) return errorResponse(res, 409, "RUN_NOT_ACTIVE", "run is not active");
-			if (record.mode !== "rsi" && record.mode !== "research-live" && record.mode !== "research-agent") {
+			if (record.mode !== "research-live" && record.mode !== "research-agent") {
 				return errorResponse(res, 409, "ACTION_UNSUPPORTED", `control is not supported for ${record.mode} runs`);
 			}
-			if (body.action !== "stop" && record.mode !== "rsi") {
-				return errorResponse(res, 409, "ACTION_UNSUPPORTED", `${body.action} is only supported for rsi runs`);
-			}
-			record.status = body.action === "pause" ? "pausing" : body.action === "stop" ? "stopping" : "running";
+			record.status = "stopping";
 			record.updatedAt = new Date().toISOString();
 			writeMetadata(record);
 			writeFileSync(join(runDir(id), "control.json"), JSON.stringify({ action: body.action, ts: record.updatedAt }), "utf8");
@@ -796,9 +900,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	const roundReportMatch = /^rounds\/(\d+)\/report$/.exec(tail);
 	if (roundReportMatch && req.method === "GET") {
 		const file = join(runDir(id), `report-round-${Number(roundReportMatch[1])}.md`);
-		if (!existsSync(file)) return errorResponse(res, 404, "ROUND_REPORT_NOT_FOUND", "no report draft for this round");
-		res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
-		res.end(readFileSync(file));
+		// Read before writeHead: a draft that disappears between the check and the
+		// read must become a 404, not a half-sent response.
+		let body: Buffer;
+		try { body = readFileSync(file); } catch { return errorResponse(res, 404, "ROUND_REPORT_NOT_FOUND", "no report draft for this round"); }
+		res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "no-store", ...corsHeaders() });
+		res.end(body);
 		return;
 	}
 	if (tail === "directions" && req.method === "GET") {
@@ -817,11 +924,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 	}
 	if (tail === "logs" && req.method === "GET") {
 		const file = join(runDir(id), "api-stream.log");
-		const bytes = existsSync(file) ? readFileSync(file) : Buffer.alloc(0);
-		const offset = Math.min(bytes.length, Math.max(0, Number(url.searchParams.has("tail") ? Math.max(0, bytes.length - Math.min(1000000, Number(url.searchParams.get("tail")) || 24000)) : url.searchParams.get("offset") ?? 0) || 0));
+		const totalBytes = existsSync(file) ? statSync(file).size : 0;
 		const limit = Math.min(1_000_000, Math.max(1, Number(url.searchParams.get("limit") ?? 200_000) || 200_000));
-		const nextOffset = Math.min(bytes.length, offset + limit);
-		json(res, 200, { content: bytes.subarray(offset, nextOffset).toString("utf8"), offset, nextOffset, totalBytes: bytes.length, complete: nextOffset >= bytes.length });
+		const offset = url.searchParams.has("tail")
+			? Math.max(0, totalBytes - Math.min(1_000_000, Number(url.searchParams.get("tail")) || 24000))
+			: Math.min(totalBytes, Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0));
+		// Only the requested window leaves the disk; a multi-megabyte stream log must
+		// not be loaded whole on every 2.5 s poll.
+		const { chunk } = readFileSlice(file, offset, limit);
+		const nextOffset = Math.min(totalBytes, offset + chunk.length);
+		json(res, 200, { content: chunk.toString("utf8"), offset, nextOffset, totalBytes, complete: nextOffset >= totalBytes });
 		return;
 	}
 	if (tail === "deliverables" && req.method === "GET") { json(res, 200, { items: listDeliverables(id) }); return; }
@@ -830,9 +942,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		const name = decodeURIComponent(deliverableMatch[1]!);
 		const allowed = new Set(listDeliverables(id).map((item) => (item as { name: string }).name));
 		if (!allowed.has(name) || basename(name) !== name) { errorResponse(res, 404, "DELIVERABLE_NOT_FOUND", "deliverable not found"); return; }
-		const file = join(runDir(id), name);
-		res.writeHead(200, { "Content-Type": contentType(name), "Content-Length": statSync(file).size, "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
-		res.end(readFileSync(file));
+		let body: Buffer;
+		try { body = readFileSync(join(runDir(id), name)); } catch { return errorResponse(res, 404, "DELIVERABLE_NOT_FOUND", "deliverable not found"); }
+		res.writeHead(200, { "Content-Type": contentType(name), "Content-Length": body.length, "Cache-Control": "no-store", ...corsHeaders() });
+		res.end(body);
 		return;
 	}
 	if (tail === "evidence" && req.method === "GET") { json(res, 200, { items: readJsonFile<unknown[]>(join(runDir(id), "evidence-index.json")) ?? [] }); return; }
@@ -846,11 +959,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		// Evidence refs do not carry a media type; derive it from the logical name so
 		// figures render in-browser instead of downloading as octet-stream.
 		const evidenceMediaType = ref.mediaType ?? (ref.logicalName ? contentType(ref.logicalName) : "application/octet-stream");
-		const evidenceRoot = join(resolve(process.env.TEMP ?? process.env.TMP ?? "/tmp"), "GeoRSI", "evidence", basename(runDir(id)));
+		// Same resolver every writer uses (os.tmpdir honours TMPDIR on POSIX; the old
+		// TEMP ?? TMP ?? /tmp lookup 404'd evidence on a box with only TMPDIR set).
+		const evidenceRoot = join(tmpdir(), "GeoRSI", "evidence", basename(runDir(id)));
 		const file = join(evidenceRoot, ref.sha256.slice(0, 2), ref.sha256);
-		if (!existsSync(file) || statSync(file).size !== ref.bytes) return errorResponse(res, 404, "EVIDENCE_CONTENT_NOT_FOUND", "evidence content is unavailable");
-		res.writeHead(200, { "Content-Type": evidenceMediaType, "Content-Length": String(ref.bytes), ETag: JSON.stringify(evidenceId), "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
-		res.end(readFileSync(file));
+		let body: Buffer;
+		try { body = readFileSync(file); } catch { return errorResponse(res, 404, "EVIDENCE_CONTENT_NOT_FOUND", "evidence content is unavailable"); }
+		// The id IS the content hash. Serving on a size match alone would let anything
+		// that can write the temp store (host-audit runs execute model code there)
+		// hand the browser tampered bytes under a matching ETag.
+		if (body.length !== ref.bytes || createHash("sha256").update(body).digest("hex") !== ref.sha256) return errorResponse(res, 409, "EVIDENCE_INTEGRITY", "evidence content does not match its content hash");
+		res.writeHead(200, { "Content-Type": evidenceMediaType, "Content-Length": String(body.length), ETag: JSON.stringify(evidenceId), "Cache-Control": "no-store", ...corsHeaders() });
+		res.end(body);
 		return;
 	}
 	if (tail === "claims" && req.method === "GET") { json(res, 200, { items: readJsonFile<unknown[]>(join(runDir(id), "claims.json")) ?? [] }); return; }
@@ -881,6 +1001,10 @@ export function createApiServer(): ReturnType<typeof createServer> {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	const port = Number(process.env.GEORSI_API_PORT ?? DEFAULT_PORT);
+	const host = process.env.GEORSI_API_HOST?.trim() || DEFAULT_HOST;
+	if (host !== DEFAULT_HOST && host !== "localhost" && host !== "::1" && !apiToken()) {
+		console.warn(`GeoRSI API: listening on ${host} WITHOUT GEORSI_API_TOKEN — anyone who can reach this port can start runs and read every artifact`);
+	}
 	const server = createApiServer();
-	server.listen(port, "0.0.0.0", () => console.log(`GeoRSI API listening on http://localhost:${port}`));
+	server.listen(port, host, () => console.log(`GeoRSI API listening on http://${host}:${port}${apiToken() ? " (token required)" : ""}`));
 }

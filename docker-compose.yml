@@ -7,6 +7,42 @@ name: georsi
 #   docker compose logs -f georsi
 #
 # 配置覆盖: 复制 .env.example 为 .env 并填入 API Key，或直接编辑 config/*.json
+#
+# 隔离边界（2026-09-14 加固）:
+#   - georsi-api 执行模型生成的 Python（host-audit，无沙箱），因此它 **不挂载**
+#     ../rsi-lab-private；私有真值只进 CLI/工具容器（评测用）。
+#   - API 端口只发布到宿主机 loopback（127.0.0.1:8792），并可用 GEORSI_API_TOKEN
+#     加共享令牌；前端容器通过 compose 内网 + 令牌访问。
+
+x-georsi-build: &georsi-build
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: georsi:latest
+
+x-georsi-logging: &georsi-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "5"
+
+# 凭据与运行时环境（优先从 .env / host env 注入）。
+x-georsi-env: &georsi-env
+  RSILAB_API_KEY: ${RSILAB_API_KEY:-}
+  RSILAB_LOCAL_API_KEY: ${RSILAB_LOCAL_API_KEY:-}
+  RSILAB_OR_KEY: ${RSILAB_OR_KEY:-}
+  RSILAB_EMOOO_API_KEY: ${RSILAB_EMOOO_API_KEY:-}
+  RSILAB_JUDGE_BASE: ${RSILAB_JUDGE_BASE:-}
+  RSILAB_JUDGE_KEY: ${RSILAB_JUDGE_KEY:-}
+  RSILAB_JUDGE_MODEL: ${RSILAB_JUDGE_MODEL:-}
+  GEORSI_RESEARCH_API_KEY: ${GEORSI_RESEARCH_API_KEY:-}
+  GEILIAPI_API_KEY: ${GEILIAPI_API_KEY:-}
+  NODE_ENV: production
+  PYTHONUNBUFFERED: "1"
+  TZ: ${TZ:-Asia/Shanghai}
+  # 执行后端由 config.json 的 execution_backend 决定（默认 host-audit）；容器内
+  # 没有 Sandboxie，切勿在配置里选 sandboxie。
 
 services:
   georsi-web:
@@ -18,6 +54,8 @@ services:
     restart: unless-stopped
     environment:
       - GEORSI_API_URL=http://georsi-api:8787
+      # 与 georsi-api 相同的令牌；代理在服务端附加，浏览器永远看不到它。
+      - GEORSI_API_TOKEN=${GEORSI_API_TOKEN:-}
     ports:
       - "3000:3000"
     depends_on:
@@ -29,11 +67,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # CLI 任务容器（rsi / exam / smoke）。需要私有真值做评测，因此挂载它；
+  # 这里不执行来自 API 的模型生成代码。
   georsi:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: georsi:latest
+    <<: [*georsi-build, *georsi-logging]
     container_name: georsi-lab
     # 默认命令: 可被外部覆盖
     # command: ["npx", "tsx", "src/run.ts", "rsi", "--gens", "4"]
@@ -42,25 +79,10 @@ services:
     tty: true
     restart: unless-stopped
     environment:
-      # --- 凭据 (优先从 .env / host env 注入) ---
-      - RSILAB_API_KEY=${RSILAB_API_KEY:-}
-      - RSILAB_LOCAL_API_KEY=${RSILAB_LOCAL_API_KEY:-}
-      - RSILAB_OR_KEY=${RSILAB_OR_KEY:-}
-      - RSILAB_EMOOO_API_KEY=${RSILAB_EMOOO_API_KEY:-}
-      - RSILAB_JUDGE_BASE=${RSILAB_JUDGE_BASE:-}
-      - RSILAB_JUDGE_KEY=${RSILAB_JUDGE_KEY:-}
-      - RSILAB_JUDGE_MODEL=${RSILAB_JUDGE_MODEL:-}
-      - GEORSI_RESEARCH_API_KEY=${GEORSI_RESEARCH_API_KEY:-}
-      - GEILIAPI_API_KEY=${GEILIAPI_API_KEY:-}
-      - HTTPS_PROXY=${HTTPS_PROXY:-}
-      - HTTP_PROXY=${HTTP_PROXY:-}
-      - NO_PROXY=${NO_PROXY:-}
-      # --- 运行时 ---
-      - NODE_ENV=production
-      - PYTHONUNBUFFERED=1
-      - TZ=${TZ:-Asia/Shanghai}
-      # 容器内强制 host-audit (Sandboxie 仅 Windows)
-      - EXECUTION_BACKEND=host-audit
+      <<: *georsi-env
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-}
     volumes:
       # 持久化产出 (journal / state / episode)
       - ./runs:/app/runs
@@ -78,13 +100,6 @@ services:
       # - ./api_key_local.txt:/app/api_key_local.txt:ro
       # - ./api_key_or.txt:/app/api_key_or.txt:ro
     # 无需暴露端口，纯 CLI 任务系统
-    # ports:
-    #   - "8080:8080"
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
     healthcheck:
       test: ["CMD", "npx", "tsx", "src/run.ts", "selftest"]
       interval: 120s
@@ -92,26 +107,39 @@ services:
       retries: 3
       start_period: 30s
 
-  # HTTP API 服务，供前端调用。与默认 CLI 任务容器分开运行。
+  # HTTP API 服务，供前端调用。它会执行模型生成的分析脚本，所以：
+  #   - 不挂载私有真值；
+  #   - 端口只发布到宿主机 loopback；
+  #   - 建议设置 GEORSI_API_TOKEN。
   georsi-api:
-    extends: georsi
+    <<: [*georsi-build, *georsi-logging]
     container_name: georsi-api
     restart: unless-stopped
     tty: false
     stdin_open: false
     command: ["npx", "tsx", "src/api/server.ts"]
     environment:
-      - GEORSI_API_PORT=8787
-      - GEORSI_API_DEFAULT_CONFIG=research-competition-luna
-      - HTTP_PROXY=${GEORSI_HTTP_PROXY:-}
-      - HTTPS_PROXY=${GEORSI_HTTPS_PROXY:-}
-      - GEORSI_WORKSPACE_ROUNDS=${GEORSI_WORKSPACE_ROUNDS:-3}
-      - GEORSI_WORKSPACE_MODEL_CALLS=${GEORSI_WORKSPACE_MODEL_CALLS:-60}
+      <<: *georsi-env
+      # 容器内必须监听所有接口才能被 compose 内网访问；对外暴露由 ports 控制。
+      GEORSI_API_HOST: 0.0.0.0
+      GEORSI_API_PORT: "8787"
+      GEORSI_API_TOKEN: ${GEORSI_API_TOKEN:-}
+      GEORSI_API_MAX_CONCURRENT: ${GEORSI_API_MAX_CONCURRENT:-2}
+      GEORSI_API_DEFAULT_CONFIG: research-competition-luna
+      HTTP_PROXY: ${GEORSI_HTTP_PROXY:-}
+      HTTPS_PROXY: ${GEORSI_HTTPS_PROXY:-}
+      GEORSI_WORKSPACE_ROUNDS: ${GEORSI_WORKSPACE_ROUNDS:-3}
+      GEORSI_WORKSPACE_MODEL_CALLS: ${GEORSI_WORKSPACE_MODEL_CALLS:-60}
     volumes:
+      - ./runs:/app/runs
+      - ./knowledge:/app/knowledge
+      - ./rag:/app/rag
+      - ./config:/app/config
+      - ./config.json:/app/config.json:ro
       - ./runs/.evidence:/tmp/GeoRSI/evidence
       - ./runs/.workspace:/tmp/GeoRSI/workspace
     ports:
-      - "8792:8787"
+      - "127.0.0.1:8792:8787"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8787/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 10s
@@ -122,13 +150,18 @@ services:
   # 可选工具容器: 一次性任务 (selftest / smoke / exam)
   # 用法: docker compose --profile tools run --rm georsi-tools selftest
   georsi-tools:
-    extends: georsi
+    <<: [*georsi-build, *georsi-logging]
     container_name: georsi-tools
     profiles: ["tools"]
     restart: "no"
     tty: false
     stdin_open: false
     command: ["npx", "tsx", "src/run.ts", "selftest"]
+    environment:
+      <<: *georsi-env
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-}
     volumes:
       - ./runs:/app/runs
       - ./knowledge:/app/knowledge

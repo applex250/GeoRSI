@@ -10,7 +10,7 @@ import { ContentAddressedEvidenceStore } from "./evidence-store.js";
 import { ResearchNodeExecutor, buildResearchNodeContext, type ResearchHarness } from "./research-node-executor.js";
 import { ResearchContextMemory } from "./context-memory.js";
 import type { ModelCallReceipt } from "./runtime-attestation.js";
-import { createSandboxiePythonResearchTool, attestComputeReplay, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
+import { createSandboxiePythonResearchTool, attestComputeReplay, validateSandboxieComputeReceipt, type ComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
 import { SEED_STRATEGY_BUNDLE } from "./strategy-bundle.js";
 import { ScientificToolRegistry } from "./tool-registry.js";
 
@@ -303,7 +303,7 @@ async function main(): Promise<void> {
 		check("capability-bound scientific tool produces registered CAS evidence", toolExecution.usage.toolCalls === 2 && toolExecutor.toolReceipts().length === 1 && toolExecution.artifactIds.every((id) => references.has(id)));
 		check("only capability-bound tools and capture tools are exposed", toolOpts?.customTools.map((item) => item.name).sort().join(",") === "record_research_artifact,research_compute,submit_research_node_output");
 
-		const computeReceipts: SandboxieComputeRunReceipt[] = [];
+		const computeReceipts: ComputeRunReceipt[] = [];
 		const sandboxPort: SandboxieResearchComputePort = {
 			run: async (request) => {
 				const generated = store.putJson({ result: 4 }, { kind: "table", logicalName: "boxed-result.json", producerNodeId: request.nodeId });

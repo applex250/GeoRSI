@@ -28,6 +28,7 @@ import { join } from "node:path";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import { RESEARCH_RESILIENCE_DEFAULTS, SUPPORTED_MODELS, assertSupportedModel, modelSpec, modelSpecForConfig, researchModelSpec, configuredModelIds, type Config, type ModelSpec, type ResearchModelConfig } from "./config.js";
+import { backoffWaitMs, isTransientStatus, retryAfterHintMs, sleep, type RetryPolicy } from "./research/model-resilience.js";
 
 /** Cloudflare-fronted gateways (geiliapi) reject non-browser user agents with
  * 403 error 1010; match the UA already proven by problems/_shared clients. */
@@ -36,6 +37,35 @@ import { getProfile } from "./models.js";
 import { TOKENS } from "./budget.js";
 
 export { TOKENS };
+
+interface ProbeResilience { probe_attempts: number; probe_backoff_ms: number; probe_backoff_cap_ms: number; probe_timeout_ms: number }
+
+/**
+ * Capability-probe request under the shared gateway resilience policy
+ * (model-resilience.ts) — the same transient-status set, capped exponential
+ * backoff and Retry-After merge the workspace client uses, instead of a private
+ * linear-backoff copy that had drifted from it.
+ */
+async function probeWithRetry(label: string, probeUrl: string, apiKey: string, probeBody: Record<string, unknown>, resilience: ProbeResilience): Promise<Response> {
+	const retry: RetryPolicy = { retries: Math.max(0, resilience.probe_attempts - 1), backoffMs: resilience.probe_backoff_ms, backoffCapMs: resilience.probe_backoff_cap_ms };
+	let lastProbeError: unknown;
+	let retryAfterMs = 0;
+	for (let attempt = 0; attempt <= retry.retries; attempt += 1) {
+		if (attempt > 0) { await sleep(backoffWaitMs(attempt, retry, retryAfterMs)); retryAfterMs = 0; }
+		try {
+			const response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": GATEWAY_BROWSER_UA }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(resilience.probe_timeout_ms) });
+			if (isTransientStatus(response.status) && attempt < retry.retries) {
+				retryAfterMs = retryAfterHintMs(response.headers.get("retry-after"));
+				await response.body?.cancel();
+				continue;
+			}
+			return response;
+		} catch (error) {
+			lastProbeError = error;
+		}
+	}
+	throw new Error(`${label} failed: ${lastProbeError instanceof Error ? lastProbeError.message : String(lastProbeError)}`);
+}
 
 /**
  * Boot-time diagnostics sink. Defaults to stderr; the TUI replaces it so
@@ -273,25 +303,9 @@ async function preflightResponsesResearch(policy: ResearchModelConfig, apiKey: s
 		tools: [{ type: "function", name: "georsi_capability_probe", description: "Record the capability probe answer.", parameters: { type: "object", properties: { answer: { type: "integer" } }, required: ["answer"], additionalProperties: false }, strict: true }],
 		tool_choice: { type: "function", name: "georsi_capability_probe" },
 	};
-	let response: Response | undefined;
 	// Probe resilience comes from the unified gateway routing layer (research_gateways.*.resilience).
 	const resilience = { ...RESEARCH_RESILIENCE_DEFAULTS, ...(policy.resilience ?? {}) };
-	let lastProbeError: unknown;
-	for (let attempt = 1; attempt <= resilience.probe_attempts; attempt += 1) {
-		try {
-			response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": GATEWAY_BROWSER_UA }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(resilience.probe_timeout_ms) });
-			if ((response.status === 429 || response.status >= 500) && attempt < resilience.probe_attempts) {
-				await new Promise((resolve) => setTimeout(resolve, Math.min(resilience.probe_backoff_cap_ms, resilience.probe_backoff_ms * attempt)));
-				continue;
-			}
-			break;
-		} catch (error) {
-			lastProbeError = error;
-			if (attempt >= resilience.probe_attempts) break;
-			await new Promise((resolve) => setTimeout(resolve, Math.min(resilience.probe_backoff_cap_ms, resilience.probe_backoff_ms * attempt)));
-		}
-	}
-	if (!response) throw new Error(`research Responses capability probe failed: ${lastProbeError instanceof Error ? lastProbeError.message : String(lastProbeError)}`);
+	const response = await probeWithRetry("research Responses capability probe", probeUrl, apiKey, probeBody, resilience);
 	let payload: Record<string, unknown>;
 	try {
 		const text = (await response.text()).slice(0, 128_000);
@@ -331,25 +345,9 @@ async function preflightCompletionsResearch(policy: ResearchModelConfig, apiKey:
 		tools: [{ type: "function", function: { name: "georsi_capability_probe", description: "Record the capability probe answer.", parameters: { type: "object", properties: { answer: { type: "integer" } }, required: ["answer"], additionalProperties: false }, strict: true } }],
 		tool_choice: { type: "function", function: { name: "georsi_capability_probe" } },
 	};
-	let response: Response | undefined;
 	// Probe resilience comes from the unified gateway routing layer (research_gateways.*.resilience).
 	const completionsResilience = { ...RESEARCH_RESILIENCE_DEFAULTS, ...(policy.resilience ?? {}) };
-	let lastProbeError: unknown;
-	for (let attempt = 1; attempt <= completionsResilience.probe_attempts; attempt += 1) {
-		try {
-			response = await fetch(probeUrl, { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "User-Agent": GATEWAY_BROWSER_UA }, body: JSON.stringify(probeBody), signal: AbortSignal.timeout(completionsResilience.probe_timeout_ms) });
-			if ((response.status === 429 || response.status >= 500) && attempt < completionsResilience.probe_attempts) {
-				await new Promise((resolve) => setTimeout(resolve, Math.min(completionsResilience.probe_backoff_cap_ms, completionsResilience.probe_backoff_ms * attempt)));
-				continue;
-			}
-			break;
-		} catch (error) {
-			lastProbeError = error;
-			if (attempt >= completionsResilience.probe_attempts) break;
-			await new Promise((resolve) => setTimeout(resolve, Math.min(completionsResilience.probe_backoff_cap_ms, completionsResilience.probe_backoff_ms * attempt)));
-		}
-	}
-	if (!response) throw new Error(`research OpenAI Completions capability probe failed: ${lastProbeError instanceof Error ? lastProbeError.message : String(lastProbeError)}`);
+	const response = await probeWithRetry("research OpenAI Completions capability probe", probeUrl, apiKey, probeBody, completionsResilience);
 	let payload: Record<string, unknown>;
 	try {
 		const text = (await response.text()).slice(0, 128_000);

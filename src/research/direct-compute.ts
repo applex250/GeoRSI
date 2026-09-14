@@ -11,7 +11,7 @@ import { sanitizeExecutionEnvironment } from "../process-env.js";
 import { assertExchangeWorkspace, readWorkspaceFileStrict } from "../workspace-tools.js";
 import type { SandboxieCleanupResult } from "../sandboxie-cleanup.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
-import { scanFigureFiles, validateHostComputeReceipt, type SandboxieComputeRequest, type SandboxieComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
+import { scanFigureFiles, validateHostComputeReceipt, type SandboxieComputeRequest, type ComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
 
 const MAX_CAPTURE_BYTES = 2_000_000;
 
@@ -46,7 +46,7 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 		for (const { id, request } of entries) this.requests.set(id, { ...request, signal: undefined });
 	}
 
-	async run(request: SandboxieComputeRequest): Promise<SandboxieComputeRunReceipt> {
+	async run(request: SandboxieComputeRequest): Promise<ComputeRunReceipt> {
 		if (request.signal?.aborted) throw new Error(`host-audit compute ${request.nodeId} aborted before launch`);
 		const id = `${request.nodeId}-${++this.counter}-${randomId()}`;
 		this.requests.set(id, { ...request });
@@ -134,7 +134,7 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 				resultText = readWorkspaceFileStrict(cwd, join(cwd, safeResultFile(request.resultFile)), 50_000_000).toString("utf8");
 			} catch (error) { runError = error; }
 		}
-		const receipt: SandboxieComputeRunReceipt = {
+		const receipt: ComputeRunReceipt = {
 			version: 1,
 			id,
 			backend: "host-audit",
@@ -159,7 +159,7 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 		return receipt;
 	}
 
-	async replay(receipts: readonly SandboxieComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation> {
+	async replay(receipts: readonly ComputeRunReceipt[], signal?: AbortSignal): Promise<ComputeReplayAttestation> {
 		if (receipts.length === 0 || receipts.some((receipt) => validateHostComputeReceipt(receipt, receipt.networkMode).length > 0)) {
 			return { passed: false, backend: "host-audit", processOwnershipVerified: false, detail: "recorded receipts failed host validation" };
 		}

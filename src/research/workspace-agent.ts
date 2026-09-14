@@ -7,12 +7,13 @@ import { join, basename, resolve, extname } from "node:path";
 import { tmpdir } from "node:os";
 import { lookup } from "node:dns/promises";
 import { BlockList } from "node:net";
-import { fetch, ProxyAgent } from "undici";
+import { Agent, fetch, ProxyAgent } from "undici";
 import { ROOT, loadConfig } from "../config.js";
 import { atomicWriteJson, writeTextAtomic } from "../journal.js";
 import { scanPythonExecutionPolicy, scanTextForBreaches } from "../guard.js";
 import { sanitizeExecutionEnvironment } from "../process-env.js";
 import { getUpload, uploadPath } from "../api/uploads.js";
+import { retryAfterHintMs, sleep } from "./model-resilience.js";
 import { ResearchScheduler } from "./scheduler.js";
 import { createWorkNode, createWorkGraph, validateWorkGraph } from "./work-graph.js";
 import { WORK_NODE_KINDS } from "./graph-spec.js";
@@ -25,6 +26,9 @@ import type { EvidenceRef, ResearchWorkGraph, WorkNode, WorkNodeKind } from "./c
 export interface WorkspaceInput { question: string; uploadIds: string[] }
 export interface Direction { id: string; text: string; createdAt: string }
 export interface WorkspaceState { phase: string; iteration: number; iterations: Array<{ round: number; summary: string; completed: boolean; complete?: boolean; next?: string }>; appliedDirectionIds: string[]; modelCalls: number; totalTokens: number; error?: string; review?: string;
+	/** Model replies that ended with status `incomplete` (max_output_tokens hit): the
+	 * text was used, but it is cut off — the UI must say so. */
+	truncatedCalls?: number;
 	/** Resume support: everything needed to continue a failed run without redoing
 	 * completed work — node outputs, carried tool findings, circuit-breaker memory. */
 	outputs?: Record<string, string>; toolFindings?: string[]; kindFailures?: Record<string, { count: number; reason: string }>; }
@@ -79,12 +83,28 @@ export function plannedGraph(raw: unknown, runId: string, round: number): Resear
 const blocked = new BlockList();
 for (const [address, prefix] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.168.0.0", 16], ["100.64.0.0", 10], ["224.0.0.0", 4]] as const) blocked.addSubnet(address, prefix);
 blocked.addAddress("::1", "ipv6"); blocked.addSubnet("fc00::", 7, "ipv6"); blocked.addSubnet("fe80::", 10, "ipv6");
-export async function publicUrl(raw: string): Promise<URL> {
+export interface ResolvedPublicUrl { url: URL; addresses: Array<{ address: string; family: number }> }
+/** Validate a research source URL and resolve it ONCE; the caller must connect to
+ * exactly these addresses (see pinnedDispatcher) — a second resolution at fetch
+ * time is the DNS-rebinding window. */
+export async function resolvePublicUrl(raw: string): Promise<ResolvedPublicUrl> {
   const url = new URL(raw);
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || /(^localhost$|\.(local|internal)$)/i.test(url.hostname)) throw new Error("Only public HTTP research sources are allowed");
   const addresses = await lookup(url.hostname.replace(/^\[|\]$/g, ""), { all: true });
   if (!addresses.length || addresses.some((a) => blocked.check(a.address, a.family === 6 ? "ipv6" : "ipv4"))) throw new Error("Private network sources are not allowed");
-  return url;
+  return { url, addresses: addresses.map((a) => ({ address: a.address, family: a.family })) };
+}
+export async function publicUrl(raw: string): Promise<URL> {
+  return (await resolvePublicUrl(raw)).url;
+}
+/** Dispatcher whose socket connects only to the already-checked addresses. TLS
+ * still verifies the certificate against the URL hostname (SNI is unchanged). */
+function pinnedDispatcher(addresses: ResolvedPublicUrl["addresses"]): Agent {
+  const lookupPinned = ((_hostname: string, options: { all?: boolean }, callback: (...args: unknown[]) => void): void => {
+    if (options.all) callback(null, addresses);
+    else callback(null, addresses[0]!.address, addresses[0]!.family);
+  }) as unknown as NonNullable<import("node:net").TcpNetConnectOpts["lookup"]>;
+  return new Agent({ connect: { lookup: lookupPinned } });
 }
 
 export async function runWorkspaceAgent(runDir: string, configPath: string, injectedModel?: ResearchModelCall, resume = false): Promise<void> {
@@ -134,6 +154,11 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
     const effectiveSignal = signal ? AbortSignal.any([signal, stopController.signal]) : stopController.signal;
     const reply = await callModel(messages, tools, effectiveSignal);
     state.totalTokens += (reply.usage?.input_tokens ?? 0) + (reply.usage?.output_tokens ?? 0);
+    // `incomplete` = the provider hit max_output_tokens. Retrying reproduces the
+    // same truncation at the same cost, so the call proceeds — but the truncation
+    // is recorded durably (state + ledger) and surfaced in the UI instead of
+    // passing as a clean success.
+    if (reply.status === "incomplete") { state.truncatedCalls = (state.truncatedCalls ?? 0) + 1; event("model-output-truncated", { call: state.modelCalls, usage: reply.usage }); }
     event("model-call-completed", { model: cfg.research_model!.model, thinking: cfg.research_model!.thinking_level, status: reply.status ?? "ok", usage: reply.usage }); saveState(); return reply;
   };
   const files: Record<string, string> = {};
@@ -151,42 +176,51 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
   const toolFindings: string[] = [];
   const kindFailures = new Map<string, { count: number; reason: string }>();
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
-  const dispatcher = proxy ? new ProxyAgent(proxy) : undefined;
+  // Behind an egress proxy the proxy resolves names itself; the BlockList check still
+  // runs on our resolution but cannot be pinned through the tunnel.
+  const proxyDispatcher = proxy ? new ProxyAgent(proxy) : undefined;
   const fetchSource = async (raw: string, nodeId: string, signal: AbortSignal): Promise<string> => {
-    let url = await publicUrl(raw);
+    let source = await resolvePublicUrl(raw);
     // URL-level reuse: identical queries/pages across nodes and rounds return the
     // stored evidence instead of hammering the source again.
-    const cached = fetchedCache.get(url.href);
+    const cached = fetchedCache.get(source.url.href);
     if (cached !== undefined) return cached;
     // Scholarly APIs (notably Crossref) rate-limit bursts; retry transient statuses
     // with backoff instead of spending a fresh tool call on an instant 429.
     const retryAfterMs = (status: number, headers: Headers): number | null => {
       if (![429, 502, 503, 504].includes(status)) return null;
-      const header = Number(headers.get("retry-after"));
-      return Number.isFinite(header) && header > 0 && header <= 20 ? header * 1000 : 2000;
+      return retryAfterHintMs(headers.get("retry-after"), 20) || 2000;
     };
     for (let attempt = 0; attempt < 4; attempt++) {
-      const response = await fetch(url, { dispatcher, redirect: "manual", signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]), headers: { "User-Agent": "GeoRSI/1.0 scientific research" } });
-      if (response.status >= 300 && response.status < 400 && response.headers.get("location")) { await response.body?.cancel(); url = await publicUrl(new URL(response.headers.get("location")!, url).href); continue; }
-      if (!response.ok) {
-        const wait = retryAfterMs(response.status, response.headers);
-        await response.body?.cancel();
-        if (wait !== null && attempt < 3) { event("source-backoff", { status: response.status, waitMs: wait }); await new Promise((resolve) => setTimeout(resolve, wait)); continue; }
-        throw new Error(`Source HTTP ${response.status}`);
+      const url = source.url;
+      const pinned = proxyDispatcher ? undefined : pinnedDispatcher(source.addresses);
+      let response: Awaited<ReturnType<typeof fetch>>;
+      try {
+        response = await fetch(url, { dispatcher: proxyDispatcher ?? pinned, redirect: "manual", signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]), headers: { "User-Agent": "GeoRSI/1.0 scientific research" } });
+        if (response.status >= 300 && response.status < 400 && response.headers.get("location")) { await response.body?.cancel(); source = await resolvePublicUrl(new URL(response.headers.get("location")!, url).href); continue; }
+        if (!response.ok) {
+          const wait = retryAfterMs(response.status, response.headers);
+          await response.body?.cancel();
+          if (wait !== null && attempt < 3) { event("source-backoff", { status: response.status, waitMs: wait }); await sleep(wait, signal); continue; }
+          throw new Error(`Source HTTP ${response.status}`);
+        }
+        const chunks: Buffer[] = []; let size = 0;
+        for await (const chunk of response.body ?? []) { size += chunk.length; if (size > 8_000_000) throw new Error("Source exceeds 8 MB; narrow the request"); chunks.push(Buffer.from(chunk)); }
+        const body = Buffer.concat(chunks);
+        const ref = remember(body, "source-" + evidence.length, nodeId, "source", url.href);
+        const extension = extname(url.pathname).toLowerCase();
+        const fileKey = `download-${evidence.length}${[".csv", ".json", ".geojson", ".tif", ".tiff", ".pdf"].includes(extension) ? extension : ".txt"}`;
+        const destination = join(exchange, "files", fileKey);
+        writeFileSync(destination, body); files[fileKey] = destination;
+        const text = body.toString("utf8").replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s{3,}/g, " ");
+        const result = JSON.stringify({ evidenceId: ref.id, url: url.href, fileKey, content: [".pdf", ".tif", ".tiff"].includes(extension) ? "Binary source saved. Inspect with python_analysis using INPUT_FILES[fileKey]." : text.slice(0, 28000), truncated: text.length > 28000 });
+        fetchedCache.set(url.href, result);
+        atomicWriteJson(fetchedCachePath, Object.fromEntries(fetchedCache));
+        return result;
+      } finally {
+        // One pinned agent per hop; closing it releases the socket pool.
+        if (pinned) await pinned.close().catch(() => undefined);
       }
-      const chunks: Buffer[] = []; let size = 0;
-      for await (const chunk of response.body ?? []) { size += chunk.length; if (size > 8_000_000) throw new Error("Source exceeds 8 MB; narrow the request"); chunks.push(Buffer.from(chunk)); }
-      const body = Buffer.concat(chunks);
-      const ref = remember(body, "source-" + evidence.length, nodeId, "source", url.href);
-      const extension = extname(url.pathname).toLowerCase();
-      const fileKey = `download-${evidence.length}${[".csv", ".json", ".geojson", ".tif", ".tiff", ".pdf"].includes(extension) ? extension : ".txt"}`;
-      const destination = join(exchange, "files", fileKey);
-      writeFileSync(destination, body); files[fileKey] = destination;
-      const text = body.toString("utf8").replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s{3,}/g, " ");
-      const result = JSON.stringify({ evidenceId: ref.id, url: url.href, fileKey, content: [".pdf", ".tif", ".tiff"].includes(extension) ? "Binary source saved. Inspect with python_analysis using INPUT_FILES[fileKey]." : text.slice(0, 28000), truncated: text.length > 28000 });
-      fetchedCache.set(url.href, result);
-      atomicWriteJson(fetchedCachePath, Object.fromEntries(fetchedCache));
-      return result;
     }
     throw new Error("Too many source redirects");
   };
@@ -376,5 +410,5 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
   } catch (error) {
     state.phase = stopped() ? "cancelled" : "failed"; state.error = String(sanitizeResearchEvidence(error instanceof Error ? error.message : String(error)));
     saveState(); event("workspace-failed", { error: state.error }); throw error;
-  } finally { clearInterval(stopWatcher); ledger.close(); await dispatcher?.close(); }
+  } finally { clearInterval(stopWatcher); ledger.close(); await proxyDispatcher?.close(); }
 }

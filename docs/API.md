@@ -2,9 +2,9 @@
 
 GeoRSI 提供一个面向前端的本地 HTTP API。API 以 `research-runs` 为核心资源，负责创建研究运行、读取运行状态和产物，并通过 SSE 推送运行事件。
 
-当前实现位于 [`src/api/server.ts`](../src/api/server.ts)。服务默认监听 `0.0.0.0:8787`。
+当前实现位于 [`src/api/server.ts`](../src/api/server.ts)。服务默认只监听 `127.0.0.1:8787`（`GEORSI_API_HOST` 可改；Docker 内固定 `0.0.0.0`，端口只发布到宿主机 loopback），可选共享令牌 `GEORSI_API_TOKEN`，见下方“启动与鉴权”。
 
-本文按 2026-09-13 合并后的代码核对。前端第一阶段建议使用 `research-demo` 完成全流程联调，再接 `research-live`。`rsi` 和 `evolve` 虽可启动，但不具备相同的研究详情数据，不能直接复用完整研究面板。
+本文按 2026-09-14 加固后的代码核对。前端第一阶段建议使用 `research-demo` 完成全流程联调，再接 `research-live`。`evolve` 虽可启动，但不具备相同的研究详情数据，不能直接复用完整研究面板。经典进化环 `rsi` 已冻结，**不再**能通过 API 创建（仍可用 CLI `npm run rsi`）。
 
 ## 接口总表
 
@@ -25,7 +25,7 @@ GeoRSI 提供一个面向前端的本地 HTTP API。API 以 `research-runs` 为�
 | GET | `/research-runs/:runId/mission` | 200 | `{ mission, source, updatedAt }` |
 | GET | `/research-runs/:runId/events` | 200 | SSE 事件流，非 JSON 响应 |
 | GET | `/research-runs/:runId/logs` | 200 | 按字节偏移读取日志 |
-| POST | `/research-runs/:runId/actions` | 202 | 暂停、恢复、停止命令 |
+| POST | `/research-runs/:runId/actions` | 202 | 停止命令 |
 | POST | `/research-runs/:runId/feedback` | 201 | 保存文本反馈 |
 | GET | `/research-runs/:runId/evidence` | 200 | 证据索引，`{ items }` |
 | GET | `/research-runs/:runId/evidence/:evidenceId/content` | 200 | 证据原始内容 |
@@ -38,15 +38,24 @@ GeoRSI 提供一个面向前端的本地 HTTP API。API 以 `research-runs` 为�
 
 上表为原有的 23 个方法/路径组合。工作台另新增文件上传、自然语言启动、原始需求读取和补充方向读取四个接口，详见 [第二阶段接入说明](FRONTEND-STAGE-2.md)。普通输入通过 `POST /api/v1/research-requests` 启动真实 `research-agent` 任务。没有登录、删除运行、修改模型配置或 benchmark 聚合接口。
 
-## 启动
+## 启动与鉴权
 
 ```powershell
 npm run api
 ```
 
-默认地址：`http://localhost:8787`
+默认地址：`http://127.0.0.1:8787`。API 没有用户账户，**可达性即授权**，因此默认只绑 loopback。
 
-Docker 单独启动 API：`docker compose up -d --build georsi-api`，宿主机访问 `http://localhost:8792`（映射至容器 `8787`）。前端使用同源 `/api/research` 路由代理；Docker 中由服务端 `GEORSI_API_URL=http://georsi-api:8787` 指向 API，浏览器不需要配置后端地址。
+| 环境变量 | 作用 |
+| --- | --- |
+| `GEORSI_API_HOST` | 监听地址，默认 `127.0.0.1`；非 loopback 且未设令牌时启动会打印警告 |
+| `GEORSI_API_PORT` | 端口，默认 `8787` |
+| `GEORSI_API_TOKEN` | 共享令牌。设置后除 `/healthz`、`/readyz` 和服务索引 `/` 外，所有请求须带 `Authorization: Bearer <token>` 或 `X-GeoRSI-Token: <token>`，否则 `401 UNAUTHORIZED`（SSE 也一样）。比较为定长时序安全 |
+| `GEORSI_API_ALLOWED_ORIGIN` | 允许跨域的浏览器来源。**不设则不发任何 CORS 头**（前端走同源代理不需要）；设了才返回 `Access-Control-Allow-Origin: <origin>` |
+| `GEORSI_API_MAX_CONCURRENT` | 同时运行的子进程上限，默认 2；超过时创建/启动返回 `429 RUN_CAPACITY` |
+| `GEORSI_API_DEFAULT_CONFIG` | 默认配置名，Docker 中为 `research-competition-luna` |
+
+Docker 单独启动 API：`docker compose up -d --build georsi-api`，宿主机访问 `http://127.0.0.1:8792`（只发布到 loopback，映射至容器 `8787`）。前端使用同源 `/api/research` 路由代理；Docker 中由服务端 `GEORSI_API_URL=http://georsi-api:8787` 指向 API，代理在服务端附加 `GEORSI_API_TOKEN`（`web` 与 `georsi-api` 两个服务读取同一个 `.env` 变量），浏览器既不需要配置后端地址也不会看到令牌。`georsi-api` 容器**不挂载** `../rsi-lab-private`：它执行模型生成的分析脚本（host-audit，无沙箱），私有真值只进 CLI/工具容器。
 
 Docker API 的默认配置由 `GEORSI_API_DEFAULT_CONFIG` 指定，当前为
 `research-competition-luna`（ALSL、`gpt-5.6-luna`、`high`）。创建任务时显式传入
@@ -54,16 +63,9 @@ Docker API 的默认配置由 `GEORSI_API_DEFAULT_CONFIG` 指定，当前为
 `GEORSI_RESEARCH_API_KEY` 注入，不提交到 Git。
 如宿主机代理监听 7897，容器可通过 `.env` 设置
 `GEORSI_HTTP_PROXY=http://host.docker.internal:7897` 和同值的
-`GEORSI_HTTPS_PROXY`；不使用代理时留空。
+`GEORSI_HTTPS_PROXY`；不使用代理时留空。这两个变量在传给模型生成的 Python 脚本前会被脱敏删除。
 
-离线接口自检：`npm run api:selftest`。自检启动随机本地端口并执行确定性 demo，不调用付费模型；测试记录保留在 Git 忽略的 `runs/` 中。
-
-也可以通过环境变量修改端口：
-
-```powershell
-$env:GEORSI_API_PORT = "8788"
-npm run api
-```
+离线接口自检：`npm run api:selftest`。自检启动随机本地端口并执行确定性 demo，不调用付费模型；覆盖令牌鉴权、CORS 可选、`rsi`/`pause` 拒绝、SSE 重连、CAS 篡改拒绝（409）；测试记录保留在 Git 忽略的 `runs/` 中。
 
 ## 通用约定
 
@@ -71,7 +73,7 @@ npm run api
 - 请求体格式：`application/json`
 - JSON 请求体当前按 JavaScript 字符串长度限制为 2,000,000；大请求返回 `400`，不是 `413`
 - 响应默认带 `Cache-Control: no-store`
-- 当前开发版允许跨域：`Access-Control-Allow-Origin: *`
+- 跨域为可选项：只有设置 `GEORSI_API_ALLOWED_ORIGIN` 时才返回 CORS 头（见上表）
 - 所有路径的 `OPTIONS` 返回 `204`；不支持的方法通常返回 `404`，没有统一 `405`
 - 返回链接是相对路径，前端需拼接 **API origin**，不能直接按前端页面 origin 解析
 - `Idempotency-Key` 虽在 CORS 允许头中，但没有去重实现；创建按钮应防重复提交，不要自动重试 POST
@@ -203,11 +205,10 @@ npm run api
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `name` | string | 运行名称，最长 160 个字符；不传时使用 `Untitled research` |
-| `mode` | string | `research-live`（默认）、`research-demo`、`rsi` 或 `evolve` |
+| `mode` | string | `research-live`（默认）、`research-demo` 或 `evolve`；`rsi` 已冻结，传入返回 `400` |
 | `mission` | object | `research-live` 必填，会按研究任务契约校验 |
 | `config` | string | 配置名，例如 `research-competition-luna`；`default` 指根目录配置，其余引用 `config/<name>.json`，不能传路径 |
-| `gens` | integer | `rsi` 可选，范围 `1..100` |
-| `autoStart` | boolean | 是否创建后立即启动，默认 `true` |
+| `autoStart` | boolean | 是否创建后立即启动，默认 `true`；为 `true` 且活动子进程已达上限时返回 `429 RUN_CAPACITY` |
 
 `research-demo` 示例：
 
@@ -240,6 +241,7 @@ npm run api
 
 - `400 INVALID_REQUEST`：JSON、模式、配置或参数不合法
 - `422 INVALID_MISSION`：`research-live` 的任务契约校验失败
+- `429 RUN_CAPACITY`：活动子进程已达 `GEORSI_API_MAX_CONCURRENT`（默认 2）；可用 `autoStart: false` 先创建再稍后 `/start`
 
 ### `POST /api/v1/research-runs/:runId/start`
 
@@ -252,8 +254,8 @@ npm run api
 ```
 
 - 不传或 `resume: false`：只允许 `queued` 状态。
-- `resume: true`：仅用于 `research-live` 和 `rsi`，允许 `queued`、`failed`、`cancelled`、`paused`，以及 API 内没有活动子进程的 `running`；有持久化状态时 `research-live` 使用原运行目录恢复工作流、`rsi` 使用原运行状态恢复；没有恢复文件时会从头启动。`research-demo` 和 `evolve` 不支持恢复，返回 `400 INVALID_START`。
-- 已有活动子进程时返回 `409 RUN_ALREADY_ACTIVE`；已完成运行不能再次启动。
+- `resume: true`：用于 `research-live` 和 `research-agent`，允许 `queued`、`failed`、`cancelled`、`paused`，以及 API 内没有活动子进程的 `running`；有持久化状态时 `research-live` 使用原运行目录恢复工作流、`research-agent` 需要 `plan.json` + `workspace-state.json` 检查点；没有恢复文件时 `research-live` 从头启动。`research-demo` 和 `evolve` 不支持恢复，返回 `400 INVALID_START`。
+- 已有活动子进程时返回 `409 RUN_ALREADY_ACTIVE`；已完成运行不能再次启动；活动子进程已达上限时返回 `429 RUN_CAPACITY`。
 
 成功返回 `202`，包含 `runId`、`status`、`resume` 和 `self/events` 链接。
 
@@ -336,9 +338,9 @@ data: {"id":"24","seq":24,"timestamp":"2026-09-11T04:00:00.000Z","type":"node-co
 
 | 动作 | 支持模式 | 说明 |
 | --- | --- | --- |
-| `stop` | `rsi`、`research-live` | 写入控制文件，运行在安全检查点停止 |
-| `pause` | `rsi` | 在下一个安全点暂停 |
-| `resume` | `rsi` | 恢复暂停的 RSI 运行 |
+| `stop` | `research-live`、`research-agent` | 写入控制文件；`research-agent` 约 1 秒内中止在途模型/抓取/Python 调用，`research-live` 在安全检查点停止 |
+
+`pause`/`resume` 只属于已冻结的 `rsi` 模式，现在返回 `400 INVALID_ACTION`。
 
 命令被接收时返回 `202`：
 
@@ -384,7 +386,7 @@ data: {"id":"24","seq":24,"timestamp":"2026-09-11T04:00:00.000Z","type":"node-co
 
 ### `GET /api/v1/research-runs/:runId/evidence/:evidenceId/content`
 
-下载单条已登记证据的内容。`evidenceId` 必须是证据索引中的完整 CAS id，例如 `sha256:<64 位十六进制哈希>`；接口不会接受任意文件路径或未登记的哈希。
+下载单条已登记证据的内容。`evidenceId` 必须是证据索引中的完整 CAS id，例如 `sha256:<64 位十六进制哈希>`；接口不会接受任意文件路径或未登记的哈希。服务端在发送前**重新计算内容的 sha256** 并与 id 比对：不一致（temp 目录里的 CAS 文件被篡改或损坏）返回 `409 EVIDENCE_INTEGRITY`，文件缺失返回 `404 EVIDENCE_CONTENT_NOT_FOUND`。
 
 ### `GET /api/v1/research-runs/:runId/claims`
 
@@ -431,13 +433,12 @@ data: {"id":"24","seq":24,"timestamp":"2026-09-11T04:00:00.000Z","type":"node-co
 
 ## 当前限制
 
-- 当前 API 面向本地开发，尚未加入认证、授权和公网部署所需的限流策略。
-- 服务重启后可以读取 `api-run.json` 和历史产物，但不会自动接管已经存在的外部子进程；可通过 `POST .../:runId/start` 搭配 `resume: true` 显式恢复。
-- `research-live` 当前支持停止及 `/start { resume: true }` 的持久化恢复，不支持 `/actions` 的暂停或恢复。
-- `pause` 返回后状态为 `pausing`；目前缺少安全点暂停确认事件，不能把它显示成“已确认暂停”。`stop` 在子进程退出后记为 `cancelled`，不强杀当前操作。
-- API 重启不会核查旧 PID，状态可能保留 `running`。恢复前需确保旧进程已退出，避免同时写同一目录。
-- `evolve` 使用 CLI 的默认 mission 和候选设置，当前 API 的 `mission/gens` 不控制该模式；campaign 产物分散在其它运行目录，当前 API 不聚合这些产物。
-- `rsi` 的日志和控制可用，但它没有研究 WorkGraph/score，研究节点进度可能一直为 0；不要据此判断任务卡住。
+- 鉴权只有共享令牌一种形式，没有用户/角色；没有限流（只有并发子进程上限）。公网部署仍需前置反向代理。
+- 服务重启后可以读取 `api-run.json` 和历史产物，启动时会扫描孤儿运行（PID 探测 + 工作台阶段）；可通过 `POST .../:runId/start` 搭配 `resume: true` 显式恢复。
+- `research-live` 当前支持停止及 `/start { resume: true }` 的持久化恢复，不支持暂停。`stop` 在子进程退出后记为 `cancelled`。
+- PID 探测在系统重启后可能撞上被复用的 PID，使 `/start` 返回 `409 RUN_ALREADY_ACTIVE`；这是保守方向的误判，确认旧进程不在后可删除记录里的 `pid` 字段重试。
+- `evolve` 使用 CLI 的默认 mission 和候选设置，当前 API 的 `mission` 不控制该模式；campaign 产物分散在其它运行目录，当前 API 不聚合这些产物。
+- `research-agent`（工作台）运行在 host-audit 下直接执行模型生成的 Python，没有沙箱；模型输出触及长度上限时会以 `workspace.truncatedCalls` 计数并在账本记 `model-output-truncated`，前端报告页显示警示。
 - 证据内容依赖运行对应的本地 CAS 文件仍然存在；CAS 被清理后只能继续查看证据索引。
 
 ## 前端字段和接入示例

@@ -25,7 +25,15 @@ export class ContentAddressedEvidenceStore {
 		const directory = join(this.root, sha256.slice(0, 2));
 		mkdirSync(directory, { recursive: true });
 		const dataPath = join(directory, sha256);
-		if (!existsSync(dataPath)) writeFileSync(dataPath, content, { flag: "wx", mode: 0o600 });
+		if (!existsSync(dataPath)) {
+			try { writeFileSync(dataPath, content, { flag: "wx", mode: 0o600 }); }
+			catch (error) {
+				// Another writer (a concurrent node/process) stored the same bytes between
+				// the existence check and the exclusive create; content-addressing makes the
+				// collision benign, so it must not fail the node.
+				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			}
+		}
 		return {
 			id: `sha256:${sha256}`,
 			kind: options.kind,
@@ -70,12 +78,17 @@ export class ContentAddressedEvidenceStore {
 	listContents(): EvidenceRef[] {
 		const refs: EvidenceRef[] = [];
 		if (!existsSync(this.root)) return refs;
-		for (const prefix of readdirSync(this.root)) {
-			const directory = join(this.root, prefix);
-			for (const name of readdirSync(directory)) {
-				const path = join(directory, name);
+		for (const prefix of readdirSync(this.root, { withFileTypes: true })) {
+			if (!prefix.isDirectory()) continue;
+			const directory = join(this.root, prefix.name);
+			for (const entry of readdirSync(directory, { withFileTypes: true })) {
+				// Only regular files are CAS objects; a stray directory or link (the temp
+				// store is shared with host-audit compute) must not abort a resume.
+				if (!entry.isFile() || !/^[a-f0-9]{64}$/.test(entry.name)) continue;
+				const path = join(directory, entry.name);
 				const content = readFileSync(path);
 				const sha256 = createHash("sha256").update(content).digest("hex");
+				if (sha256 !== entry.name) continue;
 				refs.push({ id: `sha256:${sha256}`, kind: "tool-output", sha256, logicalName: `${sha256.slice(0, 12)}.bin`, producerNodeId: "resumed", mediaType: "application/octet-stream", bytes: content.byteLength });
 			}
 		}

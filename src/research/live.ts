@@ -2,6 +2,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { Type } from "typebox";
 import { ROOT, researchModelConfigFingerprint, validateResearchModelConfig, type Config } from "../config.js";
@@ -25,7 +26,7 @@ import { ResearchNodeExecutor, type ResearchNodeSubmission } from "./research-no
 import { ScientificToolRegistry } from "./tool-registry.js";
 import { createContextRecallTool, ResearchContextMemory } from "./context-memory.js";
 import { createWebFetchTool } from "./network-tools.js";
-import { attestComputeReplay, createSandboxiePythonResearchTool, SandboxieNetworkFetchPort, SandboxiePythonComputePort, sandboxieCleanupComplete, validateComputeReceipt, validateSandboxieComputeReceipt, type SandboxieComputeRunReceipt } from "./sandboxie-compute.js";
+import { attestComputeReplay, createSandboxiePythonResearchTool, SandboxieNetworkFetchPort, SandboxiePythonComputePort, sandboxieCleanupComplete, validateComputeReceipt, validateSandboxieComputeReceipt, type ComputeRunReceipt } from "./sandboxie-compute.js";
 import { DirectHostComputePort } from "./direct-compute.js";
 import { SEED_STRATEGY_BUNDLE, strategyBundleFingerprint, validateStrategyBundle, type StrategyBundle } from "./strategy-bundle.js";
 import type { ResearchEnvironment } from "./environment-capture.js";
@@ -206,14 +207,16 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	const exchangeRoot = resolveExchangeWorkspace(join(runDir, "exchange", randomUUID()), options.cfg.sandboxie_exchange_root);
 	assertExchangeWorkspace(exchangeRoot, repoRoot, privateRoot);
 	mkdirSync(runDir, { recursive: true });
-	const evidenceRoot = join(resolve(process.env.TEMP ?? process.env.TMP ?? "/tmp"), "GeoRSI", "evidence", basename(runDir));
+	// os.tmpdir() is what demo.ts, workspace-agent.ts and the API resolve; TEMP/TMP
+	// alone diverged from it on POSIX hosts that only set TMPDIR.
+	const evidenceRoot = join(tmpdir(), "GeoRSI", "evidence", basename(runDir));
 	const evidenceStore = new ContentAddressedEvidenceStore(evidenceRoot);
 	const evidenceById = new Map<string, EvidenceRef>();
 	const ledgerPath = join(runDir, "events.jsonl");
 	const ledger = new ResearchEventLedger(ledgerPath, now, [repoRoot, privateRoot]);
 	const toolReceipts: string[] = [];
 	const modelReceipts: string[] = [];
-	const computeReceipts: SandboxieComputeRunReceipt[] = [];
+	const computeReceipts: ComputeRunReceipt[] = [];
 	const guardViolations: string[] = [];
 	let exchangeCleaned = false;
 	try {
@@ -284,15 +287,22 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	// WorkGraph resume: restore persisted executor state (submissions, family verifications,
 	// successful model receipts, tool receipts) and the evidence-by-id map from the checkpoint.
 	if (options.resumeDir) {
+		// A checkpoint that fails to parse must name itself instead of surfacing as a
+		// bare SyntaxError — and must not be silently skipped: dropping receipts would
+		// make the replay attestation quietly incomplete.
+		const readCheckpoint = <T>(path: string): T => {
+			try { return JSON.parse(readFileSync(path, "utf8")) as T; }
+			catch (error) { throw new Error(`resume checkpoint unreadable: ${path} (${error instanceof Error ? error.message : String(error)}); repair or remove it to resume from the CAS store alone`); }
+		};
 		const computePath = join(runDir, "compute_receipts.json");
 		if (existsSync(computePath)) {
-			for (const receipt of JSON.parse(readFileSync(computePath, "utf8")) as SandboxieComputeRunReceipt[]) computeReceipts.push(receipt);
+			for (const receipt of readCheckpoint<ComputeRunReceipt[]>(computePath)) computeReceipts.push(receipt);
 		}
 		// Replay after resume (#83): re-register the recorded compute requests so the
 		// deterministic replay can re-run scripts from EARLIER process sessions too.
 		const requestsPath = join(runDir, "compute_requests.json");
 		if (existsSync(requestsPath) && isolation === "host-audit") {
-			const entries = JSON.parse(readFileSync(requestsPath, "utf8")) as { id: string; request: import("./sandboxie-compute.js").SandboxieComputeRequest }[];
+			const entries = readCheckpoint<{ id: string; request: import("./sandboxie-compute.js").SandboxieComputeRequest }[]>(requestsPath);
 			if (computePort instanceof DirectHostComputePort) computePort.primeRequests(entries);
 			log(`[research] resume: ${entries.length} compute requests re-registered for replay`);
 		}
@@ -301,7 +311,7 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 		for (const reference of evidenceStore.listContents()) evidenceById.set(reference.id, reference);
 		const statePath = join(runDir, "executor_state.json");
 		if (existsSync(statePath)) {
-			const state = JSON.parse(readFileSync(statePath, "utf8")) as { version: number; missionId: string; executor: import("./research-node-executor.js").ResearchExecutorSnapshot; evidence: EvidenceRef[] };
+			const state = readCheckpoint<{ version: number; missionId: string; executor: import("./research-node-executor.js").ResearchExecutorSnapshot; evidence: EvidenceRef[] }>(statePath);
 			if (state.version !== 1 || state.missionId !== options.mission.id) throw new Error(`resume executor state mismatch in ${statePath}`);
 			executor.importNodeState(state.executor);
 			for (const reference of state.evidence ?? []) evidenceById.set(reference.id, reference);

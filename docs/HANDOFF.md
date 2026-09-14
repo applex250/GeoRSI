@@ -7,6 +7,34 @@ GitHub：`origin/master`
 
 ## 0. 2026-09 阶段要点（先读这节）
 
+> **2026-09-14 加固轮次（最新）**——一次安全/一致性审计后的集中修复，行为变化如下：
+> - **API 暴露面**：`src/api/server.ts` 默认只绑 `127.0.0.1`（`GEORSI_API_HOST` 覆盖）；可选共享令牌
+>   `GEORSI_API_TOKEN`（`Authorization: Bearer` / `X-GeoRSI-Token`，定长比较）；CORS 改为**可选**
+>   （`GEORSI_API_ALLOWED_ORIGIN`，不设不发头）；所有创建/启动路径统一并发闸
+>   `GEORSI_API_MAX_CONCURRENT`（默认 2 → 429）。前端代理 `web/src/app/api/research/[...path]/route.ts`
+>   在服务端附加令牌。`docker-compose.yml` 改为 YAML 锚点结构：`georsi-api` **不再挂载**
+>   `../rsi-lab-private`，端口只发布到 `127.0.0.1:8792`；死变量 `EXECUTION_BACKEND` 删除。
+> - **完整性**：`/evidence/:id/content` 发送前重算 sha256（不符 → `409 EVIDENCE_INTEGRITY`）；
+>   `api-run.json` 改原子写，子进程 stdout 只触发 500ms 去抖的元数据写；账本解析按 (mtime,size)
+>   缓存；`/logs` 只读请求窗口；`errorResponse` 在 headers 已发出后不再二次 `writeHead`。
+> - **竞态**：网关切换（CLI + API）改用唯一临时文件名 + `wx` 创建，API 侧按配置路径串行；
+>   CAS `putBuffer` 的 EEXIST 视为成功；`listContents` 跳过非常规文件并校验文件名=哈希；
+>   resume 三个检查点解析失败时报出文件名而非裸 SyntaxError（不静默丢弃回执）。
+> - **SSRF**：工作台 `fetch_source` 解析一次 DNS 后用钉住地址的 undici `Agent` 连接（TLS 主机名
+>   校验保留；代理模式下由代理解析，无法钉住，已注释说明）；退避 sleep 响应 stop 信号。
+> - **韧性策略统一**：新增纯模块 `src/research/model-resilience.ts`（瞬态状态集合、指数退避与
+>   Retry-After 合并、空闲看门狗）；`workspace-model.ts` 与 `provider.ts` 探针循环共用（探针
+>   由线性退避改为同一套指数退避，并开始尊重 Retry-After）。
+> - **诚实记录**：工作台模型回复 `status=incomplete` 不再静默通过——`workspace-state.truncatedCalls`
+>   计数 + 账本 `model-output-truncated` 事件 + 前端报告页警示。
+> - **路径清理**：API 不再创建 `mode:"rsi"`（前端零引用；CLI `npm run rsi`/TUI/`/research` 扩展
+>   保留即冻结），`pause`/`resume` 动作随之移除；`SandboxieComputeRunReceipt` 更名
+>   `ComputeRunReceipt`（保留 deprecated 别名）；`live.ts` 证据根改用 `os.tmpdir()` 与
+>   demo/工作台/API 一致；`GEORSI_*_PROXY` 加入脚本环境脱敏。
+> - **未做（需单独立项）**：API 触发运行的 Python 仍是 host-audit 直接主机执行（提示注入 → 主机
+>   代码执行的根治需要容器/Sandboxie 级隔离）；③工作台上翻①引擎的大重构；根目录 `api_key*.txt`
+>   仍是遗留网关的文件回退（未入 git）。
+
 1. **沙盒永久关闭（最终决策 2026-09-11）**：`execution_backend` 缺省即 `host-audit`（直接主机执行，无隔离）。
    项目保持无沙盒开发版形态；Sandboxie 严格后端代码全量保留（显式 `"execution_backend": "sandboxie"`
    仍可用，fail-closed 语义不变），但不再投入硬化迭代——`/env:=Refresh` 空名环境对、`Start.exe`
