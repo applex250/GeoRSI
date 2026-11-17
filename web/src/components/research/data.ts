@@ -2,6 +2,26 @@ export interface WorkNode {
   id: string; kind: string; title: string; state: string; dependsOn: string[];
   attempts?: number; failureMessage?: string; startedAt?: string; completedAt?: string;
   outputArtifactIds?: string[];
+  /** Plan-time fixed envelope (the node's budget floor), straight from plan.json. */
+  budget?: { wallMs: number; maxModelCalls: number; maxToolCalls: number; maxOutputTokens: number; maxAttempts: number };
+}
+/** Three-layer budget view (GET …/budget): plan-time fixed values vs ledger usage. */
+export interface BudgetFigures { toolCalls: number; modelCalls: number; outputTokens: number; wallMs: number }
+export interface NodeBudgetReport {
+  id: string; kind: string; title: string; state: string; attempts: number;
+  planned: BudgetFigures;
+  used: BudgetFigures & { totalTokens: number; cachedTokens: number };
+  ratios: { toolCalls: number | null; modelCalls: number | null; outputTokens: number | null; wallMs: number | null };
+  level: "ok" | "warn" | "over";
+}
+export interface RunBudgetReport {
+  planned: BudgetFigures;
+  used: BudgetFigures & { totalTokens: number; cachedTokens: number };
+  remaining: BudgetFigures;
+  overhead: { modelCalls: number; totalTokens: number };
+  pressure: { overrun: number | null; tightening: boolean };
+  nodes: NodeBudgetReport[];
+  nodesRemaining: number;
 }
 export interface Run {
   id: string; name: string; status: string; mode: string; createdAt?: string;

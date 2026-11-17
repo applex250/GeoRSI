@@ -22,7 +22,11 @@ export interface ResearchSchedulerPorts {
 	checkpoint(graph: ResearchWorkGraph): void | Promise<void>;
 	now(): Date;
 	onEvent?(event: { type: string; nodeId?: string; detail?: unknown }): void;
+	/** Polled between nodes: a true value ends the run after the current node settles. */
 	stopRequested?(): boolean;
+	/** Aborts the node IN FLIGHT. Without it a stop request waits for the running node's wall
+	 * budget (up to an hour) before `stopRequested` is consulted again. */
+	externalSignal?: AbortSignal;
 }
 
 export interface ResearchSchedulerResult {
@@ -44,31 +48,43 @@ export class ResearchScheduler {
 
 	private async withinDeadline<T>(wallMs: number, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
 		const controller = new AbortController();
+		const external = this.ports.externalSignal;
 		let timer: ReturnType<typeof setTimeout> | undefined;
-		let timedOut = false;
+		let interrupted = false;
+		let rejectExternal: ((error: Error) => void) | undefined;
+		const onExternalAbort = (): void => {
+			interrupted = true;
+			controller.abort();
+			rejectExternal?.(new Error("research node aborted: stop requested"));
+		};
 		const operationPromise = Promise.resolve().then(() => operation(controller.signal));
 		try {
+			if (external?.aborted) onExternalAbort();
+			else external?.addEventListener("abort", onExternalAbort, { once: true });
 			return await Promise.race([
 				operationPromise,
 				new Promise<T>((_resolve, reject) => {
+					rejectExternal = reject;
+					if (interrupted) reject(new Error("research node aborted: stop requested"));
 					timer = setTimeout(() => {
-						timedOut = true;
+						interrupted = true;
 						controller.abort();
 						reject(new Error(`research node timed out after ${wallMs}ms`));
 					}, wallMs);
 				}),
 			]);
 		} catch (error) {
-			if (timedOut) {
+			if (interrupted) {
 				// Do not return a retryable failure while the previous operation is
 				// still unwinding. Ports must honor AbortSignal and resolve only after
 				// their model/process cleanup is complete; awaiting here prevents an
 				// overlapping retry from emitting late artifacts or receipts.
-				try { await operationPromise; } catch { /* preserve timeout */ }
+				try { await operationPromise; } catch { /* preserve timeout / stop */ }
 			}
 			throw error;
 		} finally {
 			if (timer) clearTimeout(timer);
+			external?.removeEventListener("abort", onExternalAbort);
 		}
 	}
 
@@ -149,7 +165,7 @@ export class ResearchScheduler {
 		const executedNodes: string[] = [];
 		const failures: { nodeId: string; failure: ResearchFailure }[] = [];
 		for (let step = 0; step < maxNodeExecutions; step++) {
-			if (this.ports.stopRequested?.()) return { graph: current, completed: workGraphComplete(current), stopped: true, executedNodes, failures };
+			if (this.ports.stopRequested?.() || this.ports.externalSignal?.aborted) return { graph: current, completed: workGraphComplete(current), stopped: true, executedNodes, failures };
 			if (workGraphComplete(current)) return { graph: current, completed: true, stopped: false, executedNodes, failures };
 			const nextNode = readyWorkNodes(current)[0];
 			if (!nextNode) return { graph: current, completed: false, stopped: false, executedNodes, failures };
