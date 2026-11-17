@@ -56,9 +56,13 @@ function lunaModel(overrides: Record<string, unknown> = {}): Model<any> {
 	} as Model<any>;
 }
 
+let receiptSeq = 0;
 function receipt(overrides: Partial<ModelCallReceipt> = {}): ModelCallReceipt {
+	receiptSeq += 1;
 	return {
-		id: "response-1",
+		// Real responses get a fresh id per prompt; the wrap-up nudge can legally issue a second
+		// prompt in one node, so a constant id here would trip the duplicate-receipt gate.
+		id: `response-${receiptSeq}`,
 		provider: "alsl",
 		model: "gpt-5.6-luna",
 		requestedThinking: "xhigh",
@@ -260,6 +264,12 @@ async function main(): Promise<void> {
 		try { await forgedExecutor.executeNode(makeNode(), makeGraph(makeNode()), new AbortController().signal); }
 		catch (error) { forgedInputRejected = String(error).includes("tool-produced CAS artifact") || String(error).includes("did not call submit_research_node_output"); }
 		check("model-staged verifier input is rejected in favor of tool-produced CAS artifacts", forgedInputRejected);
+
+		// Pitfall #17: a retroactive output-cap breach must never void a SUBMITTED node — the
+		// overshoot is recorded in usage; only an unsubmitted runaway still fails closed.
+		const chattyExecutor = new ResearchNodeExecutor({ mission, strategy: SEED_STRATEGY_BUNDLE, modelPolicy: researchModelPolicy, model: lunaModel(), cwdForNode: (id) => join(root, id), evidenceStore: store, evidenceById: (id) => references.get(id), registerEvidence: (reference) => references.set(reference.id, reference), toolRegistry: registry, toolBindings: [{ toolId: "quant-result", description: "fixture verifier-input producer", parameters: Type.Object({ value: Type.Unknown() }) }], createHarness: fakeHarness(false, receipt({ outputTokens: 5000, totalTokens: 5200 })) });
+		const chatty = await chattyExecutor.executeNode(makeNode(), makeGraph(makeNode()), new AbortController().signal);
+		check("output-cap overshoot with a valid submission is recorded, not voided", chatty.usage.outputTokens === 5000);
 
 		const signalRegistry = new ScientificToolRegistry();
 		let signalToolRan = false;

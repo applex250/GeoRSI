@@ -322,7 +322,7 @@ export function createContextRecallTool(input: { memory: ResearchContextMemory }
 						const entry = input.memory.fetch(id);
 						return { nodeId: entry.nodeId, version: entry.version, field: entry.field, evidenceId: entry.evidenceId, excerpt: sliceText(entry.excerpt, perEntry) };
 					} catch {
-						return { nodeId: context.nodeId, version: 0, field: "fetch-error", evidenceId: id, excerpt: "evidence id not found in committed memory" };
+						return { nodeId: context.nodeId, version: 0, field: "fetch-error", evidenceId: id, excerpt: "evidence id not found — pass an exact sha256:… id from your context (PRIOR ATTEMPT EVIDENCE / artifact blocks) or call list:\"artifacts\"" };
 					}
 				});
 				return { output: { mode: "fetch", entries, truncated: false } };

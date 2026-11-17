@@ -157,7 +157,11 @@ export class ScientificToolRegistry {
 				error: String(sanitizeResearchEvidence(error instanceof Error ? `${error.name}: ${error.message}` : String(error))).slice(0, 500),
 			};
 			this.onReceipt(receipt);
-			throw Object.assign(new Error(receipt.error), { receipt });
+			// The receipt keeps a ledger-bounded excerpt; the MODEL gets the full sanitized text.
+			// Truncating here once hid a script's stderr behind a path message and cost a node
+			// three blind retries of the same NameError.
+			const fullMessage = String(sanitizeResearchEvidence(error instanceof Error ? `${error.name}: ${error.message}` : String(error))).slice(0, 6_000);
+			throw Object.assign(new Error(fullMessage), { receipt });
 		}
 	}
 }
