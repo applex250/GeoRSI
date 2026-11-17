@@ -164,7 +164,7 @@ export async function runDeterministicResearchDemo(runDir: string, options: { fa
 			outcomeAttestation: async () => ({ taskOutcome: 1, perFamily: { quantitative: 1, gis: 1, literature: 1 } }),
 			persistJson: (relative, value) => atomicWriteJson(output(relative), value),
 			persistText: (relative, value) => writeTextAtomic(output(relative), value),
-			persistDeliverables: (bundle) => persistResearchDeliverables(runDir, bundle),
+			persistDeliverables: (bundle, required) => persistResearchDeliverables(runDir, bundle, required),
 			readDeliverable: (relative) => readFileSync(output(relative)),
 			computeReplay: async (_current, refs) => {
 				if (options.failAt === "compute-replay") throw new Error("synthetic compute replay failure");

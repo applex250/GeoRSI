@@ -5,10 +5,13 @@
  * execution_backend="sandboxie". */
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync, openSync, writeSync, closeSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, openSync, writeSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { sanitizeExecutionEnvironment } from "../process-env.js";
 import { assertExchangeWorkspace, readWorkspaceFileStrict } from "../workspace-tools.js";
+
+/** One line, so tracebacks shift by exactly one; comment explains the shift to the model. */
+export const PYTHON_PRELUDE = "true, false, null = True, False, None  # GeoRSI prelude: JSON literals are valid here; line numbers below are +1\n";
 import type { SandboxieCleanupResult } from "../sandboxie-cleanup.js";
 import type { ComputeReplayAttestation } from "./runtime-attestation.js";
 import { scanFigureFiles, validateHostComputeReceipt, type SandboxieComputeRequest, type ComputeRunReceipt, type SandboxieResearchComputePort } from "./sandboxie-compute.js";
@@ -55,7 +58,11 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 		const scriptPath = join(cwd, "main.py");
 		const stdoutPath = join(cwd, "stdout.log");
 		const stderrPath = join(cwd, "stderr.log");
-		writeFileSync(scriptPath, request.script, { encoding: "utf8", flag: "wx", mode: 0o600 });
+		// Deterministic form repair (draft-normalizer principle): models keep writing JSON literals
+		// (true/false/null) inside Python dicts, and every fresh session repeats it. Binding those
+		// names once up front makes such scripts valid without touching the recorded script: the
+		// receipt hashes request.script, and replay prepends the same prelude, so bytes stay comparable.
+		writeFileSync(scriptPath, `${PYTHON_PRELUDE}${request.script}`, { encoding: "utf8", flag: "wx", mode: 0o600 });
 		const started = Date.now();
 		let exitCode: number | null = null;
 		let timedOut = false;
@@ -129,10 +136,26 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 		if (!runError) {
 			try { figureFiles = scanFigureFiles(cwd, this.options.log); } catch { /* figures are best-effort */ }
 		}
+		let resultMaterializedFromStdout = false;
 		if (!runError && request.resultFile) {
-			try {
-				resultText = readWorkspaceFileStrict(cwd, join(cwd, safeResultFile(request.resultFile)), 50_000_000).toString("utf8");
-			} catch (error) { runError = error; }
+			const resultPath = join(cwd, safeResultFile(request.resultFile));
+			// Deterministic form repair (the draft-normalizer principle): a script that printed
+			// its JSON result to stdout instead of writing resultFile still produced the result,
+			// so the file is materialized from stdout. Replay runs this same rule, keeping the
+			// result byte-comparable. Nothing is invented: it only fires on a clean exit whose
+			// entire stdout is one JSON document.
+			if (exitCode === 0 && !existsSync(resultPath)) {
+				const printed = stdout.trim();
+				if (printed.startsWith("{") || printed.startsWith("[")) {
+					try { JSON.parse(printed); writeFileSync(resultPath, printed, "utf8"); resultMaterializedFromStdout = true; } catch { /* not a JSON document — the honest error below applies */ }
+				}
+			}
+			if (!existsSync(resultPath)) {
+				runError = new Error(`the script exited ${exitCode} without writing resultFile "${request.resultFile}" in its working directory — write it yourself with json.dump(obj, open("${request.resultFile}", "w"), ensure_ascii=False); stdout is diagnostic only, and Python needs True/False/None, not true/false/null`);
+			} else {
+				try { resultText = readWorkspaceFileStrict(cwd, resultPath, 50_000_000).toString("utf8"); }
+				catch (error) { runError = error; }
+			}
 		}
 		const receipt: ComputeRunReceipt = {
 			version: 1,
@@ -152,6 +175,7 @@ export class DirectHostComputePort implements SandboxieResearchComputePort {
 			error: runError ? String(runError).slice(0, 500) : undefined,
 			result: resultText,
 			resultFile: request.resultFile,
+			...(resultMaterializedFromStdout ? { resultMaterializedFromStdout: true } : {}),
 			scriptSha256: createHash("sha256").update(request.script).digest("hex"),
 			figureFiles,
 		};

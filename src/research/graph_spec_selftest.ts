@@ -1,6 +1,7 @@
 /** Deterministic tests for the evolvable WorkGraph spec: validation, mission coverage,
  * instantiation, and the four structural mutation operators (Phase-2 self-evolution). */
 import {
+	DEV_NODE_BUDGET,
 	WORK_NODE_KINDS,
 	familyGraphSpec,
 	graphSpecCoverageIssues,
@@ -9,8 +10,10 @@ import {
 	mutateMergeStages,
 	mutateRemoveStage,
 	mutateSplitStage,
+	tieredStages,
 	validateGraphSpec,
 	type GraphSpec,
+	type ResearchTier,
 } from "./graph-spec.js";
 import { validateWorkGraphForMission } from "./work-graph.js";
 import { loadResearchMission, validateCompetitionMissionShape } from "./live.js";
@@ -127,6 +130,26 @@ async function main(): Promise<void> {
 	const noSeed = structuredClone(competitionMission);
 	delete (noSeed.dataset as { seed?: unknown }).seed;
 	check("competition dataset without seed is rejected", validateCompetitionMissionShape(noSeed).some((issue) => issue.includes("seed")));
+
+	console.log("== workspace tiers (development composition root) ==");
+	const families = Object.keys(STAGES) as (keyof typeof STAGES)[];
+	for (const family of families) {
+		for (const tier of ["simple", "medium", "complex"] as ResearchTier[]) {
+			const stages = tieredStages(family, tier);
+			const template = STAGES[family];
+			check(`${family}/${tier} is a subset of the family template in template order`, stages.every((kind, index) => template.indexOf(kind) > (index === 0 ? -1 : template.indexOf(stages[index - 1]!))));
+			for (const spine of ["verification", "synthesis", "report"]) check(`${family}/${tier} keeps the ${spine} spine`, stages.includes(spine as (typeof stages)[number]));
+			check(`${family}/${tier} never carries competition deliverables`, !stages.includes("presentation") && !stages.includes("defense"));
+			const spec = familyGraphSpec(family, stages);
+			check(`${family}/${tier} instantiates through the validated GraphSpec pipeline`, validateGraphSpec(spec, WORK_NODE_KINDS).length === 0 && graphSpecCoverageIssues(spec, stages).length === 0);
+			const graph = instantiateGraphSpec(spec, { ...m, taskProfile: { ...m.taskProfile, family, requiredStages: stages } }, DEV_NODE_BUDGET);
+			check(`${family}/${tier} report node gets the ×2 communication scale on the dev budget`, graph.nodes.find((node) => node.kind === "report")!.budget.maxModelCalls === DEV_NODE_BUDGET.maxModelCalls * 2);
+		}
+		check(`${family} tiers grow monotonically`, tieredStages(family, "simple").length <= tieredStages(family, "medium").length && tieredStages(family, "medium").length <= tieredStages(family, "complex").length);
+	}
+	check("simple literature tier is the four-stage spine", tieredStages("literature-hypothesis", "simple").join(",") === "literature-search,verification,synthesis,report");
+	check("uploaded files add a data audit to a quantitative tier", tieredStages("quantitative", "simple", { hasFiles: true }).includes("data-audit") && !tieredStages("quantitative", "simple").includes("data-audit"));
+	check("files never add a data audit where the family has none", !tieredStages("literature-hypothesis", "simple", { hasFiles: true }).includes("data-audit"));
 
 	console.log(`graph-spec selftest passed (${passed} checks)`);
 }

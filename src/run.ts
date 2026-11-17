@@ -8,7 +8,7 @@
  *   npx tsx src/run.ts research-live --config config/research-competition-luna.json --mission path/to/mission.json [--plan path/to/plan.json] --run-name NAME
  *   npx tsx src/run.ts rsi [--gens N] [--resume] [--run-name NAME]
  */
-import { readFileSync, writeFileSync, renameSync, rmSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, rmSync, existsSync, appendFileSync, mkdirSync, readdirSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { loadConfig, researchModelConfigFingerprint, ROOT } from "./config.js";
@@ -47,8 +47,54 @@ async function main() {
 	if (cmd === "research-agent") {
 		const runDir = resolve(String(args["run-dir"] ?? ""));
 		if (!runDir.startsWith(resolve(ROOT, "runs") + (process.platform === "win32" ? "\\" : "/"))) throw new Error("research-agent run directory must be under runs");
-		const { runWorkspaceAgent } = await import("./research/workspace-agent.js");
-		await runWorkspaceAgent(runDir, args.config ? String(args.config) : join(ROOT, "config", "research-competition-luna.json"), undefined, args.resume === true);
+		const configPath = args.config ? String(args.config) : join(ROOT, "config", "research-competition-luna.json");
+		// Liveness heartbeat (#37): the API pairs the recorded pid with a fresh
+		// heartbeat file, because a bare pid probe is fooled by pid reuse after a
+		// silent child death. Written once up front so the file exists from t=0,
+		// then every 5 s; unref'd so it never keeps the process alive itself.
+		const heartbeatPath = join(runDir, "heartbeat.json");
+		const beat = (): void => { try { writeFileSync(heartbeatPath, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }), "utf8"); } catch { /* heartbeat is best-effort */ } };
+		beat();
+		const heartbeat = setInterval(beat, 5_000);
+		heartbeat.unref();
+		try {
+			// The workspace runs on the research engine (executor + family verifiers + sealed
+			// package). GEORSI_WORKSPACE_ENGINE=legacy keeps the previous self-contained agent
+			// for one release as a fallback.
+			if (process.env.GEORSI_WORKSPACE_ENGINE === "legacy") {
+				const { runWorkspaceAgent } = await import("./research/workspace-agent.js");
+				await runWorkspaceAgent(runDir, configPath, undefined, args.resume === true);
+				return;
+			}
+			const { runWorkspaceEngine } = await import("./research/workspace-engine.js");
+			await runWorkspaceEngine(runDir, configPath, { resume: args.resume === true });
+			return;
+		} finally { clearInterval(heartbeat); }
+	}
+
+	if (cmd === "research-experience") {
+		// Backfill the experience store from sealed packages: one run dir, or every run under
+		// runs/ that carries a package seal. Idempotent — re-running never duplicates records.
+		const { harvestRunExperience } = await import("./research/experience/harvest.js");
+		const { ExperienceStore } = await import("./research/experience/store.js");
+		const store = new ExperienceStore();
+		const targets: string[] = [];
+		if (args.all === true) {
+			const runsRoot = resolve(ROOT, "runs");
+			for (const entry of readdirSync(runsRoot, { withFileTypes: true })) if (entry.isDirectory() && existsSync(join(runsRoot, entry.name, "package-seal.json"))) targets.push(join(runsRoot, entry.name));
+		} else {
+			const runDir = resolve(String(args["run-dir"] ?? args._extra ?? ""));
+			if (!runDir.startsWith(resolve(ROOT, "runs") + (process.platform === "win32" ? "\\" : "/"))) throw new Error("research-experience needs --run-dir under runs/ or --all");
+			targets.push(runDir);
+		}
+		let added = 0;
+		for (const target of targets) {
+			const summary = harvestRunExperience(target, store);
+			added += summary.added.length;
+			console.log(`${target}: run=${summary.runRecord ?? "none"} counterExamples=${summary.counterExamples.length} added=${summary.added.length} skipped=${summary.skipped.length} pendingHuman=${summary.pendingHuman.length}${summary.issues.length ? ` issues=${summary.issues.join("; ")}` : ""}`);
+		}
+		const index = store.index();
+		console.log(`experience store ${store.root}: records=${index?.records ?? 0} counterExamples=${index?.counterExamples ?? 0} pendingHuman=${index?.pendingHuman.length ?? 0} (added ${added} this pass)`);
 		return;
 	}
 

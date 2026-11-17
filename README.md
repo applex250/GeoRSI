@@ -52,7 +52,17 @@ npm run research:benchmark -- --runs-root runs/bench-001
 # 5. gateway switching (atomic, validated, prints the policy fingerprint)
 npm run research:gateway -- --list
 npm run research:gateway -- alsl
+
+# 6. experience store (store-only flywheel): backfill from every sealed package
+npm run research:experience -- --all
 ```
+
+The **web workspace** (`web/`, `npm run api`) runs natural-language questions on this
+same engine: a question is classified into a family and a tier (simple / medium /
+complex subset of the family template), executed by the same node executor and family
+verifiers, reviewed in rounds, and sealed as a report-only development package
+(`eligible=false`, no preflight — honestly attested). See
+[`docs/FRONTEND-STAGE-3.md`](docs/FRONTEND-STAGE-3.md).
 
 A run directory contains the complete auditable package:
 `mission.json plan.json events.jsonl claims.json evidence-index.json
@@ -142,6 +152,7 @@ drives the inner agent, private-only fitness drives selection.
 | doc | status | content |
 |---|---|---|
 | [`docs/API.md`](docs/API.md) | **current** | frontend integration: HTTP endpoints, request/response contracts, SSE, auth (`GEORSI_API_TOKEN`, loopback default), mode limitations |
+| [`docs/FRONTEND-STAGE-3.md`](docs/FRONTEND-STAGE-3.md) | **current** | workspace tier on the research engine (tiers, honesty, engine additions) + experience layer (store only) |
 | [`docs/RESEARCH-COMPETITION.md`](docs/RESEARCH-COMPETITION.md) | **current** | research pipeline system spec: WorkGraph, verifiers, scoring, eligibility |
 | [`docs/COMPETITION-RUNBOOK.md`](docs/COMPETITION-RUNBOOK.md) | **current** | operations: campaigns, benchmark protocol, model routing |
 | [`docs/MODELS.md`](docs/MODELS.md) | **current** | model registry: gateway policy, capability history |

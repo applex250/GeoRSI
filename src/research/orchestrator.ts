@@ -5,7 +5,7 @@ import type { ResearchEnvironment } from "./environment-capture.js";
 import type { ScientificValueCard } from "./value-evaluator.js";
 import { evaluateScientificValue } from "./value-evaluator.js";
 import type { ResearchNarrative } from "./deliverables.js";
-import { buildResearchDeliverablesWithSources, validateResearchDeliverables, type CommunicationDrafts } from "./deliverables.js";
+import { buildResearchDeliverablesWithSources, requiredDeliverableIds, validateResearchDeliverables, type CommunicationDrafts, type ResearchDeliverableId } from "./deliverables.js";
 import type { PersistedResearchDeliverable } from "./deliverable-store.js";
 import { createResearchPackageManifest, createResearchPackageSeal } from "./artifact-manifest.js";
 import { verifyResearchPackage, type ResearchReplayReport } from "./replay.js";
@@ -41,7 +41,8 @@ synthesize(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ResearchS
 	outcomeAttestation(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<OutcomeAttestation>;
 	persistJson(path: string, value: unknown): void;
 	persistText(path: string, value: string): void;
-	persistDeliverables(bundle: ReturnType<typeof buildResearchDeliverablesWithSources>["bundle"]): PersistedResearchDeliverable[];
+	/** `required` is the mission's deliverable set; implementations must write exactly those. */
+	persistDeliverables(bundle: ReturnType<typeof buildResearchDeliverablesWithSources>["bundle"], required: ReadonlySet<ResearchDeliverableId>): PersistedResearchDeliverable[];
 	readDeliverable(path: string): Buffer;
 	computeReplay(graph: ResearchWorkGraph, evidence: EvidenceRef[]): Promise<ComputeReplayAttestation>;
 	now(): Date;
@@ -75,6 +76,7 @@ export async function runResearchOrchestrator(input: {
 	if (missionIssues.length > 0) throw new Error(`invalid research mission: ${missionIssues.join("; ")}`);
 	const graphIssues = validateWorkGraphForMission(mission, input.graph);
 	if (graphIssues.length > 0) throw new Error(`invalid research work graph: ${graphIssues.join("; ")}`);
+	const requiredDeliverables = requiredDeliverableIds(mission);
 	let phase = "start";
 	let ledgerClosed = false;
 	try {
@@ -103,9 +105,9 @@ export async function runResearchOrchestrator(input: {
 		// `coercions` records every deterministic shape repair; `draftIssues` records the substance-only
 		// reasons a node draft lost to the template. Both are audit evidence, not failures.
 		ledger.append({ missionId: mission.id, episodeId: mission.id, actor: "verifier", type: "deliverable-sources", status: "success", payload: { sources: built.sources, coercions: built.coercions, draftIssues: built.draftIssues } });
-		const deliverableIssues = validateResearchDeliverables(bundle, evidence);
+		const deliverableIssues = validateResearchDeliverables(bundle, evidence, requiredDeliverables);
 		if (deliverableIssues.length > 0) throw new Error(`research deliverables failed: ${deliverableIssues.join("; ")}`);
-		const deliverables = ports.persistDeliverables(bundle);
+		const deliverables = ports.persistDeliverables(bundle, requiredDeliverables);
 		phase = "runtime-attestation";
 		const computeReplay = await ports.computeReplay(scheduled.graph, evidence);
 		const runtimeAttestation = ports.runtimeAttestation();
@@ -126,10 +128,14 @@ export async function runResearchOrchestrator(input: {
 		const generic = verifyGenericResearch({ mission, graph: scheduled.graph, evidence, claims: synthesis.claims, deliverables, ledgerValid: ledgerVerification.valid, replayPassed: replay.passed, guardViolations: runtimeAttestation.guardViolations, cleanupPassed: runtimeAttestation.cleanupPassed, familyVerifications: runtimeAttestation.familyVerifications, contraryEvidenceLinks: runtimeAttestation.contraryEvidenceLinks });
 		const familyMethodScore = runtimeAttestation.familyVerifications.length ? runtimeAttestation.familyVerifications.reduce((sum, item) => sum + item.result.score, 0) / runtimeAttestation.familyVerifications.length : 0;
 		const runtimeAttestationPassed = runtimeIssues.length === 0;
+		// The substance gate above already threw on any issue, so a required deliverable
+		// scores 1 here; a deliverable the mission does not require is null (excluded from
+		// the average), not a zero — a report-only development run is judged on its report.
+		const gate = (id: ResearchDeliverableId): number | null => requiredDeliverables.has(id) ? (deliverableIssues.length ? 0 : 1) : null;
 		const competitionScore = scoreResearchCompetition({
 			runtime: { unitTestsPassed: runtimeAttestation.unitTestsPassed, runtimeAttestationPassed, traceComplete: generic.passed, manifestValid: replay.checks.find((check) => check.id === "manifest-hash")?.passed === true, verifyReplayPassed: replay.passed, computeReplayPassed: computeReplay.passed, guardViolations: runtimeAttestation.guardViolations.length, cleanupPassed: runtimeAttestation.cleanupPassed, validResultCount: synthesis.claims.filter((claim) => claim.status === "supported").length },
 			science: { taskOutcome: outcome.taskOutcome, methodValidity: familyMethodScore, claimEvidenceQuality: generic.score, reproducibility: replay.passed && computeReplay.passed && computeReplay.processOwnershipVerified ? 1 : 0, scientificValue: value.score },
-			communication: { report: deliverableIssues.length ? 0 : 1, presentation: deliverableIssues.length ? 0 : 1, defense: deliverableIssues.length ? 0 : 1 },
+			communication: { report: gate("report"), presentation: gate("presentation"), defense: gate("defense") },
 			totalTokens: runtimeAttestation.totalTokens,
 			wallSeconds: runtimeAttestation.wallSeconds,
 			perFamily: outcome.perFamily,

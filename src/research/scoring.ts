@@ -18,10 +18,12 @@ export interface ResearchScoreInput {
 		reproducibility: number;
 		scientificValue: number;
 	};
+	/** Per-deliverable gate results. `null` marks a deliverable the mission does not require;
+	 * it is excluded from the average instead of counting as a zero. */
 	communication: {
-		report: number;
-		presentation: number;
-		defense: number;
+		report: number | null;
+		presentation: number | null;
+		defense: number | null;
 	};
 	totalTokens: number;
 	wallSeconds: number;
@@ -59,7 +61,8 @@ export function scoreResearchCompetition(input: ResearchScoreInput): ResearchCom
 	];
 	for (const [label, passed] of runtimeChecks) if (!passed) reasons.push(`runtime gate failed: ${label}`);
 	const runtimePassed = reasons.length === 0;
-	const communicationScore = (bounded(input.communication.report) + bounded(input.communication.presentation) + bounded(input.communication.defense)) / 3;
+	const requiredCommunication = [input.communication.report, input.communication.presentation, input.communication.defense].filter((value): value is number => value !== null);
+	const communicationScore = requiredCommunication.length ? requiredCommunication.reduce((sum, value) => sum + bounded(value), 0) / requiredCommunication.length : 0;
 	const scienceScore = bounded(input.science.taskOutcome) * 0.3 + bounded(input.science.methodValidity) * 0.2 + bounded(input.science.claimEvidenceQuality) * 0.15 + bounded(input.science.reproducibility) * 0.15 + bounded(input.science.scientificValue) * 0.1 + communicationScore * 0.1;
 	const familyScores = Object.values(input.perFamily).filter((value): value is number => value != null && Number.isFinite(value));
 	const worstFamily = familyScores.length ? Math.min(...familyScores) : null;

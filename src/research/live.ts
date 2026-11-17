@@ -172,7 +172,11 @@ export async function runLunaResearchMission(options: LunaResearchRunOptions): P
 	const log = options.log ?? (() => {});
 	// WorkGraph resume: continue an existing run directory instead of requiring a fresh one.
 	const runDir = safeRunDirectory(options.resumeDir ?? options.runDir);
-	if (!options.resumeDir && existsSync(runDir) && readdirSync(runDir).length > 0) throw new Error(`research run directory is not empty: ${runDir}`);
+	// The API server pre-creates the run directory with its own bookkeeping (record, stream
+	// log, control channel, mission input) before spawning us; only research artifacts make
+	// a directory "not fresh".
+	const API_BOOKKEEPING = new Set(["api-run.json", "api-run.json.tmp", "api-stream.log", "control.json", "mission-input.json", "request.json", "mission-synthesized.json"]);
+	if (!options.resumeDir && existsSync(runDir) && readdirSync(runDir).some((entry) => !API_BOOKKEEPING.has(entry))) throw new Error(`research run directory is not empty: ${runDir}`);
 	if (options.resumeDir && !existsSync(join(runDir, "plan.json"))) throw new Error(`resume requires a persisted plan.json in: ${runDir}`);
 	const strategy = options.strategy ?? SEED_STRATEGY_BUNDLE;
 	const strategyIssues = validateStrategyBundle(strategy);
@@ -416,7 +420,7 @@ const startedAt = now().getTime();
 				},
 				persistJson,
 				persistText,
-				persistDeliverables: (bundle) => persistResearchDeliverables(runDir, bundle),
+				persistDeliverables: (bundle, required) => persistResearchDeliverables(runDir, bundle, required),
 				readDeliverable: (path) => readFileSync(safeOutputPath(runDir, path)),
 					computeReplay: async () => {
 						let replay: ComputeReplayAttestation = isolation === "sandboxie" ? { passed: false, backend: "sandboxie-app-level", processOwnershipVerified: false } : { passed: false, backend: "host-audit", processOwnershipVerified: false };

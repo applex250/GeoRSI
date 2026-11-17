@@ -5,15 +5,14 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, basename, resolve, extname } from "node:path";
 import { tmpdir } from "node:os";
-import { lookup } from "node:dns/promises";
-import { BlockList } from "node:net";
-import { Agent, fetch, ProxyAgent } from "undici";
+import { fetch, ProxyAgent } from "undici";
 import { ROOT, loadConfig } from "../config.js";
 import { atomicWriteJson, writeTextAtomic } from "../journal.js";
 import { scanPythonExecutionPolicy, scanTextForBreaches } from "../guard.js";
 import { sanitizeExecutionEnvironment } from "../process-env.js";
 import { getUpload, uploadPath } from "../api/uploads.js";
 import { retryAfterHintMs, sleep } from "./model-resilience.js";
+import { pinnedDispatcher, resolvePublicUrl } from "./host-network.js";
 import { ResearchScheduler } from "./scheduler.js";
 import { createWorkNode, createWorkGraph, validateWorkGraph } from "./work-graph.js";
 import { WORK_NODE_KINDS } from "./graph-spec.js";
@@ -43,19 +42,8 @@ function readJsonLocal<T>(path: string): T | null {
 	try { return JSON.parse(readFileSync(path, "utf8")) as T; } catch { return null; }
 }
 
-export function linkWorkspaceReport(text: string, evidence: EvidenceRef[], runId: string): string {
-  const target = (ref: EvidenceRef): string => ref.sourceUrl ?? `/api/research/research-runs/${runId}/evidence/${encodeURIComponent(ref.id)}/content`;
-  const citations = text.replace(/\[evidence:(sha256:[a-f0-9]{64})[\]\)]/g, (_, id: string) => {
-    const ref = evidence.find((item) => item.id === id);
-    return ref ? `[${ref.logicalName.replace(/[\[\]\\]/g, "")}](${target(ref)})` : `[${id}]`;
-  });
-  return citations.replace(/\]\(([^)]+)\)/g, (match, raw: string) => {
-    let name = raw;
-    try { name = decodeURIComponent(raw); } catch { return match; }
-    const ref = evidence.find((item) => item.logicalName === name);
-    return ref ? `](${target(ref)})` : match;
-  });
-}
+export { linkWorkspaceReport } from "./report-links.js";
+import { linkWorkspaceReport } from "./report-links.js";
 
 export function plannedGraph(raw: unknown, runId: string, round: number): ResearchWorkGraph {
   const data = raw as { nodes?: PlannedNode[] };
@@ -80,32 +68,9 @@ export function plannedGraph(raw: unknown, runId: string, round: number): Resear
   return createWorkGraph(runId, nodes);
 }
 
-const blocked = new BlockList();
-for (const [address, prefix] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.168.0.0", 16], ["100.64.0.0", 10], ["224.0.0.0", 4]] as const) blocked.addSubnet(address, prefix);
-blocked.addAddress("::1", "ipv6"); blocked.addSubnet("fc00::", 7, "ipv6"); blocked.addSubnet("fe80::", 10, "ipv6");
-export interface ResolvedPublicUrl { url: URL; addresses: Array<{ address: string; family: number }> }
-/** Validate a research source URL and resolve it ONCE; the caller must connect to
- * exactly these addresses (see pinnedDispatcher) — a second resolution at fetch
- * time is the DNS-rebinding window. */
-export async function resolvePublicUrl(raw: string): Promise<ResolvedPublicUrl> {
-  const url = new URL(raw);
-  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || /(^localhost$|\.(local|internal)$)/i.test(url.hostname)) throw new Error("Only public HTTP research sources are allowed");
-  const addresses = await lookup(url.hostname.replace(/^\[|\]$/g, ""), { all: true });
-  if (!addresses.length || addresses.some((a) => blocked.check(a.address, a.family === 6 ? "ipv6" : "ipv4"))) throw new Error("Private network sources are not allowed");
-  return { url, addresses: addresses.map((a) => ({ address: a.address, family: a.family })) };
-}
-export async function publicUrl(raw: string): Promise<URL> {
-  return (await resolvePublicUrl(raw)).url;
-}
-/** Dispatcher whose socket connects only to the already-checked addresses. TLS
- * still verifies the certificate against the URL hostname (SNI is unchanged). */
-function pinnedDispatcher(addresses: ResolvedPublicUrl["addresses"]): Agent {
-  const lookupPinned = ((_hostname: string, options: { all?: boolean }, callback: (...args: unknown[]) => void): void => {
-    if (options.all) callback(null, addresses);
-    else callback(null, addresses[0]!.address, addresses[0]!.family);
-  }) as unknown as NonNullable<import("node:net").TcpNetConnectOpts["lookup"]>;
-  return new Agent({ connect: { lookup: lookupPinned } });
-}
+// SSRF fence + pinned transport now live in host-network.ts (shared with the engine's
+// HostNetworkFetchPort); re-exported so existing callers and selftests keep working.
+export { publicUrl, resolvePublicUrl, type ResolvedPublicUrl } from "./host-network.js";
 
 export async function runWorkspaceAgent(runDir: string, configPath: string, injectedModel?: ResearchModelCall, resume = false): Promise<void> {
   const runId = basename(runDir);
@@ -233,7 +198,12 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
   let useRestoredGraph = false;
   if (resume) {
     const prior = readJsonLocal<WorkspaceState>(join(runDir, "workspace-state.json"));
-    if (prior && (prior.phase === "failed" || prior.phase === "cancelled")) {
+    // Any interrupted phase restores its checkpoint (#36): accepting only
+    // failed/cancelled here silently fell through to a FRESH run that
+    // overwrote the checkpoint of a run whose child had died mid-flight
+    // (phase executing/reviewing/finalizing). Only completed runs have
+    // nothing to resume.
+    if (prior && prior.phase !== "completed") {
       Object.assign(state, prior, { phase: "executing", error: undefined });
       state.modelCalls = prior.modelCalls ?? 0; state.totalTokens = prior.totalTokens ?? 0;
       for (const [id, text] of Object.entries(prior.outputs ?? {})) outputs.set(id, text);
@@ -242,7 +212,7 @@ export async function runWorkspaceAgent(runDir: string, configPath: string, inje
       const priorGraph = readJsonLocal<ResearchWorkGraph>(join(runDir, "plan.json"));
       if (priorGraph) {
         for (const node of priorGraph.nodes) {
-          if (node.state === "failed" || node.state === "running" || node.state === "verifying") { node.state = "ready"; node.attempts = 0; }
+          if (node.state === "failed" || node.state === "running" || node.state === "verifying" || node.state === "blocked") { node.state = "ready"; node.attempts = 0; }
         }
         graph = priorGraph;
         useRestoredGraph = true;

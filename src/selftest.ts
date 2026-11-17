@@ -60,13 +60,13 @@ import { verifyResearchPackage } from "./research/replay.js";
 import { ScientificToolRegistry, type ScientificToolReceipt } from "./research/tool-registry.js";
 import { buildContextPack } from "./research/context-manager.js";
 import { ResearchScheduler } from "./research/scheduler.js";
-import { createWebFetchTool, crossrefWorksUrl, openAlexWorksUrl } from "./research/network-tools.js";
+import { createLiteratureSearchTool, createWebFetchTool, crossrefWorksUrl, openAlexWorksUrl, scholarlyRecordsFrom } from "./research/network-tools.js";
 import { verifyQuantitativeResearch } from "./research/verifiers/quantitative.js";
 import { verifyGisResearch } from "./research/verifiers/gis.js";
 import { verifyLiteratureResearch } from "./research/verifiers/literature.js";
 import { verifyGenericResearch } from "./research/verifiers/generic.js";
 import { evaluateScientificValue, type ScientificValueCard } from "./research/value-evaluator.js";
-import { buildResearchDeliverables, validateResearchDeliverables } from "./research/deliverables.js";
+import { buildResearchDeliverables, requiredDeliverableIds, validateResearchDeliverables, type ResearchDeliverableId } from "./research/deliverables.js";
 import { persistResearchDeliverables } from "./research/deliverable-store.js";
 import { SEED_STRATEGY_BUNDLE, strategyBundleFingerprint, validateStrategyBundle } from "./research/strategy-bundle.js";
 import { applyStrategyEdit } from "./research/strategy-edits.js";
@@ -392,6 +392,29 @@ export async function selftest(): Promise<boolean> {
 	const networkRun = await toolRegistry.execute("web-fetch", { missionId: mission.id, episodeId: "episode-1", nodeId: "literature", allowedCapabilities: ["network"], remainingWallMs: 10_000 }, { url: crossrefWorksUrl("Gutenberg Richter", 5) });
 	check("network research tool stores fetched content as evidence", networkRun.receipt.status === "success" && networkRun.receipt.artifactIds.length === 1 && evidenceStore.verify({ ...evidenceRef, id: networkRun.receipt.artifactIds[0]!, sha256: networkRun.receipt.artifactIds[0]!.replace("sha256:", ""), bytes: Buffer.byteLength('{"items":[]}') }));
 	check("literature URL builders bound and encode queries", crossrefWorksUrl("a b", 100).includes("rows=50") && openAlexWorksUrl("a b", 0).includes("per-page=1"));
+	// Development tier: a report-only mission is judged and persisted on its report alone.
+	const reportOnly = new Set<ResearchDeliverableId>(["report"]);
+	const brokenSlides = { ...deliverableBundle, presentationMarkdown: "# Slide 1\nonly one" };
+	check("deliverable gate ignores presentation/defense when the mission does not require them", validateResearchDeliverables(brokenSlides, deliverableEvidence, reportOnly).length === 0 && validateResearchDeliverables(brokenSlides, deliverableEvidence).some((issue) => issue.includes("8 slides")));
+	check("deliverable gate still demands the seven report sections for a report-only mission", validateResearchDeliverables({ ...deliverableBundle, reportMarkdown: "# nothing" }, deliverableEvidence, reportOnly).filter((issue) => issue.startsWith("report missing section")).length === 7);
+	const reportOnlyPersisted = persistResearchDeliverables(join(researchDir, "deliverables-report-only"), deliverableBundle, reportOnly);
+	check("deliverable store writes only the required deliverables", reportOnlyPersisted.length === 1 && reportOnlyPersisted[0]!.id === "report" && !existsSync(join(researchDir, "deliverables-report-only", "presentation.md")));
+	check("requiredDeliverableIds falls back to the full set for legacy missions", requiredDeliverableIds({ requiredDeliverables: [] }).size === 3 && requiredDeliverableIds({ requiredDeliverables: [{ id: "report", kind: "report", path: "report.md", required: true, description: "report only" }] }).size === 1);
+	const crossrefPayload = { message: { items: [
+		{ DOI: "10.1000/abc", title: ["A magnitude-frequency study"], author: [{ given: "Ada", family: "Lovelace" }], issued: { "date-parts": [[1998, 4]] }, URL: "https://doi.org/10.1000/abc" },
+		{ title: ["No authors, dropped"], issued: { "date-parts": [[2001]] }, URL: "https://example.org/x" },
+		{ DOI: "not-a-doi", title: ["URL only survives"], author: [{ name: "Consortium" }], issued: { "date-parts": [[2010]] }, URL: "https://example.org/y" },
+	] } };
+	const crossrefRecords = scholarlyRecordsFrom("crossref", crossrefPayload, "2026-08-30T01:01:30Z", "c".repeat(64));
+	check("crossref records map onto literature-v1 sources and drop incomplete items", crossrefRecords.length === 2 && crossrefRecords[0]!.doi === "10.1000/abc" && crossrefRecords[0]!.authors[0] === "Ada Lovelace" && crossrefRecords[0]!.year === 1998 && crossrefRecords[1]!.doi === undefined && crossrefRecords[1]!.url === "https://example.org/y" && crossrefRecords.every((record) => record.contentHash === "c".repeat(64) && !record.primary));
+	const openAlexRecords = scholarlyRecordsFrom("openalex", { results: [{ id: "W1", display_name: "Open work", doi: "https://doi.org/10.2000/xyz", publication_year: 2015, authorships: [{ author: { display_name: "Grace Hopper" } }] }] }, "2026-08-30T01:01:30Z", "d".repeat(64));
+	check("openalex records strip the doi.org prefix", openAlexRecords.length === 1 && openAlexRecords[0]!.doi === "10.2000/xyz" && openAlexRecords[0]!.url === "https://doi.org/10.2000/xyz");
+	const literatureTool = createLiteratureSearchTool({ fetch: async (request) => ({ finalUrl: request.url, status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(JSON.stringify(crossrefPayload)), retrievedAt: "2026-08-30T01:01:30Z" }) }, evidenceStore, () => new Date("2026-08-30T01:02:00Z"), { mailto: "lab@example.org" });
+	toolRegistry.register(literatureTool);
+	const literatureRun = await toolRegistry.execute("search-literature", { missionId: mission.id, episodeId: "episode-1", nodeId: "literature", allowedCapabilities: ["network"], remainingWallMs: 10_000 }, { query: "Gutenberg Richter", rows: 5 });
+	const literatureOutput = literatureRun.result.output as { count: number; url: string; evidenceId: string; sources: { contentHash: string }[] };
+	check("literature search tool registers the catalogue response as evidence and hashes every record to it", literatureRun.receipt.status === "success" && literatureOutput.count === 2 && literatureOutput.url.includes("mailto=") && literatureOutput.sources.every((record) => `sha256:${record.contentHash}` === literatureOutput.evidenceId));
+	check("literature search tool rejects malformed input", literatureTool.validate({ query: "", rows: 99, source: "scholar" }).length === 3);
 	const environment = captureResearchEnvironment({ gitCommit: "fake", gitDirty: false, configFingerprint: "cfg", strategyFingerprint: "strategy", modelProfileVersion: "profile", modelProfileFingerprint: "profile-hash", pythonPath: "python", pythonPackages: ["numpy==2", "pandas==2"], networkMode: "open", evaluatorMetrics: { private: "v1" }, randomSeeds: [7] }, new Date("2026-08-30T01:02:00Z"));
 	const replayClaims = [{ id: "claim-1", text: "The computed estimate is 0.85", status: "supported" as const, evidenceIds: [evidenceRef.id], uncertainty: "bootstrap interval pending", limitations: ["frozen fixture"] }];
 	const replayRuntimeAttestation = { version: 1 as const, runMode: "deterministic-demo" as const, unitTestsPassed: true, guardViolations: [], cleanupPassed: true, isolationBackend: "deterministic-test-double" as const, modelCalls: [], familyVerifications: [{ profile: "quantitative-v1", result: quantitativePass, inputHash: "a".repeat(64), evidenceIds: [evidenceRef.id] }], contraryEvidenceLinks: [], totalTokens: 0, wallSeconds: 0 };

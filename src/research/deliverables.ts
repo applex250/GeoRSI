@@ -322,13 +322,34 @@ export function buildResearchDeliverables(input: Parameters<typeof buildResearch
 	return buildResearchDeliverablesWithSources(input).bundle;
 }
 
-export function validateResearchDeliverables(bundle: ResearchDeliverableBundle, evidence: readonly EvidenceRef[]): string[] {
-	const issues: string[] = [];
-	for (const section of ["Scientific Question and Value", "Hypotheses and Falsification", "Data Provenance and Quality", "Methods and Tool Chain", "Uncertainty and Sensitivity", "Reproducibility", "Evidence Index"]) {
-		if (!bundle.reportMarkdown.includes(section)) issues.push(`report missing section: ${section}`);
+export type ResearchDeliverableId = "report" | "presentation" | "defense";
+export const ALL_DELIVERABLES: ReadonlySet<ResearchDeliverableId> = new Set<ResearchDeliverableId>(["report", "presentation", "defense"]);
+
+/** Deliverables a mission requires, by id. Missions predating the flag (or listing no
+ * recognised ids) fall back to the full competition set so the gate never silently
+ * relaxes for them. */
+export function requiredDeliverableIds(mission: Pick<ResearchMission, "requiredDeliverables">): ReadonlySet<ResearchDeliverableId> {
+	const ids = new Set<ResearchDeliverableId>();
+	for (const item of mission.requiredDeliverables) {
+		if (item.required && ALL_DELIVERABLES.has(item.id as ResearchDeliverableId)) ids.add(item.id as ResearchDeliverableId);
 	}
-	const slideCount = (bundle.presentationMarkdown.match(/^# Slide /gm) ?? []).length;
-	if (slideCount !== 8) issues.push(`presentation must contain exactly 8 slides, found ${slideCount}`);
+	return ids.size ? ids : ALL_DELIVERABLES;
+}
+
+/** Substance gate for the packaged bundle. Only the deliverables the mission requires are
+ * judged; the report's seven sections are non-negotiable whenever a report is required. */
+export function validateResearchDeliverables(bundle: ResearchDeliverableBundle, evidence: readonly EvidenceRef[], required: ReadonlySet<ResearchDeliverableId> = ALL_DELIVERABLES): string[] {
+	const issues: string[] = [];
+	if (required.has("report")) {
+		for (const section of ["Scientific Question and Value", "Hypotheses and Falsification", "Data Provenance and Quality", "Methods and Tool Chain", "Uncertainty and Sensitivity", "Reproducibility", "Evidence Index"]) {
+			if (!bundle.reportMarkdown.includes(section)) issues.push(`report missing section: ${section}`);
+		}
+	}
+	if (required.has("presentation")) {
+		const slideCount = (bundle.presentationMarkdown.match(/^# Slide /gm) ?? []).length;
+		if (slideCount !== 8) issues.push(`presentation must contain exactly 8 slides, found ${slideCount}`);
+	}
+	if (!required.has("defense")) return issues;
 	if (bundle.defense.items.length < 12) issues.push("defense package requires at least 12 questions");
 	const known = new Map(evidence.map((item) => [item.id, item]));
 	const relevantKinds = DEFENSE_CATEGORY_KINDS;

@@ -55,6 +55,52 @@ export function familyGraphSpec(family: ResearchTaskFamily, requiredStages?: rea
 	};
 }
 
+/** Interactive-workspace tiers. A tier is a SUBSET of the family template in template order,
+ * so `familyGraphSpec(family, tieredStages(...))` always validates. The core of every tier is
+ * the same four-stage spine the quant-lean mission proved end to end: an analysis/search stage,
+ * `verification` (the family verifier's input), `synthesis` (claims + value card + narrative)
+ * and `report`. Presentation and defense are competition deliverables and never enter a tier. */
+export type ResearchTier = "simple" | "medium" | "complex";
+
+export interface TierOptions {
+	/** Uploaded files are being analysed: audit them before analysing (medium/simple quantitative). */
+	hasFiles?: boolean;
+}
+
+const TIER_STAGES: Record<ResearchTaskFamily, Record<ResearchTier, WorkNodeKind[]>> = {
+	"literature-hypothesis": {
+		simple: ["literature-search", "verification", "synthesis", "report"],
+		medium: ["frame-question", "literature-search", "hypothesis", "verification", "synthesis", "report"],
+		complex: ["frame-question", "value-assessment", "literature-search", "hypothesis", "verification", "synthesis", "report"],
+	},
+	quantitative: {
+		simple: ["quantitative-analysis", "verification", "synthesis", "report"],
+		medium: ["frame-question", "hypothesis", "quantitative-analysis", "sensitivity", "verification", "synthesis", "report"],
+		complex: ["frame-question", "value-assessment", "hypothesis", "data-audit", "quantitative-analysis", "sensitivity", "verification", "synthesis", "report"],
+	},
+	"gis-remote-sensing": {
+		simple: ["gis-analysis", "verification", "synthesis", "report"],
+		medium: ["frame-question", "hypothesis", "gis-analysis", "sensitivity", "verification", "synthesis", "report"],
+		complex: ["frame-question", "value-assessment", "hypothesis", "data-audit", "gis-analysis", "sensitivity", "verification", "synthesis", "report"],
+	},
+	capstone: {
+		simple: ["literature-search", "quantitative-analysis", "verification", "synthesis", "report"],
+		medium: ["frame-question", "literature-search", "hypothesis", "quantitative-analysis", "verification", "synthesis", "report"],
+		complex: ["frame-question", "value-assessment", "literature-search", "hypothesis", "data-acquisition", "data-audit", "quantitative-analysis", "gis-analysis", "sensitivity", "verification", "synthesis", "report"],
+	},
+};
+
+export function tieredStages(family: ResearchTaskFamily, tier: ResearchTier, options: TierOptions = {}): WorkNodeKind[] {
+	const wanted = new Set<WorkNodeKind>(TIER_STAGES[family][tier]);
+	// Analysing user data without auditing it first is bad practice at any tier.
+	if (options.hasFiles && STAGES[family].includes("data-audit")) wanted.add("data-audit");
+	return STAGES[family].filter((kind) => wanted.has(kind));
+}
+
+/** Development-tier node budget: interactive answers, not competition campaigns. `report`
+ * still gets the ×2 communication scale from familyGraphSpec. */
+export const DEV_NODE_BUDGET: WorkNodeBudget = { wallMs: 20 * 60 * 1000, maxModelCalls: 24, maxToolCalls: 32, maxOutputTokens: 60_000, maxAttempts: 2 };
+
 /** Structural validation independent of any mission. */
 export function validateGraphSpec(spec: GraphSpec, allowedKinds: readonly WorkNodeKind[]): string[] {
 	const issues: string[] = [];

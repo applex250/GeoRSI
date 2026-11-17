@@ -12,8 +12,22 @@ REQUIRED = [
     "mission.json", "plan.json", "events.jsonl", "claims.json",
     "evidence-index.json", "environment.json", "runtime-attestation.json",
     "research-manifest.json", "replay.json", "research-score.json",
-    "package-seal.json", "report.md", "presentation.md", "defense.json",
+    "package-seal.json",
 ]
+# Deliverable files follow the mission's own requiredDeliverables (a report-only
+# development package legitimately has no presentation/defense); a mission that
+# names none of the known ids falls back to the full competition set.
+DELIVERABLE_FILES = {"report": "report.md", "presentation": "presentation.md", "defense": "defense.json"}
+
+
+def required_deliverable_files(run_dir: Path) -> list[str]:
+    try:
+        mission = json.loads((run_dir / "mission.json").read_text(encoding="utf-8"))
+        ids = [item.get("id") for item in mission.get("requiredDeliverables", []) if item.get("required") is True]
+        files = [DELIVERABLE_FILES[i] for i in ids if i in DELIVERABLE_FILES]
+        return files or list(DELIVERABLE_FILES.values())
+    except Exception:
+        return list(DELIVERABLE_FILES.values())
 
 
 def canonical(value) -> str:
@@ -78,7 +92,7 @@ def verify_ledger(path: Path, expected_root: str | None) -> list[str]:
 
 
 def evaluate(run_dir: Path) -> tuple[bool, dict]:
-    missing = [name for name in REQUIRED if not (run_dir / name).is_file()]
+    missing = [name for name in REQUIRED + required_deliverable_files(run_dir) if not (run_dir / name).is_file()]
     issues: list[str] = [f"missing {name}" for name in missing]
     objects = {}
     if not missing:

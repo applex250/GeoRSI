@@ -49,6 +49,9 @@ export interface ComputeRunReceipt {
 	/** Bounded exchange-file output for structured/binary-safe tool results. */
 	result?: string;
 	resultFile?: string;
+	/** Host tier: the script printed its JSON instead of writing resultFile; the port
+	 * materialized the file from stdout (deterministic, replayed identically). */
+	resultMaterializedFromStdout?: boolean;
 	scriptSha256: string;
 	/** Figures written by the script into its working directory (bounded, base64). */
 	figureFiles?: { filename: string; sha256: string; base64: string }[];
@@ -291,7 +294,16 @@ export function createSandboxiePythonResearchTool(input: {
 			const receipt = await input.port.run({ missionId: context.missionId, nodeId: context.nodeId, purpose: request.purpose, script: request.script, timeoutMs, networkMode: input.networkMode, resultFile: request.resultFile, signal: context.signal });
 			input.onRunReceipt?.(receipt);
 			const issues = validateComputeReceipt(receipt, input.networkMode);
-			if (issues.length > 0) throw new Error(issues.join("; "));
+			if (issues.length > 0) {
+				// The model must see WHY: a masked stderr once cost a literature node three blind
+				// retries of the same NameError. Deterministic failures are not refunded, so the
+				// message has to make the next attempt different.
+				const stderrTail = String(sanitizeResearchEvidence(receipt.stderr)).trim().slice(-1200);
+				const stdoutTail = String(sanitizeResearchEvidence(receipt.stdout)).trim().slice(-400);
+				throw new Error(`${issues.join("; ")}${stderrTail ? `
+Script stderr (tail): ${stderrTail}` : ""}${!stderrTail && stdoutTail ? `
+Script stdout (tail): ${stdoutTail}` : ""}`);
+			}
 			if (context.signal?.aborted) throw new Error(`sandboxie-python aborted after completion for node ${context.nodeId}`);
 			for (const reference of receipt.generatedEvidence) if (!input.evidenceStore.verify(reference)) throw new Error(`Sandboxie compute produced unverifiable evidence: ${reference.id}`);
 			const scriptEvidence = input.evidenceStore.putText(request.script, { kind: "script", logicalName: `${context.nodeId}-sandboxie.py`, producerNodeId: context.nodeId, mediaType: "text/x-python" });

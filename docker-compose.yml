@@ -130,6 +130,9 @@ services:
       HTTPS_PROXY: ${GEORSI_HTTPS_PROXY:-}
       GEORSI_WORKSPACE_ROUNDS: ${GEORSI_WORKSPACE_ROUNDS:-3}
       GEORSI_WORKSPACE_MODEL_CALLS: ${GEORSI_WORKSPACE_MODEL_CALLS:-60}
+      # 工作台档：Crossref polite pool 邮箱；GEORSI_WORKSPACE_ENGINE=legacy 回退旧 agent
+      GEORSI_CROSSREF_MAILTO: ${GEORSI_CROSSREF_MAILTO:-}
+      GEORSI_WORKSPACE_ENGINE: ${GEORSI_WORKSPACE_ENGINE:-}
     volumes:
       - ./runs:/app/runs
       - ./knowledge:/app/knowledge
