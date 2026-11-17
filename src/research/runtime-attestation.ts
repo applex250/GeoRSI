@@ -17,6 +17,9 @@ export interface ModelCallReceipt {
 	inputTokens: number | null;
 	outputTokens: number | null;
 	reasoningTokens: number | null;
+	/** Prompt-cache read tokens for this call (pi-ai usage.cacheRead); null when the
+	 * provider does not report caching. Diagnostic only — never part of a gate. */
+	cachedTokens?: number | null;
 	totalTokens: number;
 	success: boolean;
 	api?: string;

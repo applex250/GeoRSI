@@ -107,7 +107,7 @@ export function SpectralExplorer() {
           </div>
           <div className="spectral-chart">
             <ResponsiveContainer height="100%" width="100%">
-              <ComposedChart data={curve} margin={{ top: 18, right: 14, bottom: 2, left: -18 }}>
+              <ComposedChart data={curve} margin={{ top: 18, right: 14, bottom: 2, left: 2 }}>
                 <defs>
                   <linearGradient id="spectral-fill" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#77b8a3" stopOpacity={0.28} />
@@ -116,7 +116,7 @@ export function SpectralExplorer() {
                 </defs>
                 <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 5" vertical={false} />
                 <XAxis dataKey="wavelength" interval={19} stroke="var(--chart-axis)" tick={{ fill: "var(--chart-label)", fontSize: 11 }} tickFormatter={(value) => value + "μm"} tickLine={false} />
-                <YAxis domain={[0, 1]} stroke="var(--chart-axis)" tick={{ fill: "var(--chart-label)", fontSize: 11 }} tickCount={5} tickLine={false} width={36} />
+                <YAxis domain={[0, 1]} stroke="var(--chart-axis)" tick={{ fill: "var(--chart-label)", fontSize: 11 }} tickCount={5} tickLine={false} width={42} />
                 <Tooltip contentStyle={{ background: "var(--surface-strong)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)" }} cursor={{ stroke: "var(--accent)", strokeWidth: 1 }} formatter={(value) => [Number(value).toFixed(3), "Reflectance"]} labelFormatter={(value) => value + " μm"} />
                 <Area dataKey="response" fill="url(#spectral-fill)" stroke="none" type="monotone" />
                 <Line dataKey="response" dot={false} stroke="var(--accent)" strokeWidth={2.2} type="monotone" />

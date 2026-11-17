@@ -116,6 +116,7 @@ function GlobePoints() {
 export default function ParticleGlobe() {
   return (
     <div aria-label="Interactive particle globe showing the world's landmasses" className="particle-globe" role="img">
+      <div className="particle-globe-backdrop" aria-hidden="true" />
       <Canvas camera={{ fov: 36, position: [0, 0, 9.2] }} dpr={[1, 1.5]}>
         <color attach="background" args={["#040506"]} />
         <ambientLight intensity={0.55} />
