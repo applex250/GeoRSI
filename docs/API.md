@@ -12,31 +12,45 @@ GeoRSI 提供一个面向前端的本地 HTTP API。API 以 `research-runs` 为�
 
 | 方法 | 路径 | 成功状态 | 前端用途 / 响应 |
 | --- | --- | --- | --- |
-| GET | `/healthz` | 200 | 进程存活 |
-| GET | `/readyz` | 200 / 503 | tsx 文件存在性检查，不代表模型或 Python 可用 |
+| GET | `/healthz` | 200 | 进程存活（无需令牌） |
+| GET | `/readyz` | 200 / 503 | tsx 文件存在性检查，不代表模型或 Python 可用（无需令牌） |
 | GET | `/configs` | 200 | 配置下拉框，`{ items }` |
 | GET | `/research-missions` | 200 | 任务模板列表，`{ items }` |
 | GET | `/research-missions/:templateId` | 200 | 任务模板全文，`{ id, name, mission }` |
+| GET | `/gateways` | 200 | 网关注册表 + 当前网关 + 密钥是否配置，`{ items, note }` |
+| POST | `/gateways/select` | 200 | 原子切换网关 `{ gateway }` → `{ gateway, provider, model, api, fingerprint }` |
+| POST | `/uploads?name=` | 201 | 流式上传（≤100 MB，扩展名白名单），返回 `{ id, name, bytes, sha256 }` |
+| POST | `/research-requests` | 202 | 自然语言提问 `{ question, uploadIds }` → 启动 `research-agent` 运行（研究引擎工作台档） |
 | GET | `/research-runs` | 200 | 运行列表，`{ items, pagination }` |
-| POST | `/research-runs` | 202 | 创建运行，返回 `id`、状态、链接 |
+| POST | `/research-runs` | 202 | 创建运行（`research-live` / `research-demo` / `evolve`），返回 `id`、状态、链接 |
 | GET | `/research-runs/:runId` | 200 | 详情聚合快照 |
-| POST | `/research-runs/:runId/start` | 202 | 启动排队任务 / 显式恢复 |
-| GET | `/research-runs/:runId/workflow` | 200 | 工作流节点和依赖图 |
+| POST | `/research-runs/:runId/start` | 202 | 启动排队任务 / 显式恢复 `{ resume }` |
+| GET | `/research-runs/:runId/workflow` | 200 | 工作流节点和依赖图（工作台运行为累积多轮图，节点 id 前缀 `r{轮}-`） |
+| GET | `/research-runs/:runId/budget` | 200 | 三层预算视图：每个节点的**规划固定值**（plan.json `budget`，建图时按节点类型设定的底线）vs 账本实耗（工具/模型调用、输出 tokens、墙钟）与利用率分级（ok/warn/over）；运行级 planned/used/remaining、分类与复核开销、引擎收紧压力 `pressure.overrun`（已执行节点实耗÷规划，>1.25 时 `tightening=true`）。前端全局预算条、节点预算四维条与图节点角标的唯一数据源 |
+| GET | `/research-runs/:runId/nodes/:nodeId/activity` | 200 | 节点活动视图：pi 会话流（思考/输出/工具起止）+ 账本回执折叠成的时间线、按节点的 token 用量与**缓存命中率**（cached/(cached+input)，网关不报缓存时为 null）、按工具调用统计、提交摘要 |
 | GET | `/research-runs/:runId/mission` | 200 | `{ mission, source, updatedAt }` |
 | GET | `/research-runs/:runId/events` | 200 | SSE 事件流，非 JSON 响应 |
 | GET | `/research-runs/:runId/logs` | 200 | 按字节偏移读取日志 |
-| POST | `/research-runs/:runId/actions` | 202 | 停止命令 |
-| POST | `/research-runs/:runId/feedback` | 201 | 保存文本反馈 |
+| POST | `/research-runs/:runId/actions` | 202 | 停止命令 `{ action: "stop" }` |
+| POST | `/research-runs/:runId/feedback` | 201 | `research-agent`：追加补充方向（下一节点生效）；其它模式：记录到 `FEEDBACK.md` |
+| GET | `/research-runs/:runId/request` | 200 | 工作台原始需求 `{ question, files }` |
+| GET | `/research-runs/:runId/directions` | 200 | 补充方向及 `queued/applied` 状态 |
+| GET | `/research-runs/:runId/rounds` | 200 | 轮次历史（评审结论 + 各轮报告草稿是否存在） |
+| GET | `/research-runs/:runId/rounds/:n/report` | 200 | 第 n 轮报告草稿（Markdown） |
 | GET | `/research-runs/:runId/evidence` | 200 | 证据索引，`{ items }` |
-| GET | `/research-runs/:runId/evidence/:evidenceId/content` | 200 | 证据原始内容 |
+| GET | `/research-runs/:runId/evidence/:evidenceId/content` | 200 | 证据原始内容（发送前重算 sha256） |
 | GET | `/research-runs/:runId/claims` | 200 | 研究声明，`{ items }` |
-| GET | `/research-runs/:runId/score` | 200 | 评分原始 JSON |
+| GET | `/research-runs/:runId/score` | 200 | 三层评分原始 JSON（工作台运行也有：科学层分 + `eligible=false`） |
 | GET | `/research-runs/:runId/attestation` | 200 | 运行证明原始 JSON |
 | GET | `/research-runs/:runId/replay` | 200 | 回放验证原始 JSON |
-| GET | `/research-runs/:runId/deliverables` | 200 | 可下载文件，`{ items }` |
+| GET | `/research-runs/:runId/deliverables` | 200 | 可下载文件，`{ items }`（存在即列出） |
 | GET | `/research-runs/:runId/deliverables/:name/content` | 200 | 文件原始内容 |
+| GET | `/research-runs/:runId/experience` | 200 | 该运行的经验抽取摘要（`experience.json`） |
+| GET | `/experience?status=&family=&signature=&pending=1` | 200 | 经验记录摘要列表 + 索引 |
+| GET | `/experience/:id` | 200 | `{ record, approvals }` |
+| POST | `/experience/:id/review` | 200 | 人工审批 `{ decision, note?, actor?, patch? }` |
 
-上表为原有的 23 个方法/路径组合。工作台另新增文件上传、自然语言启动、原始需求读取和补充方向读取四个接口，详见 [第二阶段接入说明](FRONTEND-STAGE-2.md)。普通输入通过 `POST /api/v1/research-requests` 启动真实 `research-agent` 任务。没有登录、删除运行、修改模型配置或 benchmark 聚合接口。
+除 `/healthz`、`/readyz` 与服务索引 `/` 外，设置 `GEORSI_API_TOKEN` 后全部需要令牌。前端经同源代理 `/api/research/*` 访问：GET 全部透传；POST 只放行 `uploads`、`research-requests`、`gateways/select`、`research-runs` 与 `<research-runs|experience>/<id>/<action>` 三段形状（子动作是否存在由引擎判定，不在代理里枚举）。没有登录、删除运行、修改模型配置或 benchmark 聚合接口。
 
 ## 启动与鉴权
 
@@ -44,7 +58,7 @@ GeoRSI 提供一个面向前端的本地 HTTP API。API 以 `research-runs` 为�
 npm run api
 ```
 
-默认地址：`http://127.0.0.1:8787`。API 没有用户账户，**可达性即授权**，因此默认只绑 loopback。
+默认地址：`http://127.0.0.1:8787`。API 没有用户账户，**可达性即授权**，因此默认只绑 loopback。启动时若仓库根目录存在 `.env`（与 docker-compose 读取的是同一个文件，已 gitignore），会自动加载其中的变量（已在环境中的变量优先），这样 `GEORSI_RESEARCH_API_KEY` 不必在每个终端里重复 export。
 
 | 环境变量 | 作用 |
 | --- | --- |
@@ -422,6 +436,19 @@ data: {"id":"24","seq":24,"timestamp":"2026-09-11T04:00:00.000Z","type":"node-co
 
 下载指定产物内容。`name` 必须属于上述白名单，接口不会接受任意文件路径。
 
+## 经验层（只存不查）
+
+工作台运行封包后自动抽取一条经验记录（路线、工具、验证结论、评分、持久哈希）与若干反例（失败节点尝试），经三道门（验证器 / 重放 / 人工）入库到 `knowledge/experience/`。本阶段**不**用经验路由新任务；接口用于观察与人工审批。详见 [`FRONTEND-STAGE-3.md`](FRONTEND-STAGE-3.md) §5。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/v1/experience?status=&family=&signature=&pending=1` | 记录摘要列表（最多 500 条，新→旧）+ `index` |
+| GET | `/api/v1/experience/:id` | `{ record, approvals }` |
+| POST | `/api/v1/experience/:id/review` | 请求 `{ decision: "accept"\|"modify"\|"reject", note?, actor?, patch?: { tier?, stages? } }`；返回更新后的 `{ record, approvals }`。`accept` 让重放已验证的候选记录变为 `active`，`reject` 归档为 `retired`，固件（demo）记录审批后仍为 `retired` |
+| GET | `/api/v1/research-runs/:runId/experience` | 该运行的抽取摘要（`experience.json`）；尚未抽取返回 `404 EXPERIENCE_NOT_READY` |
+
+相关环境变量：`GEORSI_EXPERIENCE_ROOT`（重定向存储目录，自测用）、`GEORSI_WORKSPACE_ENGINE=legacy`（回退到第二阶段自包含 agent）、`GEORSI_CROSSREF_MAILTO`（Crossref polite pool 联系邮箱）。
+
 ## 前端推荐调用顺序
 
 1. 调用 `GET /api/v1/configs` 填充配置选择器。
@@ -438,7 +465,7 @@ data: {"id":"24","seq":24,"timestamp":"2026-09-11T04:00:00.000Z","type":"node-co
 - `research-live` 当前支持停止及 `/start { resume: true }` 的持久化恢复，不支持暂停。`stop` 在子进程退出后记为 `cancelled`。
 - PID 探测在系统重启后可能撞上被复用的 PID，使 `/start` 返回 `409 RUN_ALREADY_ACTIVE`；这是保守方向的误判，确认旧进程不在后可删除记录里的 `pid` 字段重试。
 - `evolve` 使用 CLI 的默认 mission 和候选设置，当前 API 的 `mission` 不控制该模式；campaign 产物分散在其它运行目录，当前 API 不聚合这些产物。
-- `research-agent`（工作台）运行在 host-audit 下直接执行模型生成的 Python，没有沙箱；模型输出触及长度上限时会以 `workspace.truncatedCalls` 计数并在账本记 `model-output-truncated`，前端报告页显示警示。
+- `research-agent`（工作台）自第三阶段起运行在研究引擎上（同一执行器/族验证器/编排器，见 [`FRONTEND-STAGE-3.md`](FRONTEND-STAGE-3.md)），每次运行封包为完整研究包：`/score`、`/claims`、`/attestation`、`/replay` 对工作台运行也有数据；仍是 host-audit 直接执行模型生成的 Python，无沙箱，`eligible` 恒为 `false`，且因不跑预检 `unitTestsPassed=false`。模型输出触及长度上限时以 `workspace.truncatedCalls` 计数（旧 agent）——新引擎路径由 pi 会话管理输出上限。
 - 证据内容依赖运行对应的本地 CAS 文件仍然存在；CAS 被清理后只能继续查看证据索引。
 
 ## 前端字段和接入示例

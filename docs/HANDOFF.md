@@ -7,6 +7,140 @@ GitHub：`origin/master`
 
 ## 0. 2026-09 阶段要点（先读这节）
 
+> **2026-09-15 文献节点根因与结构性修复（最新）**——大改后文献检索节点连续 7 次尝试
+> 未成功，逐次修症状无效。停下复盘全部时间线后的结论：**literature-v1 的验证输入契约在
+> 设计上要求模型手工重打机器已掌握的数据**（search-literature 返回的记录本就带精确
+> contentHash），经 python 写 JSON 有 ≥6 个独立形式陷阱（裸 hex、evidence_ids、hypothesis id
+> 当证据、Python 布尔、resultFile、计算目录不共享），慢网关上每个陷阱一个 2–4 分钟回合，
+> 收口链永远比墙钟多一两个回合。另：`context-recall` 列的是**已提交节点**的记忆目录，
+> 首个节点永远召回为空。
+> - **新工具 `compile_literature_catalogue`**（executor，仅文献族节点暴露）：模型只给
+>   source_ids（检索结果的 DOI/URL id）、claims（含支持/反驳来源）、可证伪假设、novelty
+>   范围；工具从本会话的 search-literature 输出 **∪ 前次尝试已登记的检索响应**（按
+>   sourceUrl 判 crossref/openalex，`scholarlyRecordsFrom` 重解析）取记录，自动填
+>   contentHash/searchQueries/supportsClaimIds，先过绑定+结构+语义验证，再写成 tool-produced
+>   CAS 工件，返回 artifactId 与可直接提交的 evidence_ids。收口从 5–8 回合降到 2 回合。
+> - 同轮配套：输出上限已提交不作废（#17）、提交后被中止不作废、文献输出权重 ×1.5、
+>   恢复时未完成节点按当前权重刷新规划值、context-recall 不计工具预算、前次证据按
+>   source→结果 JSON→其他排序上限 120（尾切曾丢掉最早的检索目录）、重试墙钟保底 15 分。
+> - **真机结果**：run_e091669de524 恢复后文献节点 **2 次工具调用、约 5 分钟收口**，随后
+>   verification/synthesis/report 全部完成，第一轮报告 5143 字七节带证据引用；复核如实指出
+>   仅 3 篇文献并要求第二轮扩展（compile 提示"2–5 篇"偏保守——最低充分 vs 充分性的张力，
+>   由复核环纠偏）。
+
+> **2026-09-15 真机一轮压测**——run_25e3cb13ea68 / run_92421ade473b 两个真实文献族运行 + 五次
+> 恢复，把六层缺陷按真机时序逐个暴露并修复（全部带回归自测）：
+> 1. **resultFile 契约**（模型只 print 不写文件）：host 端口在"exit 0 + stdout 是单个 JSON"时
+>    自动物化结果文件（replay 同规则、字节可比）；错误信息改为可执行（带脚本 stderr 与
+>    json.dump 写法）；工具描述写明契约。
+> 2. **工具错误被截断**：tool-registry 曾把工具错误截到 500 字再抛出——stderr 修复指引到
+>    不了模型。现在回执保 500 字摘录、抛出带全文（≤6k）。
+> 3. **JSON 字面量**：模型每个新会话都写 `false/null`——python 脚本前置
+>    `true, false, null = True, False, None`（PRELUDE，replay 同规则），NameError 类失败清零。
+> 4. **预算按尝试重置**（坑元教训 #3）：执行器经 `nodeUsed`（引擎活账 + 恢复时账本回填）
+>    跨尝试扣减包络，保底 25%/12 分钟；输出 tokens 不扣（重试仍须能写完整交付物）。
+> 5. **前次尝试证据不可见**（坑 #19 复现）：引擎按"该节点工具调用产出过哪些 artifact"
+>    （nodeArtifacts，账本回执口径）∪ producer 匹配交接给重试会话，渲染为**强制紧凑块**
+>    （id|kind|name|url，不会被打包预算裁掉）；context-recall 未命中时回吐可用 id 提示。
+> 6. **验证器反馈只在会话外**：submit 受理前**空跑族验证器**（绑定+结构+语义，有界 2 次），
+>    精确 issue 当场打回；新增 `normalizeFamilyVerifierPayload`（sha256: 前缀剥离、
+>    evidence_id/snake_case 折算）——三处分发/校验点共用，模型写什么形式的哈希都能过。
+> 剩余诚实限制：alsl 网关单回合 2–4 分钟，文献节点收口链（召回→写 JSON→提交）单独需要
+> 10–15 分钟；已按实测把 literature-search 墙钟权重调到 ×2（40 分钟）。两个真机运行保持
+> failed/可恢复状态。
+
+> **2026-09-15 预算可视化**——三层预算全部上前端。新纯函数 `src/research/budget-report.ts`
+> 把 plan.json 的规划固定值与账本 `model-call-receipt`/`scientific-tool-receipt` 折成
+> `GET /research-runs/:id/budget`（逐节点 planned/used/ratios/level + 运行级 planned/used/
+> remaining/overhead/pressure）。前端三处：工作流头部**全局预算条**（工具/模型/tokens/墙钟
+> 四条 + 剩余节点待用量 + 分类/复核开销 + 压力 ×N 与"正在收紧下游预算"）；节点详情**预算
+> 四维条**（规划固定值 vs 实耗，正常/偏紧/临界）；图节点**角标**（已用/规划次数 + 利用率细条，
+> 未执行节点显示规划固定值）。自测：引擎自测用真实账本核对报告与引擎记账一致、API 端点、
+> 架构纯度。
+
+> **2026-09-15 三层预算体系**——节点执行时动态知道自己/全局用了多少、还剩多少、
+> 后面还有谁；规划期按节点设计定固定值；引擎侧动态调节只收不放、有底线。
+> 新纯函数模块 `src/research/run-budget.ts`（架构纯度规则已纳入）：
+> - **第一层·规划期固定值**：`planNodeBudget(kind)` 在 `roundNodes` 建图时按节点 kind 给
+>   差异化包络（DEV 基线 × 权重：literature-search/data-acquisition 工具 ×1.5、分析类
+>   ×1.25、frame/hypothesis/value 类 ×0.5、report 保持 ×2；绝对下限 8 次/6 调用/5 分钟/
+>   8k）。写进 plan.json 的 `node.budget`，就是每个节点的**底线**。
+> - **第二层·全局账本**：引擎统计运行级 tool/model calls、tokens、墙钟，对照剩余节点的
+>   规划包络，经 `deps.runBudget(nodeId)` 提供 `RunBudgetView`（usage / plannedRemaining /
+>   remainingNodes 队列 / pressure.overrun）。
+> - **第三层·执行期调节 + 可见**：`modulateNodeBudget` 在节点开跑时按"已跑节点实际÷规划"
+>   的超支比收紧本节点的工具与墙钟（>1.25 才触发、只收不放、最低 50%、synthesis/report/
+>   presentation/defense 受保护；无数据 ⇒ 完整规划值——固定值即失败模式）。执行器用有效
+>   包络驱动全部强制（发现上限、墙钟、超时）。可见性：提示词 `BUDGET DISCIPLINE (live)`
+>   简报（自身包络+调节原因、全局已用、下游队列与其规划量、"只花自己的份额"）；图块每
+>   行带 `budget:[Ncalls/Mmin] state`；**每次工具输出**附 `budgetStatus`
+>   {node 已用/剩余 + 墙钟, run 已用/剩余规划/剩余节点数, warning}。
+> - 自测：纯函数（差异化/下限/调节边界/保护/简报内容）+ 风暴用例改由规划值推导
+>   （文献节点 48 → 上限 44：60 次冲击 = 44 执行 + 16 拒）+ 提示词简报与图块标记断言。
+
+> **2026-09-15 检索死螺旋在引擎路径收口**——真机报错
+> `round 1 did not complete its work graph: r1-02-literature-search: timed out after 1199991ms`
+> 复盘：#16/#17/#20 当年修在旧③里，融合换核后①执行器没有这些机制——`maxToolCalls`
+> 会话内**零强制**（只用于算输出上限）、literature 角色契约零预算纪律、收笔 nudge
+> 要求剩余 >60s。修复全部落在 `research-node-executor.ts`（纯函数可单测）：
+> - **发现型工具预算门（#16）**：`search-literature`/`web-fetch` 在 `maxToolCalls-4`
+>   处停止应答（`TOOL BUDGET RESERVED` + 收笔指引，不耗预算），收尾动作
+>   （python-host resultFile / record / submit）永不受限——节点必然留有交卷空间。
+> - **预算可见（#16）**：提示词加 BUDGET DISCIPLINE 块（明确次数/分钟、最低充分
+>   证据即交卷）；工具输出 JSON 内嵌 `budgetWarning` 字段（剩余 ≤1/4 次数或 <25%
+>   墙钟时注入"停止检索、立即交卷"）。
+> - **收笔 nudge 阈值 60s→5s（#17）**：墙钟临尽时仍会补一次"现在提交"，预算耗尽
+>   尽量转化为提交而非全损。
+> - **瞬态失败退款（#20）**：429/超时/5xx/网络类的失败工具调用退还预算（上限 8 次），
+>   确定性失败照扣——限流风暴不再吃光预算，坏循环也不会靠退款无限重试。
+> - **离线验证**：引擎新增 `networkFetchPort` 注入，自测用囚笼 fetch port 跑文献族
+>   "检索风暴"——40 次检索冲击：28 次执行（正好到 cap）、12 次被拒、警告注入、
+>   节点仍交出通过 literature-v1 的目录。`npm run check` 全绿。
+
+> **2026-09-15 僵尸洞收口**——踩坑单 #36/#37（此前唯二未修）落地：
+> - **#37 心跳双因子存活**：`run.ts` 的 `research-agent` 子进程每 5 s 重写
+>   `runs/<id>/heartbeat.json`（启动即写一次）；API 的 `childProcessAlive` 只有
+>   "pid 活着 **且** 心跳新鲜（≤90 s）"才判存活——pid 复用骗不过心跳文件。无心跳
+>   文件的旧运行回退纯 pid 探测（迁移期兼容）。`deriveStatus`/启动清扫/`/start` 409
+>   门全部换成双因子；`/start` 遇"pid 活着但心跳已死"的僵尸先 `terminateStaleChild`
+>   再重启，杜绝双写者共享一个运行目录。
+> - **#36 僵尸可恢复**：引擎 resume 门槛从"只认 failed/cancelled"放宽为"除 completed
+>   外一切 phase 皆可恢复"（旧版对 phase=executing 的静默死亡直接拒绝，把用户逼成
+>   全新重跑覆盖检查点——legacy `workspace-agent` 更是静默掉进全新运行分支，同修）；
+>   in-flight 节点重置范围补上 `blocked`。自测新增 `zombieResume`（伪造 executing +
+>   running 节点 → 恢复续跑不重分类不重规划）与 server 心跳三态断言
+>   （新鲜=running / 陈旧=failed / 无文件=回退 pid）。
+> - **其余坑复查无回归**：原子写（`renameDurable` 重试+copyFileSync 兜底，经验库用的
+>   就是它）、脱敏 `token(?!s)`、python 默认 `python`（Windows 安全）、429 Retry-After
+>   退避 + Crossref polite pool、预算纪律/收笔提示、轮次防死螺旋（轮内失败即诚实终止）。
+
+> **2026-09-15 融合轮次**——"③是门面，①是引擎"落地：工作台换核到研究引擎，经验层只存不查。
+> 完整说明见 `docs/FRONTEND-STAGE-3.md`。
+> - **新组合根 `src/research/workspace-engine.ts`**：`research-agent` 默认走它。复用①的
+>   `ResearchNodeExecutor`（pi 会话 + 角色契约 + typebox 提交）、族验证器、`ResearchScheduler`、
+>   账本、CAS 与 `runResearchOrchestrator` 打包；保留③的外环（轮次/评审/directions/1 秒停止/
+>   `workspace-state.json` 兼容）→ API 与前端零改动。每次运行封包为完整研究包，
+>   `research_verdict.py` 可直接判决（预期唯一 issue："unit tests not attested"）。
+> - **mission 合成与分档**：`mission-synthesizer.ts`（pi 结构化分类 + 确定性回退，`mission-synthesized.json`
+>   可审计）；`graph-spec.ts` `tieredStages(family, tier)` simple/medium/complex 均为族模板子集；
+>   `DEV_NODE_BUDGET`。report-only 交付物。
+> - **①侧最小改动**：交付物门/存储/通信分按 `requiredDeliverables`（live.ts 传全三件，行为不变；verdict.py
+>   同步）；`scheduler.ts` `externalSignal`；执行器 `directions` 上下文块；`live.ts:175` 豁免 API 簿记文件
+>   （API→research-live 新建路径此前从未跑通）；执行器报告草稿探测修 bug（`record_research_artifact` 路径）。
+> - **补齐③已有能力**：`createLiteratureSearchTool`（Crossref/OpenAlex → literature-v1 记录）、
+>   `host-network.ts` `HostNetworkFetchPort`（BlockList + 钉 IP + 逐跳重校验）、上传 `INPUT_FILES` 绑定
+>   （前缀进入回执脚本，重放可复现）、`report-links.ts` 在哈希前链接化。
+> - **经验层 `src/research/experience/`**：schema / signature（精确键 + 词法键）/ extract（永不抛错）/ gates
+>   （验证器 · 重放 · 人工三道门；demo 固件到店即 retired）/ store（`knowledge/experience/` JSONL 车道 +
+>   索引，幂等，`GEORSI_EXPERIENCE_ROOT` 可重定向）/ approval（operator 证据源落地）/ harvest。工作台封包后
+>   自动抽取；`npm run research:experience -- --all` 回填；API `GET/POST /api/v1/experience*`。**不路由**。
+> - **自测**：`workspace_engine_selftest.ts`（假 pi 会话驱动真实执行器：两轮 9 节点封包、directions、
+>   INPUT_FILES、链接化、停止+续跑、抽取）、`mission_synthesizer_selftest.ts`（155）、`experience_selftest.ts`
+>   （28）；`experience-miner.ts` 补齐 5 个失败类模板；架构门新增纯模块规则。
+> - **回退**：`GEORSI_WORKSPACE_ENGINE=legacy` → `workspace-agent.ts`（保留一个发布周期）。
+> - **待做**：真机冒烟（alsl：文献类简单问题 + 带 CSV 定量问题）并记录耗时/token 对比；经验路由；
+>   ②晋升纪律搬家（需 ≥2 配对运行）；审批面板 UI。
+
 > **2026-09-14 加固轮次（最新）**——一次安全/一致性审计后的集中修复，行为变化如下：
 > - **API 暴露面**：`src/api/server.ts` 默认只绑 `127.0.0.1`（`GEORSI_API_HOST` 覆盖）；可选共享令牌
 >   `GEORSI_API_TOKEN`（`Authorization: Bearer` / `X-GeoRSI-Token`，定长比较）；CORS 改为**可选**

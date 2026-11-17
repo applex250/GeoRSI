@@ -1,15 +1,18 @@
 /** Offline HTTP integration checks; fixtures remain under ignored runs/. */
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOT } from "../config.js";
 import { ResearchEventLedger } from "../research/event-ledger.js";
+import { harvestRunExperience } from "../research/experience/harvest.js";
 import { createApiServer } from "./server.js";
 
 delete process.env.GEORSI_API_TOKEN;
 delete process.env.GEORSI_API_ALLOWED_ORIGIN;
+// Fixture runs must never enter the real experience lanes.
+process.env.GEORSI_EXPERIENCE_ROOT = mkdtempSync(join(tmpdir(), "georsi-xp-api-"));
 const server = createApiServer();
 server.listen(0, "127.0.0.1");
 await once(server, "listening");
@@ -119,6 +122,18 @@ try {
 	assert.equal(result.status, "completed", JSON.stringify(result));
 	assert.equal(result.progress.percent, 100);
 	for (const resource of ["mission", "workflow", "score", "attestation", "replay", "claims", "logs"]) await request(`${demoPath}/${resource}`);
+	// Node activity view: the demo graph runs through the scheduler, so a node has lifecycle
+	// events even without model sessions; usage is honestly zero for a deterministic fixture.
+	const demoPlan = await request(`${demoPath}/workflow`);
+	const firstNode = demoPlan.nodes[0] as { id: string };
+	const activity = await request(`${demoPath}/nodes/${firstNode.id}/activity`);
+	assert.equal(activity.nodeId, firstNode.id);
+	assert.equal(activity.usage.calls, 0);
+	assert.ok(activity.timeline.some((item: any) => item.kind === "node-start") && activity.timeline.some((item: any) => item.kind === "node-completed"));
+	await request(`${demoPath}/nodes/missing-node/activity`, 404);
+	await request(`${demoPath}/nodes/..%2f..%2fetc/activity`, 404);
+	const budget = await request(`${demoPath}/budget`);
+	assert(budget.nodes.length === demoPlan.nodes.length && budget.planned.toolCalls > 0 && typeof budget.used.toolCalls === "number" && Array.isArray(budget.nodes) && "pressure" in budget, JSON.stringify(budget).slice(0, 300));
 	const logTail = await request(`${demoPath}/logs?tail=64`);
 	assert(logTail.totalBytes > 64 && logTail.content.length <= 64 && logTail.complete === true, JSON.stringify(logTail));
 	const deliverables = await request(demoPath + "/deliverables");
@@ -143,8 +158,46 @@ try {
 	} finally { writeFileSync(casFile, original); }
 	assert.equal((await fetch(evidenceUrl)).status, 200);
 	await request(demoPath + "/feedback", 201, { text: "Selftest feedback" });
+	// Experience layer endpoints over a harvested (fixture → retired) record.
+	await request(demoPath + "/experience", 404);
+	const harvested = harvestRunExperience(join(ROOT, "runs", demo.id));
+	assert.equal((await request(demoPath + "/experience")).runRecord, harvested.runRecord);
+	const experienceList = await request("/api/v1/experience?status=retired");
+	assert(experienceList.items.some((item: any) => item.id === harvested.runRecord && item.runMode === "deterministic-demo"));
+	assert.equal((await request("/api/v1/experience?pending=1")).items.length, 0);
+	const detail = await request(`/api/v1/experience/${harvested.runRecord}`);
+	assert.equal(detail.record.status, "retired");
+	assert.deepEqual(detail.approvals, []);
+	await request(`/api/v1/experience/${harvested.runRecord}/review`, 400, { decision: "maybe" });
+	await request("/api/v1/experience/xp_missing_run/review", 404, { decision: "accept" });
+	const reviewed = await request(`/api/v1/experience/${harvested.runRecord}/review`, 200, { decision: "accept", note: "fixture reviewed", actor: "selftest" });
+	assert.equal(reviewed.record.gates.human, "approved");
+	assert.equal(reviewed.approvals.length, 1);
+	assert.equal(reviewed.record.status, "retired", "a fixture record stays retired even when approved");
 	await request(demoPath + "/start", 409, {});
-	console.log("API selftest PASS: HTTP resources, token auth, opt-in CORS, demo subprocess, SSE live/reconnect, controls, downloads, CAS integrity");
+	// Heartbeat liveness (#36/#37): a running research-agent record counts as
+	// alive only while its child still refreshes heartbeat.json — a reused pid
+	// cannot fake that — and a stale heartbeat resolves the zombie to failed so
+	// the resume path is offered instead of a false "running".
+	const zombieId = "run_api_zombie_probe";
+	const zombieDir = join(ROOT, "runs", zombieId);
+	mkdirSync(zombieDir, { recursive: true });
+	const heartbeatPath = join(zombieDir, "heartbeat.json");
+	const writeZombie = (pid: number, configName?: string): void => writeFileSync(join(zombieDir, "api-run.json"), JSON.stringify({ id: zombieId, name: "API zombie probe", mode: "research-agent", status: "running", createdAt: new Date().toISOString(), startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), pid, ...(configName ? { configName } : {}) }));
+	writeZombie(process.pid);
+	writeFileSync(heartbeatPath, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
+	assert.equal((await request(`/api/v1/research-runs/${zombieId}`)).status, "running", "live pid + fresh heartbeat = running");
+	const stale = new Date(Date.now() - 10 * 60_000);
+	utimesSync(heartbeatPath, stale, stale);
+	assert.equal((await request(`/api/v1/research-runs/${zombieId}`)).status, "failed", "live pid + stale heartbeat resolves to failed — pid reuse cannot fake liveness");
+	rmSync(heartbeatPath);
+	assert.equal((await request(`/api/v1/research-runs/${zombieId}`)).status, "running", "a pre-heartbeat child (no file) falls back to the pid probe");
+	// A zombie must not hide behind RUN_ALREADY_ACTIVE on /start: with a dead
+	// pid the gate opens and the request proceeds to launch validation (a
+	// missing config is a clean 400, never the 409 liveness refusal).
+	writeZombie(4_194_303, "definitely-missing-config");
+	assert.equal((await request(`/api/v1/research-runs/${zombieId}/start`, 400, { resume: true })).error.code, "INVALID_START");
+	console.log("API selftest PASS: HTTP resources, token auth, opt-in CORS, demo subprocess, SSE live/reconnect, controls, downloads, CAS integrity, experience endpoints");
 } finally {
 	server.closeAllConnections();
 	await new Promise<void>((resolve) => server.close(() => resolve()));

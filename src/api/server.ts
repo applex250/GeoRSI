@@ -16,7 +16,11 @@ import { ROOT, loadConfig, researchModelConfigFingerprint } from "../config.js";
 import { atomicWriteJson } from "../journal.js";
 import { validateResearchMission, type ResearchMission, type ResearchWorkGraph } from "../research/contracts.js";
 import { readResearchLedger, type ResearchEvent } from "../research/event-ledger.js";
+import { foldNodeActivity } from "../research/node-activity.js";
+import { buildBudgetReport } from "../research/budget-report.js";
 import { receiveUpload, getUpload } from "./uploads.js";
+import { ExperienceStore } from "../research/experience/store.js";
+import { approvalId } from "../research/experience/approval.js";
 import type { WorkspaceState, Direction } from "../research/workspace-agent.js";
 
 const API_PREFIX = "/api/v1";
@@ -352,7 +356,7 @@ function deriveStatus(record: RunRecord): RunStatus {
 		// An unmanaged child that SURVIVED a server restart is still alive and
 		// writing state — report it as running; only dead children get resolved
 		// from the durable workspace phase.
-		if (pidAlive(record.pid)) return "running";
+		if (childProcessAlive(record)) return "running";
 		const phase = readJsonFile<WorkspaceState>(join(runDir(record.id), "workspace-state.json"))?.phase;
 		return phase === "completed" ? "completed" : phase === "cancelled" ? "cancelled" : "failed";
 	}
@@ -367,6 +371,47 @@ function pidAlive(pid: number | undefined): boolean {
 	if (typeof pid !== "number" || pid <= 0) return false;
 	try { process.kill(pid, 0); return true; }
 	catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
+}
+
+/**
+ * Two-factor child liveness (#37): a bare signal-0 pid probe only proves SOME
+ * process holds that pid — after a silent child death the OS can reuse the
+ * number and the probe then reports a dead run as running forever. The child
+ * rewrites heartbeat.json every 5 s (src/run.ts), which a reused pid cannot
+ * fake. Runs spawned before the heartbeat existed carry no file at all and fall
+ * back to the pid probe alone.
+ */
+const HEARTBEAT_STALE_MS = 90_000;
+
+function heartbeatAgeMs(id: string): number | null {
+	try { return Date.now() - statSync(join(runDir(id), "heartbeat.json")).mtimeMs; }
+	catch { return null; }
+}
+
+function childProcessAlive(record: RunRecord): boolean {
+	if (activeChildren.has(record.id)) return true; // managed handle is authoritative
+	if (!pidAlive(record.pid)) return false;
+	const age = heartbeatAgeMs(record.id);
+	return age === null || age <= HEARTBEAT_STALE_MS;
+}
+
+/**
+ * A recorded pid that is alive while its heartbeat is stale is either our own
+ * hung child or an innocent victim of pid reuse. Either way, relaunching beside
+ * it would put two writers on one run dir; terminating is the lesser evil, and
+ * it only ever fires for a pid this server spawned and recorded whose heartbeat
+ * file has gone quiet.
+ */
+function terminateStaleChild(record: RunRecord): void {
+	if (activeChildren.has(record.id)) return;
+	const pid = record.pid;
+	if (typeof pid !== "number" || pid <= 0 || !pidAlive(pid)) return;
+	const age = heartbeatAgeMs(record.id);
+	if (age === null || age <= HEARTBEAT_STALE_MS) return;
+	try {
+		process.kill(pid);
+		record.error = `stale child (pid ${String(pid)}, no heartbeat for ${Math.round(age / 1000)}s) was terminated before relaunch`;
+	} catch { /* already gone */ }
 }
 
 /**
@@ -387,7 +432,7 @@ function sweepOrphanedRuns(): void {
 			if (phase === "completed") { record.status = "completed"; record.exitCode = record.exitCode ?? 0; record.finishedAt = record.finishedAt ?? new Date().toISOString(); record.updatedAt = record.finishedAt; writeMetadata(record); continue; }
 			if (phase === "cancelled") { record.status = "cancelled"; record.finishedAt = record.finishedAt ?? new Date().toISOString(); record.updatedAt = record.finishedAt; writeMetadata(record); continue; }
 		}
-		if (pidAlive(record.pid)) {
+		if (childProcessAlive(record)) {
 			const note = "unmanaged: API server restarted while this run was active";
 			if (record.error !== note) {
 				record.error = note;
@@ -397,7 +442,12 @@ function sweepOrphanedRuns(): void {
 			continue;
 		}
 		record.status = "failed";
-		if (!record.error) record.error = "run did not finish: API server restarted while it was active";
+		if (!record.error) {
+			const age = heartbeatAgeMs(record.id);
+			record.error = age !== null
+				? `run did not finish: child stopped heart-beating ${Math.round(age / 1000)}s ago (died or hung while the API server was down)`
+				: "run did not finish: API server restarted while it was active";
+		}
 		record.finishedAt = record.finishedAt ?? new Date().toISOString();
 		record.updatedAt = record.finishedAt;
 		record.exitCode = record.exitCode ?? null;
@@ -636,11 +686,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 				ready: "/readyz",
 				configs: `${API_PREFIX}/configs`,
 				missionTemplates: `${API_PREFIX}/research-missions`,
+				gateways: `${API_PREFIX}/gateways (GET list, POST /select)`,
+				uploads: `${API_PREFIX}/uploads?name= (POST, streamed)`,
+				researchRequests: `${API_PREFIX}/research-requests (POST natural-language question → research-agent run)`,
 				runs: `${API_PREFIX}/research-runs`,
 				runExample: `${API_PREFIX}/research-runs/{id}`,
 				runEvents: `${API_PREFIX}/research-runs/{id}/events (SSE)`,
 				runActions: `${API_PREFIX}/research-runs/{id}/actions (stop)`,
+				runFeedback: `${API_PREFIX}/research-runs/{id}/feedback (directions for research-agent)`,
+				runRounds: `${API_PREFIX}/research-runs/{id}/rounds, /rounds/{n}/report`,
 				runDeliverables: `${API_PREFIX}/research-runs/{id}/deliverables`,
+				runPackage: `${API_PREFIX}/research-runs/{id}/{score|claims|attestation|replay|evidence|mission|workflow|budget|logs|request|directions|experience}`,
+				experience: `${API_PREFIX}/experience (GET list; GET /{id}; POST /{id}/review)`,
 			},
 			docs: "docs/API.md",
 			createRunExample: { method: "POST", url: `${API_PREFIX}/research-runs`, body: { mode: "research-demo", name: "first run" } },
@@ -726,6 +783,46 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		} catch (error) { errorResponse(res, 400, "INVALID_RESEARCH_REQUEST", error instanceof Error ? error.message : "request failed"); }
 		return;
 	}
+	// ---- experience layer (store only; routing is a later stage) ----
+	if (req.method === "GET" && path === API_PREFIX + "/experience") {
+		const store = new ExperienceStore();
+		const status = url.searchParams.get("status");
+		const family = url.searchParams.get("family");
+		const signature = url.searchParams.get("signature");
+		const pending = url.searchParams.get("pending") === "1";
+		const items = store.all()
+			.filter((record) => (!status || record.status === status) && (!family || record.family === family) && (!signature || record.signature.exact === signature) && (!pending || record.gates.human === "pending"))
+			.sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+			.slice(0, 500)
+			.map((record) => ({ id: record.id, status: record.status, family: record.family, tier: record.tier, signature: record.signature.exact, keywords: record.signature.keywords.slice(0, 8), scienceScore: record.outcome.scienceScore, verifier: record.gates.verifier, replay: record.gates.replay, human: record.gates.human, runId: record.origin.runId, runMode: record.origin.runMode, createdAt: record.createdAt, question: record.origin.question?.slice(0, 160) ?? null, failureClass: record.failure?.class ?? null }));
+		json(res, 200, { items, index: store.index() });
+		return;
+	}
+	const experienceMatch = new RegExp(`^${API_PREFIX.replaceAll("/", "\\/")}/experience/([^/]+)(?:/(review))?$`).exec(path);
+	if (experienceMatch) {
+		const store = new ExperienceStore();
+		let experienceId: string;
+		try { experienceId = decodeURIComponent(experienceMatch[1]!); } catch { return errorResponse(res, 400, "INVALID_EXPERIENCE_ID", "invalid experience id"); }
+		if (!/^xp_[A-Za-z0-9_-]{3,160}$/.test(experienceId)) return errorResponse(res, 400, "INVALID_EXPERIENCE_ID", "invalid experience id");
+		const record = store.get(experienceId);
+		if (!record) return errorResponse(res, 404, "EXPERIENCE_NOT_FOUND", "experience record not found", { id: experienceId });
+		if (!experienceMatch[2] && req.method === "GET") { json(res, 200, { record, approvals: store.approvals(experienceId) }); return; }
+		if (experienceMatch[2] === "review" && req.method === "POST") {
+			try {
+				const body = (await readJson(req)) as { decision?: unknown; note?: unknown; actor?: unknown; patch?: unknown };
+				if (body.decision !== "accept" && body.decision !== "modify" && body.decision !== "reject") throw new Error("decision must be accept, modify, or reject");
+				const at = new Date().toISOString();
+				const patch = body.patch && typeof body.patch === "object" ? body.patch as { tier?: string | null; stages?: string[] } : undefined;
+				if (patch?.stages !== undefined && (!Array.isArray(patch.stages) || patch.stages.some((stage) => typeof stage !== "string"))) throw new Error("patch.stages must be a string array");
+				// Human approval is the operator evidence source: recorded, applied, auditable.
+				const updated = store.recordApproval({ id: approvalId(experienceId, at), recordId: experienceId, decision: body.decision, note: typeof body.note === "string" ? body.note.slice(0, 2_000) : "", actor: typeof body.actor === "string" && body.actor.trim() ? body.actor.trim().slice(0, 80) : "workspace-user", at, ...(patch ? { patch } : {}) });
+				json(res, 200, { record: updated, approvals: store.approvals(experienceId) });
+			} catch (error) { errorResponse(res, 400, "INVALID_REVIEW", error instanceof Error ? error.message : String(error)); }
+			return;
+		}
+		errorResponse(res, 404, "NOT_FOUND", "route not found");
+		return;
+	}
 	if (req.method === "GET" && path === "/healthz") { json(res, 200, { ok: true, service: "georsi-api", time: new Date().toISOString() }); return; }
 	if (req.method === "GET" && path === "/readyz") { json(res, existsSync(TSX_CLI) ? 200 : 503, { ok: existsSync(TSX_CLI), runsRoot: RUNS_ROOT, tsx: existsSync(TSX_CLI) }); return; }
 	if (req.method === "GET" && path === API_PREFIX + "/configs") { json(res, 200, { items: listConfigs() }); return; }
@@ -798,7 +895,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 			const body = (await readJson(req)) as StartRunBody;
 			const resume = body.resume === true;
 			if (activeChildren.has(id)) return errorResponse(res, 409, "RUN_ALREADY_ACTIVE", "run is already active");
-			if (pidAlive(record.pid)) return errorResponse(res, 409, "RUN_ALREADY_ACTIVE", "run process is still alive (unmanaged after an API server restart); stop it by pid before restarting here");
+			if (childProcessAlive(record)) return errorResponse(res, 409, "RUN_ALREADY_ACTIVE", "run process is still alive (unmanaged after an API server restart); stop it by pid before restarting here");
+			// Zombie (#36/#37): the recorded pid lives on but its heartbeat went
+			// stale — kill it before relaunch so two writers never share the run dir.
+			terminateStaleChild(record);
 			const currentStatus = deriveStatus(record);
 			const resumable = resume && (currentStatus === "failed" || currentStatus === "cancelled" || currentStatus === "running" || currentStatus === "queued" || currentStatus === "paused");
 			if (currentStatus !== "queued" && !resumable) return errorResponse(res, 409, "RUN_NOT_STARTABLE", `run cannot be started from status ${currentStatus}`);
@@ -809,6 +909,37 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		return;
 	}
 	if (tail === "workflow" && req.method === "GET") { json(res, 200, readPlan(id) ?? { version: 1, missionId: record.missionId ?? id, nodes: [] }); return; }
+	// Three-layer budget view: plan-time fixed envelopes vs ledger-derived usage per node
+	// and run-wide, plus the engine's tightening pressure — the frontend's budget dashboard.
+	if (tail === "budget" && req.method === "GET") { json(res, 200, buildBudgetReport({ plan: readPlan(id), events: parseLedger(id), nowMs: Date.now() })); return; }
+	const nodeActivityMatch = /^nodes\/([A-Za-z0-9_-]{1,80})\/activity$/.exec(tail);
+	if (nodeActivityMatch && req.method === "GET") {
+		const plan = readPlan(id);
+		const node = plan?.nodes.find((candidate) => candidate.id === nodeActivityMatch[1]);
+		if (!plan || !node) return errorResponse(res, 404, "NODE_NOT_FOUND", "node not found in this run's work graph", { id: nodeActivityMatch[1] });
+		const events = parseLedger(id).filter((event) => event.nodeId === node.id);
+		const sessionFile = join(runDir(id), "sessions", `${node.id}.jsonl`);
+		let session: Array<{ t?: string; kind: string; detail?: string; isError?: boolean }> = [];
+		if (existsSync(sessionFile)) {
+			try {
+				const text = readFileSync(sessionFile, "utf8");
+				const lines = text.split("\n").filter(Boolean);
+				// Tail-bounded: the UI shows the end of the stream; a capped chatty session must
+				// not ship megabytes on every poll.
+				session = lines.slice(-2_000).flatMap((line) => { try { return [JSON.parse(line) as { t?: string; kind: string; detail?: string; isError?: boolean }]; } catch { return []; } });
+			} catch { /* unreadable telemetry degrades to the ledger view */ }
+		}
+		const snapshot = readJsonFile<{ executor?: { submissions?: { nodeId: string; submission: { summary: string; artifactIds: string[]; decisions: unknown[] } }[] } }>(join(runDir(id), "executor_state.json"));
+		const submission = snapshot?.executor?.submissions?.find((entry) => entry.nodeId === node.id)?.submission;
+		const activity = foldNodeActivity({
+			node: { id: node.id, kind: node.kind, title: node.title, state: node.state, attempts: node.attempts },
+			events,
+			session,
+			submission: submission ? { summary: submission.summary, artifactIds: submission.artifactIds, decisions: submission.decisions.length } : null,
+		});
+		json(res, 200, activity);
+		return;
+	}
 	if (tail === "mission" && req.method === "GET") {
 		const missionFile = existsSync(join(runDir(id), "mission.json")) ? join(runDir(id), "mission.json") : join(runDir(id), "mission-input.json");
 		const mission = readJsonFile<ResearchMission>(missionFile);
@@ -914,6 +1045,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 		const items = existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean).flatMap((line) => { try { const d = JSON.parse(line) as Direction; return [{ ...d, status: applied.includes(d.id) ? "applied" : "queued" }]; } catch { return []; } }) : [];
 		json(res, 200, { items }); return;
 	}
+	if (tail === "experience" && req.method === "GET") {
+		const value = readJsonFile<Record<string, unknown>>(join(runDir(id), "experience.json"));
+		if (!value) return errorResponse(res, 404, "EXPERIENCE_NOT_READY", "no experience has been harvested from this run yet");
+		json(res, 200, value); return;
+	}
 	if (tail === "request" && req.method === "GET") {
 		const value = readJsonFile<{ question: string; uploadIds: string[] }>(join(runDir(id), "request.json"));
 		if (!value) return errorResponse(res, 404, "REQUEST_NOT_FOUND", "request is not available for this mode");
@@ -1000,6 +1136,14 @@ export function createApiServer(): ReturnType<typeof createServer> {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+	// Host development: pick up the repo-root .env (the same file docker-compose reads) so
+	// the gateway credential does not have to be exported in every terminal. Variables
+	// already in the environment take precedence; the file is gitignored.
+	const envFile = join(ROOT, ".env");
+	if (existsSync(envFile)) {
+		try { process.loadEnvFile(envFile); console.log(`GeoRSI API: loaded ${envFile}`); }
+		catch (error) { console.warn(`GeoRSI API: could not load ${envFile}: ${error instanceof Error ? error.message : String(error)}`); }
+	}
 	const port = Number(process.env.GEORSI_API_PORT ?? DEFAULT_PORT);
 	const host = process.env.GEORSI_API_HOST?.trim() || DEFAULT_HOST;
 	if (host !== DEFAULT_HOST && host !== "localhost" && host !== "::1" && !apiToken()) {

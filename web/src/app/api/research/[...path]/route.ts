@@ -15,11 +15,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ pa
   // three times (start, gateways/select, …): every new engine action broke the
   // proxy with "Unsupported action". The ENGINE is the authority on which
   // sub-actions exist (it 404s unknown tails itself) — this gate merely rejects
-  // malformed shapes before forwarding.
+  // malformed shapes before forwarding. Shapes: a bare resource collection, or
+  // `<collection>/<id>/<action>` with a safe id.
   const segments = route.split("/");
+  const safeId = /^[A-Za-z0-9_-]{1,160}$/.test(segments[1] ?? "");
   const shapeOk = route === "uploads" || route === "research-requests" || route === "gateways/select"
     || route === "research-runs"
-    || (route.startsWith("research-runs/") && segments.length === 3 && /^[A-Za-z0-9_-]+$/.test(segments[1] ?? ""));
+    || (segments.length === 3 && safeId && /^[a-z-]+$/.test(segments[2] ?? "") && (segments[0] === "research-runs" || segments[0] === "experience"));
   if (!shapeOk) return Response.json({ error: { message: "Unsupported action" } }, { status: 404 });
   const origin = process.env.GEORSI_API_URL ?? "http://127.0.0.1:8792";
   try {
